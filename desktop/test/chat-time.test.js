@@ -6,11 +6,11 @@ import { dayKey, dayLabel, fullTime, stamp, withDayDividers } from '../src/chat-
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
 const now = new Date(2026, 9, 12, 15); // 2026-10-12 (월) 15시
 
-test('dayLabel: 오늘 / 어제 / 10월 10일 (토) / 해가 다르면 연도까지', () => {
+test('dayLabel: 오늘 / 어제 / 10/10 토요일 / 해가 다르면 연도까지', () => {
   assert.equal(dayLabel(at(2026, 10, 12, 0, 1), now), '오늘');
   assert.equal(dayLabel(at(2026, 10, 11, 23, 59), now), '어제');
-  assert.equal(dayLabel(at(2026, 10, 10), now), '10월 10일 (토)');
-  assert.equal(dayLabel(at(2025, 12, 31), now), '2025년 12월 31일 (수)');
+  assert.equal(dayLabel(at(2026, 10, 10), now), '10/10 토요일');
+  assert.equal(dayLabel(at(2025, 12, 31), now), '2025/12/31 수요일');
   assert.equal(dayLabel('', now), '');
   assert.equal(dayLabel('엉망', now), '');
   // 새해 첫날의 어제는 지난해 12월 31일
@@ -18,10 +18,10 @@ test('dayLabel: 오늘 / 어제 / 10월 10일 (토) / 해가 다르면 연도까
 });
 
 test('fullTime·stamp: 말풍선은 18:22, 올리면 전체 날짜·오전/오후', () => {
-  assert.equal(fullTime(at(2026, 10, 12, 18, 22)), '2026년 10월 12일 (월) 오후 6:22');
-  assert.equal(fullTime(at(2026, 10, 12, 0, 5)), '2026년 10월 12일 (월) 오전 12:05');
-  assert.equal(fullTime(at(2026, 10, 12, 12, 0)), '2026년 10월 12일 (월) 오후 12:00');
-  assert.deepEqual(stamp(at(2026, 10, 12, 18, 22)), { text: '18:22', title: '2026년 10월 12일 (월) 오후 6:22' });
+  assert.equal(fullTime(at(2026, 10, 12, 18, 22)), '2026년 10월 12일 월요일 18:22');
+  assert.equal(fullTime(at(2026, 10, 12, 0, 5)), '2026년 10월 12일 월요일 00:05');
+  assert.equal(fullTime(at(2026, 10, 12, 12, 0)), '2026년 10월 12일 월요일 12:00');
+  assert.deepEqual(stamp(at(2026, 10, 12, 18, 22)), { text: '18:22', title: '2026년 10월 12일 월요일 18:22' });
   assert.deepEqual(stamp(at(2026, 10, 12, 9, 3)).text, '09:03');
   assert.equal(stamp(''), null);
   assert.equal(stamp('엉망'), null);
@@ -38,8 +38,8 @@ test('withDayDividers: 첫 말 위와 날짜가 바뀌는 곳에만 구분선, �
     { role: 'assistant', text: 'f', at: at(2026, 10, 12, 18, 23) },
   ];
   const out = withDayDividers(ms, now);
-  assert.deepEqual(out.map((x) => (x.type === 'day' ? `[${x.label}]` : x.msg.text)), ['[10월 10일 (토)]', 'a', 'b', '[어제]', 'c', 'd', '[오늘]', 'e', 'f']);
-  assert.equal(out[0].title, '2026년 10월 10일 (토)');
+  assert.deepEqual(out.map((x) => (x.type === 'day' ? `[${x.label}]` : x.msg.text)), ['[10/10 토요일]', 'a', 'b', '[어제]', 'c', 'd', '[오늘]', 'e', 'f']);
+  assert.equal(out[0].title, '2026년 10월 10일 토요일');
   assert.deepEqual(withDayDividers([], now), []);
   assert.deepEqual(withDayDividers(null, now), []);
 });

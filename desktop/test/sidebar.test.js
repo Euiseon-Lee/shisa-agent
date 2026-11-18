@@ -1,7 +1,18 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sidebarPrefs,shownSidebar,OPTIONAL_TABS,moveSidebarTab} from '../src/sidebar.js';
+import {sidebarPrefs,shownSidebar,OPTIONAL_TABS,moveSidebarTab,panelStartSection} from '../src/sidebar.js';
 import {sanitizeAppPrefs} from '../src/settings.js';
+
+test('panel start: first launch, last menu, and visible task fallback priority',()=>{
+ const all=['setup','overview',...OPTIONAL_TABS];
+ assert.equal(panelStartSection('setup',all,{firstRun:true}),'overview');
+ assert.equal(panelStartSection('calendar',all),'calendar');
+ assert.equal(panelStartSection(null,all),'todos');
+ assert.equal(panelStartSection('unknown',all),'todos');
+ assert.equal(panelStartSection(null,shownSidebar(all,{todos:false,today:true})),'today');
+ assert.equal(panelStartSection(null,shownSidebar(all,{todos:false,today:false})),'overview');
+ assert.equal(panelStartSection('todos',shownSidebar(all,{todos:false,today:true})),'today');
+});
 test('today is hidden by default; required tabs survive all optional tabs off',()=>{
  assert.equal(sidebarPrefs().today,false);
  assert.equal(sidebarPrefs({today:true}).today,true);

@@ -306,7 +306,7 @@ export function ctxMcpServer(cfg: Config, store: Store, deps: CtxDeps = {}) {
     tool("sessions_recent", "최근 작업 세션(Claude Code·Codex) 프로젝트별 요약. project 는 경로·이름 일부", { project: z.string().optional(), hours: z.number().int().min(1).max(336).optional().describe("기본 48") }, h.sessions_recent, RO),
     tool("session_get", "작업 세션 하나의 마지막 요청·응답 전문(sessions_recent 의 id)", { id: z.string() }, h.session_get, RO),
     tool("slack_unanswered", "아직 답 안 한 Slack DM·멘션(로컬 수집 확정 목록)", { hours: z.number().int().min(1).max(168).optional().describe("기본 24") }, h.slack_unanswered, RO),
-    tool("dashboard_summary", "내가 만든 프로젝트(id·기한·남은 할 일)·오늘 커밋 수·진행 중인 제안·마지막 브리핑", {}, h.dashboard_summary, RO),
+    tool("dashboard_summary", "내가 만든 프로젝트(id·기한·예정된 할 일)·오늘 커밋 수·진행 중인 제안·마지막 브리핑", {}, h.dashboard_summary, RO),
     tool("projects_recent", "최근 7일 프로젝트(레포 경로·마지막 활동·세션·커밋·브랜치)", {}, h.projects_recent, RO),
     tool("mail_recent", "최근 받은 메일(메일 앱 비밀번호로 데몬이 가져온 받은편지함 — 보낸 사람·제목·본문 앞부분). 많으면 나눠 오니 끝 줄의 from 으로 이어 부른다", { from: z.number().int().min(0).optional().describe("몇 번째 메일부터(이어 읽기)") }, h.mail_recent, RO),
     tool("mail_read", "메일 한 통(또는 여러 통)의 전체 본문 — id 는 mail_recent 줄의 ref(mail:…)", { id: z.string().max(1000).optional().describe("ref, 예: mail:abc@example.com"), ids: z.array(z.string().max(1000)).optional().describe("여러 통이면") }, h.mail_read, RO),

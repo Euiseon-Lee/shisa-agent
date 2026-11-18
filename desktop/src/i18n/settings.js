@@ -26,7 +26,7 @@ export default {
     local_hint: '선택한 작업 기록과 폴더만 읽어요. 기본적으로 꺼져 있어요.',
     open_repos: '저장소 폴더 설정',
     h_rem: '오늘 할 일 알림',
-    rem_hint: '캐릭터가 오늘 할 일 등록을 안내하고 남은 할 일을 알려 줘요. AI 연결 없이도 사용할 수 있어요.',
+    rem_hint: '캐릭터가 오늘 할 일 등록을 안내하고 예정된 할 일을 알려 줘요. AI 연결 없이도 사용할 수 있어요.',
     rem_then: '그 뒤 ',
     rem_repeat_label: '추가 반복 알림',
     rem_repeat_none: '반복 없음',

@@ -14,7 +14,7 @@ test('relativeTime: 구간별 표현', () => {
   assert.equal(relativeTime(ago(30 * HOUR), NOW), '어제');
   assert.equal(relativeTime(ago(4 * DAY), NOW), '4일 전');
   const old = new Date(NOW - 20 * DAY);
-  assert.equal(relativeTime(old.toISOString(), NOW), `${old.getMonth() + 1}월 ${old.getDate()}일`);
+  assert.equal(relativeTime(old.toISOString(), NOW), `${String(old.getMonth()+1).padStart(2,'0')}/${String(old.getDate()).padStart(2,'0')}`);
 });
 
 test('relativeTime/clockTime: 잘못된 값은 빈 문자열', () => {

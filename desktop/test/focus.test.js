@@ -97,12 +97,12 @@ test('달력 칸: 첫 주 앞은 빈 칸, 7칸씩', () => {
 });
 
 test('글: 범위 머리·날짜·칸 설명', () => {
-  assert.equal(rangeTitle('week', { from: '2026-10-12', to: '2026-10-18' }), '10월 12일 ~ 18일');
-  assert.equal(rangeTitle('week', { from: '2026-09-28', to: '2026-10-04' }), '9월 28일 ~ 10월 4일');
+  assert.equal(rangeTitle('week', { from: '2026-10-12', to: '2026-10-18' }), '2026년 10월 12일 ~ 10월 18일');
+  assert.equal(rangeTitle('week', { from: '2026-09-28', to: '2026-10-04' }), '2026년 9월 28일 ~ 10월 4일');
   assert.equal(rangeTitle('month', { from: '2026-10-01', to: '2026-10-31' }), '2026년 10월');
-  assert.equal(dayLabel('2026-10-14'), '10월 14일 (수)');
-  assert.equal(cellTitle('2026-10-14', 4320), '10월 14일 (수) · 1시간 12분');
-  assert.equal(cellTitle('2026-10-14', 0), '10월 14일 (수) · 집중 기록 없음');
+  assert.equal(dayLabel('2026-10-14'), '10/14 수요일');
+  assert.equal(cellTitle('2026-10-14', 4320), '10/14 수요일 · 1시간 12분');
+  assert.equal(cellTitle('2026-10-14', 0), '10/14 수요일 · 집중 기록 없음');
 });
 
 test('합계·하루 평균(오늘까지 지난 날로)·가장 오래 한 날·막대 비율', () => {
@@ -141,9 +141,9 @@ test('캐릭터: 집중 중이면 공부 영상, 일시정지면 기본, 그만�
 });
 
 test('날짜를 누르면: 총 집중·최대 연속 집중 한 줄', () => {
-  assert.equal(dayDetail({ date: '2026-10-14', seconds: 4320, longest: 2700 }), '10월 14일 (수) · 총 1시간 12분 · 최대 연속 45분');
-  assert.equal(dayDetail({ date: '2026-10-14', seconds: 0, longest: 0 }), '10월 14일 (수) · 집중 기록 없음');
-  assert.equal(dayDetail({ date: '2026-10-14', seconds: 600 }), '10월 14일 (수) · 총 10분 · 최대 연속 10분'); // 예전 데몬(longest 없음)
+  assert.equal(dayDetail({ date: '2026-10-14', seconds: 4320, longest: 2700 }), '10/14 수요일 · 총 1시간 12분 · 최대 연속 45분');
+  assert.equal(dayDetail({ date: '2026-10-14', seconds: 0, longest: 0 }), '10/14 수요일 · 집중 기록 없음');
+  assert.equal(dayDetail({ date: '2026-10-14', seconds: 600 }), '10/14 수요일 · 총 10분 · 최대 연속 10분'); // 예전 데몬(longest 없음)
   assert.equal(dayDetail(null), '');
 });
 

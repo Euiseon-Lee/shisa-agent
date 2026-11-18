@@ -1,3 +1,4 @@
+import { numericDate, dateRange } from './date-format.js';
 import { reorderScheduleLocal } from './schedule-groups.js';
 // 할 일 편집 — 순수 로직. 낙관적 반영(대기 중인 변경을 서버 목록 위에 겹쳐 보기)과 입력 검증.
 import { isSafeLink } from './bubbles.js';
@@ -146,7 +147,7 @@ export const OUT_OF_TODAY = 2;
 // 이 줄이 오늘 할 일인가(우선순위 1 오늘 반드시). date 는 예전 호출 호환으로 받기만 한다
 export const isToday = (t, date = localDay()) => t?.schedule?.mode === 'range' ? t.schedule.start <= date && date <= t.schedule.end : t?.scheduledDate === date;
 export function localDay(now = new Date()) { return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; }
-export function dateTag(t, day = localDay()) { const d = t?.scheduledDate; if(t?.schedule?.mode==='range'){const s=t.schedule;return {text:s.start.slice(5).replace('-','/')+' - '+s.end.slice(5).replace('-','/'),tone:day>s.end?'overdue':day>=s.start?'today':'future',title:s.start+' ~ '+s.end};} if(t?.schedule?.mode==='repeat'){const tag=dateTag({scheduledDate:d},day);return {...tag,repeat:true,text:tag.text,title:tag.title+' · 반복'};} return { text: !d ? '날짜 없음' : d === day ? tr('date.today') : d.slice(5).replace('-', '/'), tone: !d ? 'none' : d === day ? 'today' : d < day ? 'overdue' : 'future', title: d || '날짜 선택' }; }
+export function dateTag(t, day = localDay()) { const d = t?.scheduledDate; if(t?.schedule?.mode==='range'){const s=t.schedule;return {text:dateRange(s.start,s.end,{now:new Date(day+'T12:00:00')}),tone:day>s.end?'overdue':day>=s.start?'today':'future',title:dateRange(s.start,s.end,{long:true})};} if(t?.schedule?.mode==='repeat'){const tag=dateTag({scheduledDate:d},day);return {...tag,repeat:true,text:tag.text,title:tag.title+' · 반복'};} return { text: !d ? '날짜 없음' : d === day ? tr('date.today') : numericDate(d,{now:new Date(day+'T12:00:00')}), tone: !d ? 'none' : d === day ? 'today' : d < day ? 'overdue' : 'future', title: d ? numericDate(d,{year:true,weekday:true}) : '날짜 선택' }; }
 // 오늘 할 일 넣기·빼기 패치(할 일 탭 줄의 「오늘」·오늘 할 일 탭)
 export const todayPatch = (on) => ({ scheduledDate: on ? localDay() : null });
 

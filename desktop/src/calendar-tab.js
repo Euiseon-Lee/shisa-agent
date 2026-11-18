@@ -1,3 +1,4 @@
+import { longDate, numericDate } from './date-format.js';
 // 패널 「캘린더」 탭의 계산(화면 없이 시험할 수 있게): 보는 기간(주·월·일), 일정 배치(겹치면 나란히·종일 줄·자정 넘김),
 // 캘린더 색·보이기 필터, 일정 카드 글. 화면은 renderer/calendar-view.js 가 그린다.
 // 시각은 데몬이 준 캘린더 시간대(timeZone, 기본 Asia/Seoul)로 센다. 주는 월요일에 시작한다.
@@ -80,7 +81,7 @@ export function paintCalendarColor(el, color) {
   return el;
 }
 
-export const VIEWS = ['week', 'month', 'day'];
+export const VIEWS = ['day', 'week', 'month'];
 export const okView = (v) => VIEWS.includes(v);
 export const NARROW_PX = 560; // 이보다 좁으면 주 보기 대신 목록(그 주 날짜마다), 월 보기는 점만
 
@@ -159,7 +160,7 @@ export function periodTitle(p) {
   const a = p.days[0], b = p.days[p.days.length - 1];
   const y = (s) => Number(s.slice(0, 4));
   if (p.view === 'month') { const mid = p.anchor; return tv('title_month', { y: y(mid), m: Number(mid.slice(5, 7)) }); }
-  if (p.view === 'day') return tv('title_day', { y: y(a), md: md(a), w: wd(a) });
+  if (p.view === 'day') return longDate(a,{weekday:true});
   if (a.slice(0, 4) !== b.slice(0, 4)) return tv('title_years', { y1: y(a), md1: md(a), y2: y(b), md2: md(b) });
   return tv('title_months', { y: y(a), md1: md(a), md2: md(b) });
 }
@@ -312,13 +313,13 @@ export function agendaDays(events, days, tz) {
 
 // ---- 글 ----
 export const hhmm = (ms, tz) => { const m = zoned(ms, tz).min; return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`; };
-export const dayLabel = (ymd) => tv('day_label', { md: md(ymd), w: wd(ymd) });
+export const dayLabel = (ymd) => numericDate(ymd, { weekday: true });
 // 일정 카드의 때: 「10월 21일 (수) 14:00 ~ 15:30」 · 「10월 23일 (금) 23:00 ~ 10월 24일 (토) 01:00」 · 「10월 22일 (목) ~ 23일 (금) · 종일」
 export function eventWhen(e, tz) {
   const sep = tv('range_sep');
   if (e.allDay) {
     const [a, z] = spanDays(e, tz);
-    return a === z ? `${dayLabel(a)} · ${CALTAB_TEXT.allDay}` : `${dayLabel(a)}${sep}${a.slice(0, 7) === z.slice(0, 7) ? tv('end_day', { d: Number(z.slice(8, 10)), w: wd(z) }) : dayLabel(z)} · ${CALTAB_TEXT.allDay}`;
+    return a === z ? `${dayLabel(a)} · ${CALTAB_TEXT.allDay}` : `${dayLabel(a)}${sep}${dayLabel(z)} · ${CALTAB_TEXT.allDay}`;
   }
   const a = zoned(e.s, tz).ymd, z = zoned(e.e, tz).ymd;
   if (e.e === e.s) return `${dayLabel(a)} ${hhmm(e.s, tz)}`;

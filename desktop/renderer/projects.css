@@ -1,6 +1,6 @@
 /* 프로젝트 탭: 직접 만든 프로젝트 카드·＋ 만들기 창(renderer/projects-view.js). 색은 panel.css 의 토큰만 쓴다(라이트·다크 같이) */
-.mp-head { display: flex; align-items: center; gap: 8px; margin: 14px 0 8px; }
-.mp-head .mp-title { margin: 0; }
+.mp-head { display: flex; align-items: center; gap: 8px; min-height:var(--page-heading-height,32px); margin:0 0 var(--page-heading-gap,16px); }
+.mp-head .mp-title { margin: 0; font-size:var(--date-heading-size,15px); font-weight:650; color:var(--fg); }
 .mp-head .spacer, .mp .spacer, .mp-m-foot .spacer { flex: 1; }
 button.mp-new { padding: 5px 12px; font-size: 12.5px; font-weight: 600; }
 .mp-auto-title { margin-top: 28px; }

@@ -106,10 +106,10 @@ test('detailView: 종류별 원본 줄, 링크는 안전한 것만, 링크 없�
   const slack = detailView({ description: '팀원이 물어봄', link: null, source: { kind: 'slack', author: '팀원', channel: '#cy-agent', at: '2026-10-08T11:00:00+09:00', excerpt: '어디 저장돼요?', permalink: 'https://x.slack.com/archives/C1/p1' } }, now);
   assert.equal(slack.description, '팀원이 물어봄');
   assert.equal(slack.link, 'https://x.slack.com/archives/C1/p1');
-  assert.deepEqual([slack.source.kindLabel, slack.source.meta, slack.source.quote, slack.source.excerpt], ['Slack', ['팀원', '#cy-agent', '10/8 11:00'], true, '어디 저장돼요?']);
+  assert.deepEqual([slack.source.kindLabel, slack.source.meta, slack.source.quote, slack.source.excerpt], ['Slack', ['팀원', '#cy-agent', '10/08 11:00'], true, '어디 저장돼요?']);
   const commit = detailView({ description: 'x', link: 'javascript:alert(1)', source: { kind: 'commit', repo: '/code/cy-agent', sha: 'a1b2c3d4e5', author: '지우', at: '2026-10-06T12:00:00+09:00' } }, now);
   assert.equal(commit.link, null, '위험한 링크는 버림');
-  assert.deepEqual(commit.source.meta, ['cy-agent', 'a1b2c3d', '지우', '10/6 12:00 (2일 전)']);
+  assert.deepEqual(commit.source.meta, ['cy-agent', 'a1b2c3d', '지우', '10/06 12:00 (2일 전)']);
   const mail = detailView({ description: '', link: 'https://outlook.office.com/m', source: { kind: 'mail', ref: 'mail:AA', title: 'Re: 리뷰' } }, now);
   assert.deepEqual([mail.link, mail.source.meta, mail.source.quote], ['https://outlook.office.com/m', ['Re: 리뷰'], false]);
   assert.deepEqual(detailView(null), { description: '', link: null, source: null });

@@ -1,7 +1,8 @@
+import { fullDateTime } from '../src/date-format.js';
 import { language as personalLanguage, t as pt } from '../src/i18n.js';
-import { formatBriefing } from '../src/briefing-view.js';
+import { formatBriefing, normalizeBriefingCopy } from '../src/briefing-view.js';
 import { createStatisticsView } from './statistics-view.js';
-import { sidebarPrefs, shownSidebar } from '../src/sidebar.js';
+import { sidebarPrefs, shownSidebar, panelStartSection } from '../src/sidebar.js';
 // 패널 렌더러 — 대시보드(개요·프로젝트·할 일·오늘 할 일)와 채팅. 네트워크는 전부 메인을 거친다.
 import { hasCoder as canCodeWith } from '../src/caps.js';
 import DOMPurify from './vendor/purify.js';
@@ -153,8 +154,8 @@ let connected = false;
 let caps = { claude: null, codex: null };
 // 코드 작업을 맡길 수 있나: 데몬이 본 코드 작업 AI(Claude Code·Codex)가 준비됐나(brain.coder). 아직 모르면 이 컴퓨터의 CLI 로 짐작
 const hasCoder = () => (typeof brain.coder === 'boolean' ? brain.coder : canCodeWith(caps));
-let section = 'overview';
-try { section = normalizeSection(localStorage.getItem('section')) ?? 'overview'; } catch { /* 저장소 없음 */ }
+let section = null;
+try { section = normalizeSection(localStorage.getItem('section')); } catch { /* 저장소 없음 */ }
 let setupPhase = 'name'; // name·brain·ai-key·extras·connect·done (setup-plan.js — 키·토큰은 저장하지 않는다)
 let setupName = ''; // 데몬 설정 user.name
 let setupRepos = []; // 데몬 설정 repoRoots
@@ -302,7 +303,7 @@ for (const s of SECTIONS) {
 function goto(s) {
   const prevSection = section;
   section = normalizeSection(s) ?? section;
-  if (!shownSections().includes(section)) section = 'overview';
+  if (!shownSections().includes(section)) section = panelStartSection(null, shownSections());
   try { localStorage.setItem('section', section); } catch { /* 무시 */ }
   for (const b of nav.children) b.setAttribute('aria-selected', String(b.dataset.section === section));
   for (const x of SECTIONS) $(`sec-${x}`).hidden = x !== section;
@@ -330,14 +331,14 @@ function goto(s) {
   }
 }
 
-// 연결 안 된 기능의 탭은 숨긴다. 보고 있던 탭이 사라지면 개요로
+// 숨긴 탭 대신 할 일 → 오늘 할 일 → 개요 순으로 선택한다.
 function renderNav() {
   const shown = shownSections();
-  const ordered=[...SECTIONS.filter(k=>!sidebarTabs.order.includes(k)),...sidebarTabs.order];
+  const ordered=[...SECTIONS.filter(k=>k!=='setup'&&!sidebarTabs.order.includes(k)),...sidebarTabs.order,'setup'];
   const buttons=new Map([...nav.children].map(b=>[b.dataset.section,b]));
   for(const key of ordered)if(buttons.has(key))nav.append(buttons.get(key));
   for (const b of nav.children) b.hidden = !shown.includes(b.dataset.section);
-  if (!shown.includes(section)) goto('overview');
+  if (!shown.includes(section)) goto(panelStartSection(null, shown));
 }
 
 function renderBadges() {
@@ -468,8 +469,8 @@ function renderOverview() {
       } })),
     briefing
       ? h('div.card', null,
-        h('div.row.briefing-head', null, h('span.chip.accent', { text: `${briefing.time} · ${briefing.rel}` }), briefing.bubble ? h('span.muted', { text: briefing.bubble.replaceAll('오늘 꼭', '오늘 반드시').replace(/참고\s*·\s*/g, '참고: ') }) : null),
-        briefingTable(formatBriefing(briefing.md || briefing.bubble || '', [...(raw?.todos||[]),...(raw?.recentDone||[])], localDay())))
+        h('div.row.briefing-head', null, h('span.chip.accent', { text: `${briefing.time} · ${briefing.rel}` }), briefing.bubble ? h('span.muted', { text: normalizeBriefingCopy(briefing.bubble, vm.connectors.find(c => c.cap === 'mail')?.accounts).replaceAll('오늘 꼭', '오늘 반드시').replace(/참고\s*·\s*/g, '참고: ') }) : null),
+        briefingTable(formatBriefing(briefing.md || briefing.bubble || '', [...(raw?.todos||[]),...(raw?.recentDone||[])], localDay(), vm.connectors.find(c => c.cap === 'mail')?.accounts)))
       : h('div.card.empty-card', null, ui.emptyState({ icon: '📰', compact: true, text: tr('panel.brief_none'), sub: tr('panel.brief_none_sub') })),
     permissionsSection(),
     proposals.length ? h('h2', { text: tr('panel.proposals') }) : null,
@@ -1337,7 +1338,7 @@ function doneRow(t) {
   return h('div.todo.is-done', { dataset: { id: t.id } },
     h('span.t', { text: t.title, title: t.auto && t.reason ? t.reason : null }),
     t.auto ? h('span.chip.ok.auto', { text: tr('panel.auto'), title: t.reason ? tr('panel.auto_why', { why: t.reason }) : tr('panel.auto_title') }) : null,
-    t.doneRel ? h('span.muted', { text: t.doneRel, title: t.doneAt ? new Date(t.doneAt).toLocaleString(personalLanguage()==='ja'?'ja-JP':'ko-KR') : null }) : null,
+    t.doneRel ? h('span.muted', { text: t.doneRel, title: t.doneAt ? fullDateTime(t.doneAt) : null }) : null,
     t.auto && t.evidence ? h('button.ghost', { type: 'button', text: tr('panel.evidence'), title: tr('panel.evidence_title'), onclick: () => cy.openLink(t.evidence) }) : null,
     ui.iconBtn('todo-undo', { label: pt("personal.완료 취소"), title: pt("personal.완료 취소 · 다시 할 일로"), icon: '↶', size: 's', onclick: () => (t.auto ? revertAuto(t) : reopenTodo(t)) }));
 }
@@ -1868,9 +1869,7 @@ function newTodoDateTag() {
   const date = newTodoDate();
   const tag = dateTag({ scheduledDate: date, schedule:addSchedule }, localDay());
   const tone = date ? tag.tone : 'none';
-  let hoverTimer;
   const open = () => {
-    clearTimeout(hoverTimer);
     if (!button.isConnected || document.querySelector('dialog.todo-date-dialog[open]')) return;
     openDatePicker({ title: '', scheduledDate: newTodoDate(), schedule:addSchedule }, button, selected => {
       addScheduledDate = selected.scheduledDate; addSchedule=selected.schedule; renderTodos(); $('todo-add-input')?.focus();
@@ -1880,8 +1879,6 @@ function newTodoDateTag() {
     type: 'button', text: date ? tag.text : pt("personal.날짜 없음"),
     'aria-label': pt("personal.새 할 일 예정일 선택: ") + (date || pt("personal.날짜 없음")), 'aria-haspopup': 'dialog',
     onclick: open,
-    onpointerenter: e => { if (e.pointerType === 'mouse') hoverTimer = setTimeout(open, 300); },
-    onpointerleave: () => clearTimeout(hoverTimer),
   });
   return button;
 }
@@ -3719,15 +3716,18 @@ function relang() {
 bindLanguage(cy, relang, { whoName: () => who() });
 panelReady = true;
 cy.onSidebarPrefs?.(prefs => { sidebarTabs = sidebarPrefs(prefs); renderAll(); });
-cy.getSidebarPrefs?.().then(prefs => { sidebarTabs = sidebarPrefs(prefs); renderAll(); }).catch(() => {});
 
-goto(section);
-renderAll();
-renderChat();
-loadSisa();
-renderThreadList();
-renderThreadHead();
-load();
-loadPermissions();
-loadThreads();
-loadQueue();
+async function startPanel() {
+  try { sidebarTabs = sidebarPrefs(await cy.getSidebarPrefs?.()); } catch { /* 기본 메뉴 설정 사용 */ }
+  goto(panelStartSection(section, shownSections()));
+  renderAll();
+  renderChat();
+  loadSisa();
+  renderThreadList();
+  renderThreadHead();
+  load();
+  loadPermissions();
+  loadThreads();
+  loadQueue();
+}
+startPanel();

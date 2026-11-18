@@ -1,4 +1,9 @@
 export const OPTIONAL_TABS = ['projects', 'calendar', 'todos', 'today', 'statistics', 'chat', 'models'];
+export function panelStartSection(saved, shown, { firstRun = false } = {}) {
+  if (firstRun) return 'overview';
+  if (saved && shown.includes(saved)) return saved;
+  return ['todos', 'today', 'overview'].find(key => shown.includes(key)) ?? 'overview';
+}
 export function sidebarPrefs(value) {
   return {...Object.fromEntries(OPTIONAL_TABS.map(k => [k, typeof value?.[k] === 'boolean' ? value[k] : k !== 'today'])),order:sidebarOrder(value?.order)};
 }

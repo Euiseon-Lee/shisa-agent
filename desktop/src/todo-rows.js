@@ -107,12 +107,12 @@ export function keyMove(todos, id, key) {
 const str = (v) => (typeof v === 'string' ? v : '');
 const KIND_LABEL = { slack: 'Slack', get commit() { return tr('panel.src_commit'); }, get mail() { return tr('panel.cap_mail'); }, get session() { return tr('panel.src_session'); }, get calendar() { return tr('panel.src_calendar'); }, jira: 'Jira', get user() { return tr('panel.src_user'); }, get other() { return tr('panel.other'); } };
 
-const KST = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const KST = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', year:'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 function when(iso, now) {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return '';
   const p = Object.fromEntries(KST.formatToParts(new Date(t)).map((x) => [x.type, x.value]));
-  const md = `${p.month}/${p.day} ${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
+  const md = `${p.year !== String(new Date(now).getFullYear()) ? p.year+'/' : ''}${p.month}/${p.day} ${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
   const days = Math.floor((now - t) / 864e5);
   return days >= 1 ? tr('panel.when_days', { when: md, n: days }) : md;
 }

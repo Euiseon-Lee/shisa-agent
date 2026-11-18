@@ -9,6 +9,7 @@ import {
   eventWhen, responseTag, descHead, todoFromEvent, pickOf, isBar, weekday,
 } from '../src/calendar-tab.js';
 import { who } from './who.js';
+import { calendarToolbar } from './calendar-toolbar.js';
 
 export const HOUR_PX = 44;
 const START_HOUR = 8; // 처음 보일 때 스크롤 위치(일과 시간 위주)
@@ -88,17 +89,10 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
   // ---- 위쪽 줄 ----
   const btn = (cls, text, onclick, attrs = {}) => h(`button${cls}`, { type: 'button', onclick, ...attrs }, text);
   function bar(p) {
-    const seg = h('div.cal-seg', { role: 'group', 'aria-label': T.viewLabel },
-      VIEWS.map((v) => btn(`.cal-seg-btn${view === v ? '.on' : ''}`, T.views[v], () => go(v), { 'aria-pressed': String(view === v), dataset: { view: v } })));
-    return h('div.cal-bar', null,
-      btn('.cal-today', T.today, () => go(null, zoned(now(), tz).ymd)),
-      h('div.cal-nav', null,
-        btn('.ghost.cal-prev', '‹', () => go(null, shiftAnchor(view, anchor, -1)), { 'aria-label': T.prev, title: T.prev }),
-        btn('.ghost.cal-next', '›', () => go(null, shiftAnchor(view, anchor, 1)), { 'aria-label': T.next, title: T.next })),
-      h('h2.cal-period', { text: periodTitle(p), 'aria-live': 'polite' }),
-      loading ? h('span.cal-spin', { 'aria-hidden': 'true' }) : null,
-      h('span.spacer'),
-      seg);
+    return calendarToolbar({h,title:periodTitle(p),today:T.today,previous:T.prev,next:T.next,viewLabel:T.viewLabel,
+      views:VIEWS.map(id=>({id,label:T.views[id]})),view,loading,
+      onToday:()=>go(null,zoned(now(),tz).ymd),onPrevious:()=>go(null,shiftAnchor(view,anchor,-1)),
+      onNext:()=>go(null,shiftAnchor(view,anchor,1)),onView:id=>go(id)});
   }
 
   // ---- 캘린더 칩 ----

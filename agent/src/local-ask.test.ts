@@ -39,15 +39,15 @@ test("오늘 할 일: 다 끝내면 칭찬, 하나도 안 했으면 목록, 비�
   assert.match(plain(quickAnswer("today", { now, today: [], open: [{ title: "x" }, { title: "y" }] }, SEED).text), /할 일 2개가 기다리고/);
 });
 
-test("지금 할 일: 우선순위 순 위 세 개, 백로그는 빼고, 없으면 쉬어 가요", () => {
+test("지금 할 일: 예정일 순으로 모든 미완료 항목을 안내하고, 없으면 쉬어 가요", () => {
   const a = quickAnswer("next_todo", { now, open: [
-    { title: "참고 문서", priority: 3 }, { title: "급한 버그", priority: 1 }, { title: "주간 정리", priority: 2 },
+    { title: "참고 문서", priority: 3 }, { title: "급한 버그", priority: 1, scheduledDate:"2026-01-01" }, { title: "주간 정리", priority: 2 },
     { title: "언젠가", priority: 4 }, { title: "두 번째 급한 것", priority: 1 },
   ] }, SEED);
   assert.match(plain(a.text), /'급한 버그'부터 해 보면 좋겠/);
-  assert.equal(a.detail, "- 오늘 반드시 급한 버그\n- 오늘 반드시 두 번째 급한 것\n- 이번 주 주간 정리\n- 그 밖에 1개");
+  assert.match(a.detail ?? "", /예정일[\s\S]*급한 버그[\s\S]*언젠가/);
   assert.deepEqual(a.open, { section: "todos" });
-  const empty = quickAnswer("next_todo", { now, open: [{ title: "언젠가", priority: 4 }] }, SEED);
+  const empty = quickAnswer("next_todo", { now, open: [] }, SEED);
   assert.equal(plain(empty.text), "지금 보이는 할 일이 없어요. 쉬어 가는 날도 필요해요.");
 });
 

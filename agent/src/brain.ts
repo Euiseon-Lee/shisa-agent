@@ -282,7 +282,7 @@ export type BrainFacts = { now?: Date; open?: LocalTodo[]; done?: LocalTodo[] };
 export function brainFacts(store: Store, now = new Date()): BrainFacts {
   return {
     now,
-    open: store.openTodos().map((t) => ({ title: t.title, priority: t.priority })),
+    open: store.openTodos().map((t) => ({ id:t.id, title:t.title, priority:t.priority, scheduledDate:t.scheduledDate, schedule:t.schedule, doing:t.doing, status:t.status, scheduleSort:t.scheduleSort })),
     done: store.doneTodos(5).map((t) => ({ title: t.title })),
   };
 }

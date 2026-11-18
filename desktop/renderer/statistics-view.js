@@ -1,10 +1,12 @@
+import { numericDate, dateRange } from '../src/date-format.js';
+import { calendarToolbar } from './calendar-toolbar.js';
 import { localDay, rangeOf, shiftAnchor, monthGrid, addDays, parseDay, fmtDuration } from '../src/focus.js';
 
 // Both charts and the detail card share one range and one selected date.
 export function createStatisticsView({h,cy,root}) {
   let period='week', anchor=localDay(Date.now()), picked=anchor, data=null, error='', seq=0, pending=false;
   const today=()=>localDay(Date.now());
-  const label=d=>`${d.slice(5).replace('-','/')} ${['일','월','화','수','목','금','토'][parseDay(d).getDay()]}`;
+  const label=d=>numericDate(d,{weekday:true,compact:true});
   const button=(text,fn,props={})=>h('button',{type:'button',text,onclick:fn,...props});
   const sized=(selector,property,value,...children)=>{const el=h(selector,null,...children);el.style[property]=value;return el;};
   const metric=(title,value,cls='')=>{
@@ -70,11 +72,11 @@ export function createStatisticsView({h,cy,root}) {
         }))));
     }
     function chart(kind,title) {
-      return h('section.card.activity-chart',{'aria-label':title},h('div.activity-chart-heading',null,h('h3',{text:title}),h('span.muted.small',{text:period==='month'?'8시간 기준 집중 비율 / 오전: 연보라 / 오후: 보라':'하루 8시간 기준 / 오전: 연보라 / 오후: 보라 / ↑ 8시간 초과'})),
+      return h('section.card.activity-chart',{'aria-label':title},h('div.activity-chart-heading',null,h('h3',{text:title}),h('span.muted.small',{text:'하루 8시간 기준 / 오전: 연보라 / 오후: 보라'})),
         h('div.activity-grid.'+period,null,cells.map(date=>{
           if(!date)return h('div.activity-placeholder',{'aria-hidden':'true'});
           const d=byDay.get(date), future=date>now, value=(d?.amSeconds||0)+(d?.pmSeconds||0);
-          const valueText=future||!data?'':fmtDuration(value)+(value>focusMax?' ↑':'');
+          const valueText=future||!data?'':fmtDuration(value);
           return h('button.activity-day'+(date===picked?'.selected':'')+(future?'.future':''),{type:'button',disabled:future||!data,'data-stat-date':date,'data-chart':kind,'aria-pressed':String(date===picked),'aria-label':label(date)+(future?'':` ${valueText}`)+(!future&&data?` 8시간 기준 ${Math.round(value/focusMax*1000)/10}%`:'')+(period==='month'&&!future&&data?` 완료 ${d?.completed.length||0}개`:''),onclick:()=>{picked=date;draw();}},
             donut(d,future||!data),h('span.activity-value',{text:valueText}),
             period==='month'?h('span.activity-month-focus',{text:future||!data?'':`완료 ${d?.completed.length||0}개`}):null,h('span.activity-date',{text:label(date)}));
@@ -83,11 +85,13 @@ export function createStatisticsView({h,cy,root}) {
     const d=byDay.get(picked), completed=days.reduce((n,d)=>n+d.completed.length,0), focus=days.reduce((n,d)=>n+d.amSeconds+d.pmSeconds,0);
     const list=(title,items,empty)=>h('section.activity-task-list',null,h('h4',{text:`${title} ${items.length}개`}),items.length?h('ul',null,items.map(t=>h('li',null,h('span',{text:t.title}),t.doneAt?h('time.muted.small',{text:new Date(t.doneAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})}):null))):h('p.muted.small',{text:empty}));
     root.replaceChildren(
-      h('div.activity-toolbar',null,h('div.activity-period',{'aria-label':'통계 기간'},...['week','month'].map(p=>button(p==='week'?'주':'월',()=>change(p,picked),{'data-stat-period':p,'aria-pressed':String(period===p),class:period===p?'active':''}))),
-        h('div.activity-range',null,button('‹',()=>change(period,shiftAnchor(period,anchor,-1)),{'aria-label':'이전 기간'}),h('strong',{text:`${r.from.replaceAll('-','/')} - ${r.to.replaceAll('-','/')}`}),button('›',()=>change(period,shiftAnchor(period,anchor,1)),{'aria-label':'다음 기간',disabled:rangeOf(period,shiftAnchor(period,anchor,1)).from>now})),button('오늘',()=>change(period,now))),
+      calendarToolbar({h,stat:true,title:period==='month'?`${Number(r.from.slice(0,4))}년 ${Number(r.from.slice(5,7))}월`:dateRange(r.from,r.to,{long:true}),
+        today:'오늘',previous:'이전 기간',next:'다음 기간',viewLabel:'통계 기간',views:[{id:'week',label:'주'},{id:'month',label:'월'}],view:period,
+        onToday:()=>{picked=now;change(period,now);},onPrevious:()=>change(period,shiftAnchor(period,anchor,-1)),onNext:()=>change(period,shiftAnchor(period,anchor,1)),
+        onView:p=>change(p,picked),nextDisabled:rangeOf(period,shiftAnchor(period,anchor,1)).from>now}),
       pending?h('p.muted.small',{role:'status',text:'기록을 불러오고 있어요.'}):error?h('div',{role:'alert'},h('span',{text:error}),button('다시 시도',refresh)):h('div.stats-metrics',null,metric('총 완료 개수',`${completed}개`),metric('총 집중 시간',fmtDuration(focus)),metric('집중 기록이 있는 날',`${days.filter(d=>d.amSeconds+d.pmSeconds>0).length}일`),metric('하루 평균 집중 시간',fmtDuration(Math.floor(focus/Math.max(1,days.filter(d=>d.date<=now).length))))),
       period==='month'?chart('focus','월간 활동 기록'):completionChart(),...(period==='month'?[]:[chart('focus','집중 기록')]),
-      h('section.card.activity-detail',{'aria-label':'일별 기록'},h('h3',{text:`${label(picked)} 기록`}),h('p.muted.small',{text:'위 기록에서 날짜를 선택하면 해당 날짜의 기록을 볼 수 있어요.'}),
+      h('section.card.activity-detail',{'aria-label':'일별 기록'},h('h3',{text:`${numericDate(picked,{weekday:true})} 하루 기록`}),h('p.muted.small',{text:'위 기록에서 날짜를 선택하면 해당 날짜의 기록을 볼 수 있어요.'}),
         !d?h('p.muted',{text:pending?'기록을 불러오고 있어요.':'기록을 불러온 뒤 확인할 수 있어요.'}):h('div',null,
           h('div.activity-halves',null,metric('오전 집중 시간',fmtDuration(d.amSeconds),'.focus-am-card'),metric('오후 집중 시간',fmtDuration(d.pmSeconds),'.focus-pm-card')),
           h('div.activity-tasks',null,list('완료',d.completed,'이날 완료한 할 일이 없어요.'),list('진행 중',d.doing,'이날 진행 중으로 기록된 할 일이 없어요.')),

@@ -1,8 +1,20 @@
+import { numericDate, dateRange } from './date-format.js';
+import { userCopy } from './user-copy.js';
 import {scheduleGroup} from './schedule-groups.js';
 const cell=s=>String(s??'').replace(/\|/g,'/').replace(/\r?\n/g,' ').trim();
 const split=line=>line.trim().replace(/^\||\|$/g,'').split(/(?<!\\)\|/).map(s=>s.trim());
 const clean=s=>s.replace(/\*|_/g,'').trim();
-export function formatBriefing(source,todos,today) {
+export function normalizeBriefingCopy(source, accounts = []) {
+ const services = [...new Set(accounts.map(a => ({gmail:'지메일',naver:'네이버',daum:'다음'}[a.preset] || '기타 메일')))];
+ return userCopy(source).replaceAll('오늘·내일', '오늘/내일')
+   .replaceAll('열린 할 일 없음', '예정된 할 일 없음')
+   .replace(/비워\s?뒀어요/g, '비워져 있어요')
+   .replaceAll('오늘 예정된 할 일이 없습니다.', '오늘 예정된 할 일이 없어요.')
+   .replace(/(최근 \d+시간 동안 받은 메일 없음)\s*\((?:두 계정 모두|두 계정|2개 계정 모두|모든 계정)\)/g,
+     (match, text) => services.length ? text + ' (' + services.join(', ') + ')' : match);
+}
+export function formatBriefing(source,todos,today,accounts = []) {
+ source = normalizeBriefingCopy(source, accounts);
  const byId=new Map((todos||[]).map(t=>[t.id,t]));
  const selected=new Map(),lines=String(source||'').split(/\r?\n/),output=[];
  const token='<!-- briefing-todo-table -->';let inserted=false;
@@ -46,7 +58,7 @@ export function formatBriefing(source,todos,today) {
  const values=[...selected.values()].map(v=>{
   const t=v.task,s=t?.schedule;
   const effective=s?.mode==='range'?(today<s.start?s.start:today>s.end?s.end:today):t?.scheduledDate;
-  const date=t?(s?.mode==='range'?`${s.start} - ${s.end}`:t.scheduledDate||'날짜 없음'):(/^\d{4}-\d{2}-\d{2}/.test(v.date)?v.date:'확인 필요');
+  const date=t?(s?.mode==='range'?dateRange(s.start,s.end,{now:new Date(today+'T12:00:00')}):(t.scheduledDate?numericDate(t.scheduledDate,{now:new Date(today+'T12:00:00')}):'날짜 없음')):(/^\d{4}-\d{2}-\d{2}/.test(v.date)?v.date:'확인 필요');
   const state=t?(t.status==='done'?'완료':t.doing?'진행 중':effective&&effective<today?'미완료':effective&&effective>today?'예정':'대기'):v.status||'확인 필요';
   const title=t?`[${cell(t.title).replace(/\[/g,'(').replace(/\]/g,')')}](#${encodeURIComponent(t.id)})`:cell(v.label);
   return {date,state,title,rank:order[scheduleGroup(effective,today)],sort:effective||''};

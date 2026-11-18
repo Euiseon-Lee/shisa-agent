@@ -115,7 +115,7 @@ test('순수 함수 ja: 말풍선 단추·카드·채팅 진행 글·집중 시�
   // 집중 시간
   noHangul([0, 30, 600, 3600, 4320].flatMap((x) => [fmtDuration(x), fmtShort(x)]), 'focus dur');
   noHangul([...LEVEL_LABELS, ...WEEKDAYS, dayLabel('2026-10-22'), dayDetail({ date: '2026-10-22', seconds: 3000, longest: 1200 }), dayDetail({ date: '2026-10-22', seconds: 0 }), cellTitle('2026-10-22', 0), rangeTitle('week', { from: '2026-09-28', to: '2026-10-04' }), rangeTitle('month', { from: '2026-10-01', to: '2026-10-31' })], 'focus 날짜');
-  assert.equal(dayLabel('2026-10-22'), '10月22日 (木)');
+  assert.equal(dayLabel('2026-10-22'), '10/22 木曜日');
   assert.equal(LEVEL_LABELS.length, 5);
   // 첨부
   noHangul([chipView({ kind: 'image', size: 10, name: 'a.png', status: 'uploading' }).title, chipView({ status: 'error' }).state, attachSummary([{ name: 'a.png' }, { name: 'b.png' }]), admitFiles([], [{ name: 'e.txt', size: 0 }]).errors, ATTACH_ERRORS.folder, Object.values(KIND_LABEL), pastedName({ name: 'image.png' })], 'attachments');

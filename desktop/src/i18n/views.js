@@ -61,7 +61,7 @@ export default {
     cal_chip_off: '꺼 둠',
     cal_chip_off_title: '「{name}」 캘린더는 연결에서 꺼 뒀어요. 설정에서 켜면 일정이 보여요.',
     cal_color_menu: '「{name}」 색 바꾸기',
-    cal_color_custom: '직접 색 선택',
+    cal_color_custom: '커스텀 색상',
     cal_color_hex: 'HEX 색상 코드',
     cal_color_apply: '적용',
     cal_color_invalid: '#AABBCC 형식의 6자리 색상 코드를 입력해 주세요.',

@@ -1,3 +1,4 @@
+import { numericDate } from './date-format.js';
 // 작업 세션 창의 순수 로직 — run 목록·대화 기록 모델·도구 줄 묶기·diff·자동 스크롤·입력 키.
 // 데몬 /runs, SSE run·runs 이벤트를 받는다(docs/contract.md "작업 세션").
 import { chatTarget } from './origin.js';
@@ -183,7 +184,7 @@ export function shortWhen(iso, now = Date.now()) {
   const today = dayStart(now);
   if (t >= today) return hm;
   if (t >= today - 864e5) return tr('session.when_yesterday', { hm });
-  return `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+  return `${numericDate(d,{now:new Date(now)})} ${hm}`;
 }
 // 목록 줄의 상대 시각(dashboard.js relativeTime 과 같은 규칙, 언어별): 방금 · 5분 전 · 3시간 전 · 어제 · 4일 전 · 9월 3일
 export function whenAgo(iso, now = Date.now()) {
@@ -193,7 +194,7 @@ export function whenAgo(iso, now = Date.now()) {
   if (d >= 864e5 && d < 2 * 864e5) return t('date.yesterday');
   if (d < 7 * 864e5) return ago(d);
   const x = new Date(at);
-  return monthDay(x.getMonth() + 1, x.getDate());
+  return numericDate(x,{now:new Date(now)});
 }
 export function routineHeader(g, now = Date.now()) {
   return t('session.routine_head', { label: g.label, count: g.count, when: shortWhen(g.lastAt, now) });

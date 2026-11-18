@@ -43,12 +43,12 @@ test('focus scale stays at eight hours and overtime retains its exact duration',
   assert.equal(cell.querySelector('.activity-percent').textContent,(hours/8*100)+'%');
   assert.equal(cell.querySelector('.activity-track'),null);
   assert.equal(cell.querySelector('.activity-month-focus'),null);
-  assert.equal(cell.querySelector('.activity-value').textContent,(hours?hours+'시간':'0분')+(hours>8?' ↑':''));
+  assert.equal(cell.querySelector('.activity-value').textContent,(hours?hours+'시간':'0분'));
   assert.ok(page.$('#sec-statistics').textContent.includes('하루 8시간 기준'));
   page.click('[data-stat-period="month"]');await page.settle();
   const monthCell=page.$('[data-chart="focus"][data-stat-date="'+today+'"]');
   assert.equal(monthCell.querySelector('.activity-percent').textContent,(hours/8*100)+'%');
-  assert.equal(monthCell.querySelector('.activity-value').textContent,(hours?hours+'시간':'0분')+(hours>8?' ↑':''));
+  assert.equal(monthCell.querySelector('.activity-value').textContent,(hours?hours+'시간':'0분'));
   assert.equal(monthCell.querySelector('.activity-month-focus').textContent,'완료 0개');
   assert.equal(page.errors.length,0);
  }

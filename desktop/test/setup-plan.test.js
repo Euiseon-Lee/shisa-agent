@@ -67,8 +67,8 @@ test('cleanSetupPatch: 이름·레포 폴더만, 모양이 아니면 null', asyn
   }
 });
 
-test('openSetupAtLaunch: 처음 켠 앱(state.json 없음)이나 CY_SHOW_SETUP=1 이면 마법사를 바로 연다', () => {
-  assert.equal(openSetupAtLaunch({ firstRun: true }), true);
+test('openSetupAtLaunch: 최초 실행은 설치를 열지 않고 CY_SHOW_SETUP=1 요청만 따른다', () => {
+  assert.equal(openSetupAtLaunch({ firstRun: true }), false);
   assert.equal(openSetupAtLaunch({ firstRun: false, env: { CY_SHOW_SETUP: '1' } }), true);
   assert.equal(openSetupAtLaunch({ firstRun: false, env: {} }), false);
   assert.equal(openSetupAtLaunch(), false);

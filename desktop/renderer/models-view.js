@@ -119,12 +119,26 @@ export function mountModels({ section, h, cy, getSisa, onSisa, gotoSetup, getCha
     render();
   }
 
-  // 대화·코드 작업에 쓸 AI·모델은 설정 창 「세부 모델」 한 곳에서 고른다(여기서 따로 고르면 두 곳이 어긋나 보였다). 여기는 안내 글만
+  function settingsButton() {
+    if (!cy.openSettings) return null;
+    const label = t('setup.models_voicecard_text');
+    const button = h('button.ghost.icon-btn.size-m.models-settings', {
+      type: 'button', title: label, 'aria-label': label, onclick: () => cy.openSettings(),
+    });
+    // 상단 설정 버튼과 동일한 고정 SVG 아이콘.
+    button.innerHTML = '<svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    return button;
+  }
+
+  function settingsHeading(key) {
+    return h('div.row.models-heading', null,
+      h('h2', { text: t(key) }), h('span.spacer'), settingsButton());
+  }
+
   function pickHint() {
     return h('div.card.models-card.models-hint', null,
-      h('p.muted.small', null,
-        h('span', { text: t('setup.models_pick_hint') }),
-        cy.openSettings ? h('button.ghost.small', { type: 'button', text: t('setup.models_voicecard_text'), onclick: () => cy.openSettings() }) : null));
+      settingsHeading('setup.models_pick_title'),
+      h('p.muted.small', { text: t('setup.models_pick_hint') }));
   }
 
   function disconnectFor(p) {
@@ -165,13 +179,10 @@ export function mountModels({ section, h, cy, getSisa, onSisa, gotoSetup, getCha
           : h('ul.model-list', null, l.models.map((m) => h('li', null, h('code', { text: m.id }), m.label ? h('span.muted.small', { text: ` ${m.label}` }) : null))));
   }
 
-  // 말투: 대화는 전부 시사(데몬)가 답한다. 말투·답 모양은 설정 창의 「행동 지침」에 적는다
   function voiceCard() {
     return h('div.card.models-card', null,
-      h('h2', { text: t('setup.models_voicecard_text_3') }),
-      h('p.muted.small', null,
-        h('span', { text: t('setup.models_voicecard_text_2', { who: who() }) }),
-        cy.openSettings ? h('button.ghost.small', { type: 'button', text: t('setup.models_voicecard_text'), onclick: () => cy.openSettings() }) : null));
+      settingsHeading('setup.models_voicecard_text_3'),
+      h('p.muted.small', { text: t('setup.models_voicecard_text_2', { who: who() }) }));
   }
 
   function cannedCard() {
@@ -192,9 +203,10 @@ export function mountModels({ section, h, cy, getSisa, onSisa, gotoSetup, getCha
     });
     return h('div.card.models-card', null,
       h('h2', { text: t('setup.models_cannedcard_text_3') }),
+      h('p.muted.small', { text: t('setup.models_canned_hint') }),
       ...groups,
       h('div.voice-acts', null,
-        h('button.ghost', { type: 'button', text: t('setup.models_cannedcard_text_2'), disabled: busy, onclick: () => { cannedDraft = Object.fromEntries(CANNED_CATALOG.map((g) => [g.key, [...defaultCannedLines(g.key, getCharacter())]])); render(); } }),
+        h('button.ghost', { type: 'button', text: t('setup.models_canned_reset'), disabled: busy, onclick: () => { cannedDraft = Object.fromEntries(CANNED_CATALOG.map((g) => [g.key, [...defaultCannedLines(g.key, getCharacter())]])); render(); } }),
         h('button.primary', { type: 'button', text: t('setup.models_cannedcard_text'), disabled: busy, onclick: () => saveVoice({ canned: cannedOverrideOf(cannedDraft, getSisa().canned, getCharacter()) }) })));
   }
 

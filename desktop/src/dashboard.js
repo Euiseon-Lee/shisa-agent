@@ -1,3 +1,4 @@
+import { numericDate } from './date-format.js';
 // 대시보드 패널 뷰모델 — 순수 로직. GET /dashboard 응답을 그리기 좋게 다듬는다.
 import { isSafeLink } from './bubbles.js';
 import { shapeRules } from './todo-rules.js';
@@ -36,7 +37,7 @@ export function relativeTime(iso, now = Date.now()) {
   if (d < 2 * DAY) return tr('date.yesterday');
   if (d < 7 * DAY) return tr('date.day_ago', { n: Math.floor(d / DAY) });
   const x = new Date(t);
-  return monthDay(x.getMonth() + 1, x.getDate());
+  return numericDate(x,{now:new Date(now)});
 }
 
 // "14:05" (로컬 시각)

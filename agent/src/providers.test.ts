@@ -395,7 +395,7 @@ test("codex 출력이 JSON이 아니면 본문을 오류에 넣지 않는다", a
   });
 });
 
-test("local think: 스토어의 1·3만 말하고 할 일을 만들지 않는다", async () => {
+test("local think: 스토어의 모든 미완료 할 일을 말하고 할 일을 만들지 않는다", async () => {
   const store = new Store(":memory:");
   store.upsertTodo({ id: "a", title: "견적 회신", source: "other", priority: 1 });
   store.upsertTodo({ id: "b", title: "보면 좋은 글", source: "other", priority: 3 });
@@ -408,7 +408,7 @@ test("local think: 스토어의 1·3만 말하고 할 일을 만들지 않는다
   assert.match(t.reply_md, /견적 회신/);
   assert.match(t.reply_md, /보면 좋은 글/);
   assert.match(t.reply_md, /끝난 보고서/);
-  assert.doesNotMatch(t.reply_md, /나중 일/);
+  assert.match(t.reply_md, /나중 일/);
   assert.ok(t.bubble.length <= 40);
   assert.equal(t.bubble.includes("\n"), false);
 });

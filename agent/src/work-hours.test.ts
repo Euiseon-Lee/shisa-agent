@@ -159,7 +159,7 @@ test("퇴근 인사: 일정 알림(plan) 영상, 대사는 local.leave(영상 �
 
 test("아침 인사 표시: 로컬 브리핑 말풍선이 시간대 인사일 때만 greet", () => {
   assert.equal(localThought(at("2026-10-19T09:30:00+09:00")).greet, "morning");
-  assert.equal(localThought(at("2026-10-19T09:30:00+09:00"), [{ title: "급한 일", priority: 1 }]).greet, undefined);
+  assert.equal(localThought(at("2026-10-19T09:30:00+09:00"), [{ title: "급한 일", priority: 1, scheduledDate:"2026-10-19" }]).greet, undefined);
   assert.equal(localThought(at("2026-10-19T09:30:00+09:00"), [], [{ title: "끝낸 일" }]).greet, undefined);
 });
 

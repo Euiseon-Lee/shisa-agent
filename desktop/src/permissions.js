@@ -32,7 +32,7 @@ export function kindOf(tool) {
 export function ruleUsage(r) {
   if (!r.hits) return tr('panel.perm_unused');
   const d = r.lastUsed ? new Date(r.lastUsed) : null;
-  const when = d && !Number.isNaN(d.getTime()) ? tr('panel.perm_last', { m: d.getMonth() + 1, d: d.getDate() }) : '';
+  const when = d && !Number.isNaN(d.getTime()) ? tr('panel.perm_last', { m: String(d.getMonth() + 1).padStart(2,'0'), d: String(d.getDate()).padStart(2,'0') }) : '';
   return tr('panel.perm_hits', { n: r.hits, when });
 }
 

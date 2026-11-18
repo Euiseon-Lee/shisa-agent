@@ -1,3 +1,4 @@
+import { numericDate } from './date-format.js';
 // 직접 만든 프로젝트(패널 프로젝트 탭 위쪽) — 순수 로직. 데몬 GET /dashboard 의 manualProjects·todos 를 카드 모양으로,
 // 만들기 창(새로 만들기·일정에서 가져오기)의 칸을 POST/PATCH /projects/manual 본문으로 바꾼다. 화면은 renderer/projects-view.js.
 
@@ -16,7 +17,7 @@ const dayMs = (ymd) => Date.parse(`${ymd}T00:00:00Z`);
 export function dayLabel(ymd, now = Date.now()) {
   if (!DAY_RE.test(str(ymd))) return '';
   const [y, m, d] = ymd.split('-').map(Number);
-  return monthDayWeek(new Date(y, m - 1, d), { year: y !== new Date(now).getFullYear() });
+  return numericDate(ymd, {now:new Date(now),weekday:true});
 }
 // 기한 글: 「10월 30일(금)까지 · D-13」 · 「오늘까지」 · 「내일까지」 · 「3일 지남」
 export function dueText(due, now = Date.now()) {
@@ -188,7 +189,7 @@ export function eventWhen(ev, now = Date.now()) {
     const last = Number.isFinite(e) ? localDay(e - 1) : sd;
     return last > sd ? `${dayLabel(sd, now)} ~ ${dayLabel(last, now)}` : tr('panel.pj_all_day', { day: dayLabel(sd, now) });
   }
-  return `${dayLabel(sd, now)} ${hhmm(s)}${Number.isFinite(e) ? `–${localDay(e) === sd ? hhmm(e) : `${dayLabel(localDay(e), now)} ${hhmm(e)}`}` : ''}`;
+  return `${dayLabel(sd, now)} ${hhmm(s)}${Number.isFinite(e) ? ` ~ ${localDay(e) === sd ? hhmm(e) : `${dayLabel(localDay(e), now)} ${hhmm(e)}`}` : ''}`;
 }
 // GET /projects/calendar-events 응답 → 화면 상태. 다가오는 것·지난 것으로 나눈다
 export function shapePick(r) {

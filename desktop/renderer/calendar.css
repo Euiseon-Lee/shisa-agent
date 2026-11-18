@@ -48,13 +48,14 @@
 .cal button { cursor: pointer; }
 
 /* 위쪽 줄 */
-.cal-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cal-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height:var(--page-heading-height,32px); }
+.cal > .cal-bar { margin-bottom:calc(var(--page-heading-gap,16px) - 8px); }
 .cal-bar button { border: 0; border-radius: 7px; padding: 4px 10px; background: var(--btn); }
 .cal-today { font-weight: 600; }
-.cal-nav { display: flex; gap: 2px; }
+.cal-nav { display: flex; align-items: center; gap: 8px; min-width:0; max-width:100%; }
 .cal-nav button { background: none; font-size: 18px; line-height: 1; padding: 2px 8px; }
 .cal-nav button:hover { background: var(--code); }
-.cal-period { margin: 0; font-size: 15px; font-weight: 650; white-space: nowrap; }
+.cal-period { margin: 0; font-size: var(--date-heading-size, 15px); font-weight: 650; white-space: normal; overflow-wrap:anywhere; color: var(--fg); }
 .cal-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: cal-spin 0.8s linear infinite; }
 @keyframes cal-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .cal-spin { animation-duration: 2.4s; } }
@@ -199,7 +200,6 @@
 
 /* 좁은 창 */
 .cal.narrow { --cal-gutter: 38px; }
-.cal.narrow .cal-period { font-size: 13.5px; }
 .cal.narrow .cal-seg .cal-seg-btn { padding: 3px 9px; }
 .cal.narrow .cal-hour { font-size: 9.5px; padding-right: 3px; }
 .cal.narrow .cal-ev.blk { padding: 1px 3px; font-size: 10.5px; }
@@ -226,7 +226,7 @@
 .cal-custom-color { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
 .cal-custom-row { display: flex; align-items: center; gap: 8px; }
 .cal-color-picker { width: 36px; height: 32px; padding: 2px; cursor: pointer; flex: none; }
-.cal-color-hex { min-width: 0; width: 100%; font-family: monospace; padding: 6px; }
+.cal-color-hex { min-width: 0; width: 100%; font-family: inherit; padding: 6px; }
 .cal-color-preview { width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 50%; flex: none; }
 .cal-color-error { display: block; font-size: 12px; color: var(--cal-red); margin-top: 5px; }
 .cal-color-apply { margin-top: 6px; width: 100%; }

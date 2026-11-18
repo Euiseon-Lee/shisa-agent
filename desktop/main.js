@@ -105,7 +105,7 @@ function configLanguage() {
 let wantChar = configCharacter(); // 데몬이 고른 id 그대로(사용자 캐릭터는 목록을 받기 전엔 모른다 — 받으면 다시 맞춘다)
 let charId = okCharacter(wantChar);
 const who = () => characterName(charId);
-const appTitle = () => appName(charId);
+const appTitle = () => `${!app.isPackaged && process.env.CY_DEV_LABEL ? `${process.env.CY_DEV_LABEL} · ` : ''}${appName(charId)}`;
 app.setName(appTitle());
 app.setPath('userData', PORT !== 47823 ? `${userData}-${PORT}` : userData);
 
@@ -2384,7 +2384,7 @@ if (SQUIRREL) {
   app.on('session-created', noSpellcheck);
   app.whenReady().then(() => {
     noSpellcheck(session.defaultSession); // 창보다 먼저
-    const firstRun = !fs.existsSync(statePath()); // 이 앱 저장소를 처음 쓴다 → 마법사를 바로 연다
+    const firstRun = !fs.existsSync(statePath()); // 이 앱 저장소를 처음 쓴다 → 개요를 바로 연다
     loadState();
     registerAssetProtocol();
     registerAttachProtocol();
@@ -2401,8 +2401,12 @@ if (SQUIRREL) {
     setTimeout(checkForUpdate, 30_000);
     setInterval(checkForUpdate, 60 * 60 * 1000);
     refreshCaps(true);
-    if (!app.isPackaged && (process.env.CY_DEV_PANEL === 'todos' || process.argv.includes('--dev-todos'))) setTimeout(() => showPanel('todos'), 1200);
+    if (!app.isPackaged) {
+      const devPanel = normalizeSection(process.env.CY_DEV_PANEL || (process.argv.includes('--dev-todos') ? 'todos' : ''));
+      if (devPanel) setTimeout(() => showPanel(devPanel), 1200);
+    }
     if (openSetupAtLaunch({ firstRun, env: process.env })) setTimeout(() => showPanel('setup'), 400);
+    else if (firstRun) setTimeout(() => showPanel('overview'), 400);
 
     // 화면 구성 바뀜·절전/잠금 뒤 캐릭터를 다시 맨 위로(윈도우)
     for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) screen.on(ev, () => keepOnTop(win));

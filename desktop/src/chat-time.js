@@ -1,3 +1,4 @@
+import { numericDate, longDate, fullDateTime } from './date-format.js';
 // 채팅 말의 시간 표시 — 순수 로직. 말풍선 옆 작은 시각(18:22), 날짜가 바뀌는 곳의 구분선("오늘"·"어제"·"10월 11일 (토)"),
 // 올리면 보이는 전체 날짜·시각. 날짜는 기기 현지 기준.
 import { clockTime } from './dashboard.js';
@@ -24,18 +25,18 @@ export function dayLabel(iso, now = new Date()) {
   const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime();
   if (day === today) return t('date.today');
   if (day === yesterday) return t('date.yesterday');
-  return monthDayWeek(d, { space: true, year: d.getFullYear() !== now.getFullYear() });
+  return numericDate(d, {now,weekday:true});
 }
 
 // 올리면 보이는 전체 날짜·시각: 2026년 10월 12일 (월) 오후 6:22
 // 날짜만: 2026년 10월 12일 (월) · 2026年10月12日 (月)
 function fullDate(d) {
-  return monthDayWeek(d, { space: true, year: true });
+  return longDate(d, {weekday:true});
 }
 export function fullTime(iso) {
   const d = toDate(iso);
   if (!d) return '';
-  return `${fullDate(d)} ${ampmTime(d.getHours(), d.getMinutes())}`;
+  return fullDateTime(d);
 }
 
 // 말풍선 옆 작은 시각: { text: '18:22', title: '2026년 10월 12일 (월) 오후 6:22' } — 시각이 이상하면 null

@@ -5,8 +5,9 @@ import { TONE, seedHash, voice, type Mood } from "./voice.ts";
 import { character, fallbackShisa, type LocalLineKey } from "./characters.ts";
 import { language } from "./lang.ts";
 import { phrase } from "./phrases.ts";
+import { scheduledViewDate, type TodoSchedule } from "./todo-schedule.ts";
 
-export type LocalTodo = { title: string; priority?: number };
+export type LocalTodo = { id?: string; title: string; priority?: number; scheduledDate?: string; schedule?: TodoSchedule; doing?: boolean; status?: string; scheduleSort?: number };
 export type DayPart = "morning" | "lunch" | "afternoon" | "evening";
 
 export type LocalThought = {
@@ -29,7 +30,7 @@ export const LINES = {
   evening: "좋은 저녁이에요.",
   remind: "오늘 반드시 할 일을 다시 일깨워 드려요.",
   praise: "최근에 끝낸 일을 칭찬드려요.",
-  empty: "우선순위 1·3 열린 할 일은 비어 있어요.",
+  empty: "예정된 할 일이 없어요.",
 } as const;
 
 // 지금 캐릭터의 정해진 말(characters.ts lines) — 없는 키는 아래 시사 말
@@ -103,13 +104,23 @@ export function bubbleLine(text: string, seed: string, mood: Mood): string {
   return text.slice(0, BUBBLE_MAX);
 }
 
-// 열린 할 일 중 우선순위 1·3 제목만. 둘 다 없으면 비어 있다고 말한다. 2·4는 넣지 않는다.
-export function planReply(open: LocalTodo[]): string {
-  const p1 = titles(open, 1);
-  const p3 = titles(open, 3);
-  if (!p1.length && !p3.length) return localLine("empty");
-  const block = (heading: string, items: string[]) => [heading, ...(items.length ? items.map((t) => `- ${t}`) : [`- ${localLine("emptyHead")}`])];
-  return [...block(frag().p1, p1), "", ...block(frag().p3, p3)].join("\n");
+// 모든 미완료 할 일을 예정일 순서로 안내한다. 날짜 없음은 마지막.
+export function scheduledOpen(open: LocalTodo[], today: string): LocalTodo[] {
+  return open.filter(t => cleanTitle(t.title) && (!t.status || t.status === 'open'))
+    .sort((a,b) => (scheduledViewDate(a.schedule,a.scheduledDate,today)||'9999-12-31').localeCompare(scheduledViewDate(b.schedule,b.scheduledDate,today)||'9999-12-31') || (a.scheduleSort??0)-(b.scheduleSort??0));
+}
+const shortDate = (day: string, today: string) => (day.slice(0,4)!==today.slice(0,4)?day.slice(0,4)+'/':'')+day.slice(5).replace('-','/');
+export function planReply(open: LocalTodo[], now = new Date()): string {
+  const today=localDate(now), items=scheduledOpen(open,today), ja=language()==='ja';
+  if (!items.length) return ja ? '予定されているタスクはありません。' : LINES.empty;
+  const clean = (s: string) => cleanTitle(s).replace(/\|/g,'/').replace(/\[/g,'(').replace(/\]/g,')');
+  return [ja?'| 予定日 | 状態 | タスク |':'| 예정일 | 상태 | 할 일 |','| --- | --- | --- |',...items.map(t=>{
+    const effective=scheduledViewDate(t.schedule,t.scheduledDate,today);
+    const date=t.schedule?.mode==='range'?`${shortDate(t.schedule.start,today)} ~ ${shortDate(t.schedule.end,today)}`:t.scheduledDate?shortDate(t.scheduledDate,today):(ja?'日付なし':'날짜 없음');
+    const state=t.doing?(ja?'進行中':'진행 중'):effective&&effective<today?(ja?'未完了':'미완료'):effective&&effective>today?(ja?'予定':'예정'):(ja?'待機':'대기');
+    const title=t.id?`[${clean(t.title)}](#${encodeURIComponent(t.id)})`:clean(t.title);
+    return `| ${date} | ${state} | ${title} |`;
+  })].join('\n');
 }
 
 function praiseReply(done: LocalTodo[], seed: string): string {
@@ -121,11 +132,11 @@ function praiseReply(done: LocalTodo[], seed: string): string {
 // 순수 함수. now·할 일 목록·seed만 본다. todos·done_todo_ids·proposals는 항상 빈 배열.
 export function localThought(now: Date, open: LocalTodo[] = [], done: LocalTodo[] = [], seed = `local:${seoulDay(now)}`): LocalThought {
   const part = dayPart(now);
-  const hasP1 = titles(open, 1).length > 0;
+  const hasDue = scheduledOpen(open,localDate(now)).some(t => {const d=scheduledViewDate(t.schedule,t.scheduledDate,localDate(now));return !!d && d<=localDate(now);});
   const hasDone = titles(done).length > 0;
-  const bubbleBase = localLine(hasP1 ? "remind" : hasDone ? "praise" : part);
-  const bubbleMood: Mood = hasP1 ? "busy" : hasDone ? "happy" : "calm";
-  const reply = [spoken(localLine(part), `${seed}:greet`, "calm"), "", planReply(open)];
+  const bubbleBase = localLine(hasDue ? "remind" : hasDone ? "praise" : part);
+  const bubbleMood: Mood = hasDue ? "busy" : hasDone ? "happy" : "calm";
+  const reply = [spoken(localLine(part), `${seed}:greet`, "calm"), "", planReply(open,now)];
   if (hasDone) reply.push("", praiseReply(done, seed));
   return {
     bubble: bubbleLine(bubbleBase, `${seed}:bubble`, bubbleMood),
@@ -133,7 +144,7 @@ export function localThought(now: Date, open: LocalTodo[] = [], done: LocalTodo[
     todos: [],
     done_todo_ids: [],
     proposals: [],
-    ...(!hasP1 && !hasDone ? { greet: part } : {}),
+    ...(!hasDue && !hasDone ? { greet: part } : {}),
   };
 }
 
@@ -236,15 +247,15 @@ function answerToday(f: QuickFacts, seed: string): QuickAnswer {
 }
 
 function answerTodo(f: QuickFacts, seed: string): QuickAnswer {
-  const open = (f.open ?? []).filter((t) => cleanTitle(t.title) && (t.priority ?? 2) <= 3);
+  const open = scheduledOpen(f.open ?? [],localDate(f.now));
   if (!open.length) return { id: "next_todo", kind: "info", text: spoken(localLine("todoEmpty"), seed, "calm"), open: { section: "todos" } };
-  const sorted = [...open].sort((a, b) => (a.priority ?? 2) - (b.priority ?? 2)); // 같은 우선순위는 받은 순서 그대로
+  const sorted = open;
   const top = sorted.slice(0, 3);
   return {
     id: "next_todo",
     kind: "info",
     text: spoken(fill(localLine("todoTop"), { title: cleanTitle(top[0].title).slice(0, 30) }), seed, "busy"),
-    detail: top.map((t) => `- ${frag().prio[t.priority ?? 2] ?? frag().prio[2]} ${cleanTitle(t.title)}`).join("\n") + (sorted.length > 3 ? `\n- ${frag().others(sorted.length - 3)}` : ""),
+    detail: planReply(sorted,f.now),
     open: { section: "todos" },
   };
 }

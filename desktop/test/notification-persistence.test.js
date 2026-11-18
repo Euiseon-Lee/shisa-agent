@@ -38,8 +38,8 @@ test('storage failure is reported instead of claiming notifications were saved',
 test('single dates show today or weekdays, with year and day boundaries respected',()=>{
  const now=new Date(2026,10,18,12);
  assert.deepEqual(notificationDate('2026-11-18',now),{date:'11/18',label:'오늘'});
- assert.deepEqual(notificationDate('2026-11-19',now),{date:'11/19',label:'목'});
- assert.deepEqual(notificationDate('2026-11-18',new Date(2026,10,19,12)),{date:'11/18',label:'수'});
+ assert.deepEqual(notificationDate('2026-11-19',now),{date:'11/19',label:'목요일'});
+ assert.deepEqual(notificationDate('2026-11-18',new Date(2026,10,19,12)),{date:'11/18',label:'수요일'});
  assert.notEqual(notificationDate('2025-11-18',now).label,'오늘');
  assert.equal(notificationDate('2026-02-30',now),null);
  const md=createMarkdown(Marked);

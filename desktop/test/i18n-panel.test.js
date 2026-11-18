@@ -151,8 +151,8 @@ test('늘 보이는 머리·사이드바(ja): 「N分前に更新」·再読み�
   assert.equal(page.document.title, 'シーサー秘書');
   assert.equal(page.$('#brand-name').textContent, 'シーサー秘書');
   const tabs = [...page.document.querySelectorAll('#nav .nav-label')].map((n) => n.textContent);
-  assert.deepEqual(tabs, ['セットアップ', '概要', 'プロジェクト', 'カレンダー', 'やること', '今日やること', '統計', 'チャット', 'モデル']);
-  assert.equal(page.$('#title').textContent, '概要');
+  assert.deepEqual(tabs, ['概要', 'プロジェクト', 'カレンダー', 'やること', '今日やること', '統計', 'チャット', 'モデル', 'セットアップ']);
+  assert.equal(page.$('#title').textContent, 'やること'); // 저장된 메뉴가 없으면 할 일 우선
   // 꺼지면 「シーサー オフ」
   page.cy.__emit('onConnection', { connected: false });
   await page.settle(2);
@@ -249,14 +249,14 @@ test('순수 함수(ja): 상대 시각·연결 칩·우선순위·프로젝트 �
   for (const p of [1, 2, 3, 4, 9]) all.push(priorityLabel(p));
   assert.deepEqual([1, 2, 3, 4].map(priorityLabel), ['今日中', '今週', 'いつか', 'そのうち']);
   const y = new Date(now).getFullYear();
-  assert.equal(dayLabel(`${y}-10-22`, now).replace(/\(.\)/, '(x)'), '10月22日(x)');
+  assert.equal(dayLabel(`${y}-10-22`, now).replace(/\(.\)/, '(x)'), '10/22 木曜日');
   for (const d of [0, 1, -3, 13]) { all.push(dueText(ymd(d), now)); all.push(...Object.values(dueParts(ymd(d), now)).map(String)); }
   all.push(dateRangeText({ startText: 'a', dueBadge: { day: 'b', date: 'c' } }), dateRangeText({ startText: 'a' }));
   all.push(progressText({ todos: 3, openTodos: 2 }), progressText({ todos: 3, openTodos: 0 }), todoCountText({ todos: 0 }), todoCountText({ todos: 2, openTodos: 0 }), todoCountText({ todos: 3, openTodos: 1 }));
   for (const b of [{}, { name: 'x', start: 'bad' }, { name: 'x', due: 'bad' }, { name: 'x', start: ymd(2), due: ymd(1) }]) all.push(createBody(b).error ?? '');
   all.push(eventWhen({ start: new Date(now).toISOString(), end: new Date(now + 86_400_000).toISOString(), allDay: true }, now));
   all.push(chatDay(new Date(now).toISOString(), new Date(now)), chatDay(new Date(now - 86_400_000).toISOString(), new Date(now)), chatDay('2024-03-05T10:00:00', new Date(now)), fullTime('2026-10-12T18:22:00'));
-  assert.equal(fullTime('2026-10-12T18:22:00'), '2026年10月12日 (月) 午後6:22');
+  assert.equal(fullTime('2026-10-12T18:22:00'), '2026年10月12日 月曜日 18:22');
   const g = pickGroups({ active: 'claude', brains: [{ provider: 'claude', label: 'Claude', active: true, ready: true, tools: false, defaultLabel: 'Opus', models: [] }, { provider: 'gemini', label: 'Gemini', ready: false, why: '' }] }, 'claude|');
   all.push(g.head.text, ...g.groups.flatMap((x) => [x.label, ...x.rows.map((r) => r.text)]), pickTitle({ brains: [] }, 'claude|'));
   for (const tl of ['Bash', 'Edit', 'Read', 'mcp__x', 'Other']) all.push(kindOf(tl).name);

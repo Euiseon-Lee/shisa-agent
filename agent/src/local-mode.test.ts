@@ -34,22 +34,27 @@ test("시간대는 Asia/Seoul 아침·점심·저녁", () => {
   assert.equal(dayPart(evening), "evening");
 });
 
-test("플래너: 우선순위 1·3 제목만, 없으면 비어 있다", () => {
-  assert.equal(planReply([]), LINES.empty);
-  assert.equal(planReply([{ title: "나중", priority: 2 }, { title: "백로그", priority: 4 }]), LINES.empty);
-  const both = planReply([{ title: "견적 회신", priority: 1 }, { title: "문서", priority: 3 }, { title: "나중", priority: 2 }]);
-  assert.match(both, /견적 회신/);
-  assert.match(both, /문서/);
-  assert.doesNotMatch(both, /나중/);
-  const only1 = planReply([{ title: "견적 회신", priority: 1 }]);
-  assert.match(only1, /견적 회신/);
-  assert.match(only1, /우선순위 3/);
-  assert.match(only1, /비어 있어요/);
+test('플래너: 모든 우선순위의 예정일과 기간, 반복 항목, 링크, 완료 제외',()=>{
+ const now=new Date('2026-11-18T12:00:00+09:00');
+ assert.equal(planReply([],now),LINES.empty);
+ const text=planReply([
+ {id:'later',title:'나중',priority:2,scheduledDate:'2026-11-20'},
+ {id:'undated',title:'기타',priority:4},
+ {id:'past',title:'기한 지남',priority:4,scheduledDate:'2026-11-17'},
+ {id:'range',title:'기간',priority:3,doing:true,schedule:{mode:'range',start:'2026-11-16',end:'2026-11-20'}},
+ {id:'repeat',title:'반복 항목',priority:1,scheduledDate:'2026-11-19'},
+ {id:'done',title:'완료됨',status:'done'}],now);
+ assert.ok(text.includes('| 11/17 | 미완료 | [기한 지남](#past) |'));
+ assert.ok(text.includes('| 11/16 ~ 11/20 | 진행 중 | [기간](#range) |'));
+ assert.ok(text.includes('| 11/19 | 예정 | [반복 항목](#repeat) |'));
+ assert.ok(text.includes('| 날짜 없음 | 대기 | [기타](#undated) |'));
+ assert.ok(text.indexOf('#past')<text.indexOf('#range')&&text.indexOf('#repeat')<text.indexOf('#later')&&text.indexOf('#later')<text.indexOf('#undated'));
+ assert.doesNotMatch(text,/완료됨|우선순위/);
 });
 
 test("로컬 Thought: 리마인드·칭찬·인사, 할 일은 짓지 않는다", () => {
   const open = [
-    { title: "견적 회신", priority: 1 },
+    { title: "견적 회신", priority: 1, scheduledDate:"2026-10-10" },
     { title: "문서", priority: 3 },
     { title: "나중 일", priority: 2 },
     { title: "백로그", priority: 4 },
@@ -66,8 +71,8 @@ test("로컬 Thought: 리마인드·칭찬·인사, 할 일은 짓지 않는다"
   assert.match(t.reply_md, /문서/);
   assert.match(t.reply_md, /끝난 보고서/);
   assert.match(t.reply_md, /잘하셨어요/);
-  assert.doesNotMatch(t.reply_md, /나중 일/);
-  assert.doesNotMatch(t.reply_md, /백로그/);
+  assert.match(t.reply_md, /나중 일/);
+  assert.match(t.reply_md, /백로그/);
   assert.deepEqual(t.todos, []);
   assert.deepEqual(t.done_todo_ids, []);
   assert.deepEqual(t.proposals, []);
@@ -83,13 +88,13 @@ test("우선순위 1이 없으면 끝낸 일을 칭찬하고, 둘 다 없으면 
   const quiet = localThought(lunch, [{ title: "이번 주", priority: 2 }], [], "quiet");
   assert.equal(quiet.bubble, bubbleLine(LINES.lunch, "quiet:bubble", "calm"));
   assert.match(quiet.reply_md, /점심/);
-  assert.match(quiet.reply_md, /비어 있어요/);
-  assert.doesNotMatch(quiet.reply_md, /이번 주/);
+  assert.match(quiet.reply_md, /날짜 없음/);
+  assert.match(quiet.reply_md, /이번 주/);
   assert.deepEqual(quiet.todos, []);
 });
 
 test("말풍선은 어떤 seed든 40자 안의 한 문장", () => {
-  const open = [{ title: "견적 회신", priority: 1 }];
+  const open = [{ title: "견적 회신", priority: 1, scheduledDate:"2026-10-10" }];
   const done = [{ title: "끝난 보고서" }];
   let flavored = false;
   for (let i = 0; i < 40; i++) {

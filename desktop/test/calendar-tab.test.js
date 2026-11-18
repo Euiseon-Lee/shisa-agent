@@ -41,7 +41,7 @@ test('‹ › 와 기간 제목', () => {
   assert.equal(periodTitle(periodOf('week', '2026-10-28', TZ)), '2026년 10월 26일 ~ 11월 1일');
   assert.equal(periodTitle(periodOf('week', '2026-12-30', TZ)), '2026년 12월 28일 ~ 2027년 1월 3일');
   assert.equal(periodTitle(periodOf('month', '2026-10-18', TZ)), '2026년 10월');
-  assert.equal(periodTitle(periodOf('day', '2026-10-21', TZ)), '2026년 10월 21일 (수)');
+  assert.equal(periodTitle(periodOf('day', '2026-10-21', TZ)), '2026년 10월 21일 수요일');
 });
 
 test('일정 배치: 겹치면 나란히(무리마다 칸 수), 안 겹치면 한 칸, 자정 넘김은 날마다 잘림, 짧아도 15분', () => {
@@ -122,12 +122,12 @@ test('지금 시각 선 · 때 글 · 할 일·프로젝트 본문', () => {
   assert.deepEqual(nowLine(at('2026-10-21T13:30:00+09:00'), days, TZ), { day: 2, min: 810 });
   assert.equal(nowLine(at('2026-11-21T13:30:00+09:00'), days, TZ), null);
   const meet = ev('m', '2026-10-21T14:00:00+09:00', '2026-10-21T15:30:00+09:00', { title: '디자인 리뷰', location: '3층', joinUrl: 'https://meet.google.com/x' });
-  assert.equal(eventWhen(meet, TZ), '10월 21일 (수) 14:00 ~ 15:30');
-  assert.equal(eventWhen(ev('n', '2026-10-23T23:00:00+09:00', '2026-10-24T01:00:00+09:00'), TZ), '10월 23일 (금) 23:00 ~ 10월 24일 (토) 01:00');
-  assert.equal(eventWhen(ev('t', '2026-10-21T15:00:00Z', '2026-10-23T15:00:00Z', { allDay: true, startDay: '2026-10-22', endDay: '2026-10-24' }), TZ), '10월 22일 (목) ~ 23일 (금) · 종일');
-  assert.equal(eventWhen(ev('t', '2026-10-21T15:00:00Z', '2026-10-22T15:00:00Z', { allDay: true, startDay: '2026-10-22', endDay: '2026-10-23' }), TZ), '10월 22일 (목) · 종일');
+  assert.equal(eventWhen(meet, TZ), '10/21 수요일 14:00 ~ 15:30');
+  assert.equal(eventWhen(ev('n', '2026-10-23T23:00:00+09:00', '2026-10-24T01:00:00+09:00'), TZ), '10/23 금요일 23:00 ~ 10/24 토요일 01:00');
+  assert.equal(eventWhen(ev('t', '2026-10-21T15:00:00Z', '2026-10-23T15:00:00Z', { allDay: true, startDay: '2026-10-22', endDay: '2026-10-24' }), TZ), '10/22 목요일 ~ 10/23 금요일 · 종일');
+  assert.equal(eventWhen(ev('t', '2026-10-21T15:00:00Z', '2026-10-22T15:00:00Z', { allDay: true, startDay: '2026-10-22', endDay: '2026-10-23' }), TZ), '10/22 목요일 · 종일');
   const todo = todoFromEvent(meet, '회사', TZ);
-  assert.deepEqual(todo, { title: '디자인 리뷰', description: '일정: 10월 21일 (수) 14:00 ~ 15:30\n캘린더: 회사\n장소: 3층\n회의 링크: https://meet.google.com/x', priority: 2 });
+  assert.deepEqual(todo, { title: '디자인 리뷰', description: '일정: 10/21 수요일 14:00 ~ 15:30\n캘린더: 회사\n장소: 3층\n회의 링크: https://meet.google.com/x', priority: 2 });
   assert.deepEqual(pickOf({ ...meet, draft: { name: '디자인 리뷰', start: '2026-10-21' } }).draft, { name: '디자인 리뷰', start: '2026-10-21' });
   assert.deepEqual(zoned(atZoned('2026-10-21', 600, TZ), TZ), { ymd: '2026-10-21', min: 600 });
 });
@@ -299,7 +299,7 @@ test('렌더: 일정 카드(때·캘린더·장소·회의 참여·설명) → �
   el.byClass('blk')[0].fire('click');
   const pop = el.byClass('cal-pop')[0];
   assert.ok(pop, '카드가 뜬다');
-  assert.ok(pop.text.includes('디자인 리뷰') && pop.text.includes('10월 21일 (수) 14:00 ~ 15:30') && pop.text.includes('회사') && pop.text.includes('📍 3층') && pop.text.includes('안건 정리'));
+  assert.ok(pop.text.includes('디자인 리뷰') && pop.text.includes('10/21 수요일 14:00 ~ 15:30') && pop.text.includes('회사') && pop.text.includes('📍 3층') && pop.text.includes('안건 정리'));
   pop.byClass('cal-join')[0].fire('click');
   assert.deepEqual(calls.at(-1), ['link', 'https://meet.google.com/x']);
   pop.byClass('cal-mk-project')[0].fire('click');
@@ -345,7 +345,7 @@ test('렌더: 월 보기(앞뒤 달·+N) · 일 보기 · ‹ › 오늘 · 좁�
   oct20.byClass('cal-more')[0].fire('click');
   await tick();
   assert.equal(v.state().view, 'day');
-  assert.equal(el.byClass('cal-period')[0].text, '2026년 10월 20일 (화)');
+  assert.equal(el.byClass('cal-period')[0].text, '2026년 10월 20일 화요일');
   el.byClass('cal-next')[0].fire('click');
   assert.equal(v.state().anchor, '2026-10-21');
   el.byClass('cal-seg-btn').find((b) => b.dataset.view === 'week').fire('click');
@@ -358,7 +358,7 @@ test('렌더: 월 보기(앞뒤 달·+N) · 일 보기 · ‹ › 오늘 · 좁�
   await tick();
   assert.ok(v.state().narrow);
   assert.ok(el.byClass('cal-list').length === 1 && el.byClass('cal-time').length === 0, '좁으면 주 대신 목록');
-  assert.ok(el.byClass('cal-lhead').some((n) => n.text === '10월 21일 (수)'));
+  assert.ok(el.byClass('cal-lhead').some((n) => n.text === '10/21 수요일'));
 });
 
 test('렌더: 캘린더가 없으면 빈 화면 + [연결하기], 데몬이 꺼져 있으면 다시 해 보기', async () => {

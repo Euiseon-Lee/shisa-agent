@@ -220,8 +220,8 @@ test("브리핑·채팅 재료: 메일마다 받은 계정(받는 주소) · 계
   await sync.sync();
   const ctx = buildContext(store, NOW);
   assert.match(ctx, /## 최근 받은 메일 \(받은편지함을 읽기 전용으로 가져온 것, 최근 24시간, 계정 2개/);
-  assert.match(ctx, /- 계정 me@gmail\.com: .*2통/);
-  assert.match(ctx, /- 계정 me@naver\.com: 마지막 가져오기는 실패했다: 메일 주소나 비밀번호가 맞지 않아요\. 더 연결하기에서 다시 연결해 주세요.*\. 이 계정 메일은 없다/);
+  assert.match(ctx, /- 계정 me@gmail\.com \(지메일\): .*2통/);
+  assert.match(ctx, /- 계정 me@naver\.com \(네이버\): 마지막 가져오기는 실패했다: 메일 주소나 비밀번호가 맞지 않아요\. 더 연결하기에서 다시 연결해 주세요.*\. 이 계정 메일은 없다/);
   assert.match(ctx, /\(받은 계정 me@gmail\.com\) 김팀장 <boss@example\.com> — 「견적서 회신」/);
   assert.equal(mailSummaryLine(store), "- 메일(계정 2개): 최근 24시간 2통(안 읽음 2) · 못 가져온 계정 있음(me@naver.com: 메일 주소나 비밀번호가 맞지 않아요. 더 연결하기에서 다시 연결해 주세요(그때까지 자동으로 다시 로그인하지 않아요).) — 보낸 사람·제목·본문 앞부분은 mail_recent, 한 통의 전체 본문은 mail_read(ref)");
   // 한 계정이어도 줄마다 받은 계정을 적는다
@@ -301,4 +301,20 @@ test("네이버·다음: 주소로 로그인이 안 되면 @ 앞 아이디로 �
   const g = await connectMail({ preset: "gmail", user: "a@gmail.com", password: "abcdefghijklmnop" }, { path, current: () => undefined, env: {}, fetch, apply: () => {} });
   assert.equal(g.ok, false);
   assert.deepEqual(tried, ["a@gmail.com"]);
+});
+
+test('empty mail briefing identifies services and does not count a failed account as empty', async () => {
+  const { writeMailState } = await import('./mail-sync.ts');
+  const store = new Store(':memory:');
+  const accounts = [
+    {id:'g',user:'demo@gmail.com',preset:'gmail',key:'g',phase:'ok' as const,count:0,at:NOW.toISOString()},
+    {id:'n',user:'demo@naver.com',preset:'naver',key:'n',phase:'ok' as const,count:0,at:NOW.toISOString()},
+  ];
+  writeMailState(store,{phase:'ok',sinceHours:24,accounts});
+  assert.ok(mailContext(store).includes('최근 24시간 동안 받은 메일 없음 (지메일, 네이버)'));
+  writeMailState(store,{phase:'ok',sinceHours:24,accounts:[accounts[0],{...accounts[1],phase:'failed',reason:'test failure'}]});
+  const text=mailContext(store);
+  assert.ok(text.includes('최근 24시간 동안 받은 메일 없음 (지메일)'));
+  assert.ok(text.includes('마지막 가져오기는 실패했다'));
+  store.db.close();
 });

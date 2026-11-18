@@ -227,7 +227,7 @@ test('shortWhen: 오늘은 시각, 어제는 "어제", 그 전은 날짜', () =>
   const now = new Date(2026, 9, 12, 15, 0).getTime();
   assert.equal(shortWhen(new Date(2026, 9, 12, 9, 5).toISOString(), now), '09:05');
   assert.equal(shortWhen(new Date(2026, 9, 11, 22, 0).toISOString(), now), '어제 22:00');
-  assert.equal(shortWhen(new Date(2026, 9, 3, 8, 0).toISOString(), now), '10/3 08:00');
+  assert.equal(shortWhen(new Date(2026, 9, 3, 8, 0).toISOString(), now), '10/03 08:00');
   assert.equal(shortWhen('nope', now), '');
 });
 

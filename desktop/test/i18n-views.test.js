@@ -73,7 +73,7 @@ test('캘린더 탭 ja: 주·월·일·목록 보기, 일정 카드, 색 메뉴,
   assert.deepEqual(left(doc), [], '주 보기');
   clickAll(doc, '.cal-ev.blk'); // 일정 카드
   assert.ok(doc.querySelector('.cal-pop'));
-  assert.match(doc.querySelector('.cal-pop-when').textContent, /^10月21日\(水\) 14:00～15:30$/);
+  assert.match(doc.querySelector('.cal-pop-when').textContent, /^10\/21 水曜日 14:00～15:30$/);
   assert.deepEqual(left(doc), [], '일정 카드');
   clickAll(doc, '.cal-chip-more'); // 색 메뉴
   assert.ok(doc.querySelector('.cal-menu'));
@@ -85,16 +85,16 @@ test('캘린더 탭 ja: 주·월·일·목록 보기, 일정 카드, 색 메뉴,
   assert.deepEqual(left(doc), [], '월 보기');
   clickAll(doc, '.cal-seg-btn[data-view="day"]');
   await tick();
-  assert.equal(el.querySelector('.cal-period').textContent, '2026年10月21日(水)');
+  assert.equal(el.querySelector('.cal-period').textContent, '2026年10月21日 水曜日');
   assert.deepEqual(left(doc), [], '일 보기');
   // 언어를 바꾸면 보던 기간 그대로 다시
   setLanguage('ko');
   v.relang();
-  assert.equal(el.querySelector('.cal-period').textContent, '2026년 10월 21일 (수)');
+  assert.equal(el.querySelector('.cal-period').textContent, '2026년 10월 21일 수요일');
   assert.ok(left(doc).length > 0, 'ko 로는 한국어');
   ja();
   v.relang();
-  assert.equal(el.querySelector('.cal-period').textContent, '2026年10月21日(水)');
+  assert.equal(el.querySelector('.cal-period').textContent, '2026年10月21日 水曜日');
   assert.deepEqual(left(doc), [], 'relang 뒤');
   assert.equal(v.state().view, 'day');
 });
@@ -114,18 +114,18 @@ test('캘린더 탭 ja: 좁은 창 목록 · 연결 안 됨 빈 화면 · 데몬
   assert.deepEqual(left(empty.doc), [], '일정 없음');
 });
 
-test('캘린더 글 함수: 날짜 표기 ko 그대로, ja 「10月22日(木)」·「～」·終日, 할 일 본문', () => {
+test('캘린더 글 함수: 날짜 표기 ko 그대로, ja 「10/22 木曜日」·「～」·終日, 할 일 본문', () => {
   const tz = 'Asia/Seoul';
   const ev = shapeEvents({ ok: true, data: DATA }).events;
   const trip = ev.find((e) => e.id === 'p:1');
   const late = ev.find((e) => e.id === 'w:3');
-  assert.equal(dayLabel('2026-10-22'), '10월 22일 (목)');
-  assert.equal(eventWhen(trip, tz), '10월 22일 (목) ~ 23일 (금) · 종일');
+  assert.equal(dayLabel('2026-10-22'), '10/22 목요일');
+  assert.equal(eventWhen(trip, tz), '10/22 목요일 ~ 10/23 금요일 · 종일');
   assert.equal(periodTitle(periodOf('week', '2026-12-30', tz)), '2026년 12월 28일 ~ 2027년 1월 3일');
   ja();
-  assert.equal(dayLabel('2026-10-22'), '10月22日(木)');
-  assert.equal(eventWhen(trip, tz), '10月22日(木)～23日(金) · 終日');
-  assert.equal(eventWhen(late, tz), '10月23日(金) 23:00～10月24日(土) 01:00');
+  assert.equal(dayLabel('2026-10-22'), '10/22 木曜日');
+  assert.equal(eventWhen(trip, tz), '10/22 木曜日～10/23 金曜日 · 終日');
+  assert.equal(eventWhen(late, tz), '10/23 金曜日 23:00～10/24 土曜日 01:00');
   assert.equal(periodTitle(periodOf('week', '2026-12-30', tz)), '2026年12月28日～2027年1月3日');
   assert.equal(periodTitle(periodOf('week', '2026-10-29', tz)), '2026年10月26日～11月1日');
   const again = shapeEvents({ ok: true, data: DATA }).events;

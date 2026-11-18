@@ -15,6 +15,10 @@ test('overview stays visible without Today tab; outside header, direct completio
  assert.ok(overview.textContent.includes('잔여 1개 / 전체 1개'));
  const nav=[...page.$('#nav').children].map(b=>b.dataset.section);assert.ok(nav.indexOf('statistics')>nav.indexOf('overview'));assert.ok(nav.indexOf('statistics')<nav.indexOf('todos'));
  page.click('#nav button[data-section="todos"]');await page.settle();
+ const dateTag=page.$('.add-date');
+ dateTag.dispatchEvent(new page.document.defaultView.PointerEvent('pointerenter',{pointerType:'mouse'}));
+ await new Promise(resolve=>setTimeout(resolve,350));
+ assert.equal(page.$('.todo-date-dialog'),null,'hover must not open the date picker');
  page.click('.add-date');const dialog=page.$('.todo-date-dialog');assert.ok(dialog);
  page.click(dialog.querySelector('[data-mode="repeat"]'));
  assert.equal(dialog.querySelector('.schedule-single').hidden,true);assert.equal(dialog.querySelector('.schedule-none').hidden,true);

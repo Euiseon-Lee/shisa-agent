@@ -17,15 +17,15 @@ test('카드 모양: 기한 글·톤, 일정에서 표시, 묶인 열린 할 일
   ], [{ id: 't1', title: '섭외', projectId: 'proj:a', priority: 2 }, { id: 't2', title: '다른 일' }], NOW);
   assert.equal(list.length, 2);
   const [a, b] = list;
-  assert.deepEqual([a.dueText, a.dueTone, a.startText], ['10월 30일(금)까지 · D-13', '', '10월 18일(일)']);
+  assert.deepEqual([a.dueText, a.dueTone, a.startText], ['10/30 금요일까지 · D-13', '', '10/18 일요일']);
   assert.deepEqual(a.fromCalendar, { calendar: '회사', title: '킥오프', eventId: 'e1' });
   assert.deepEqual(a.linked, [{ id: 't1', title: '섭외', priority: 2 }]);
   assert.deepEqual([b.done, b.dueText], [true, ''], '끝난 건 기한 글 없음');
   assert.equal(dueText('2026-10-17', NOW), '오늘까지');
   assert.equal(dueText('2026-10-18', NOW), '내일까지');
-  assert.equal(dueText('2026-10-14', NOW), '10월 14일(수) · 3일 지남');
+  assert.equal(dueText('2026-10-14', NOW), '10/14 수요일 · 3일 지남');
   assert.deepEqual([dueTone('2026-10-14', NOW), dueTone('2026-10-19', NOW), dueTone('2026-11-19', NOW)], ['over', 'soon', '']);
-  assert.equal(dayLabel('2027-01-02', NOW), '2027년 1월 2일(토)');
+  assert.equal(dayLabel('2027-01-02', NOW), '2027/01/02 토요일');
   assert.equal(todoCountText({ todos: 0, openTodos: 0 }), '할 일 없음');
   assert.equal(todoCountText({ todos: 3, openTodos: 0 }), '할 일 다 끝냄 (3개)');
   assert.equal(todoCountText({ todos: 3, openTodos: 2 }), '할 일 잔여 2개 / 전체 3개');
@@ -60,9 +60,9 @@ test('일정 고르기: 응답 → 상태(연결 안 됨·오류·비었음·일
   const p = shapePick({ ok: true, data: { connected: true, ok: false, events: [ev, old] } });
   assert.deepEqual([p.state, p.partial, p.upcoming.length, p.past.length], ['ok', true, 1, 1]);
   assert.deepEqual(draftFromPick(ev), { name: '킥오프', note: '안건', start: '2026-10-20', due: '2026-10-20', source: { kind: 'calendar', eventId: 'e1', calendar: '회사' } });
-  assert.equal(eventWhen(ev, NOW), '10월 20일(화) 10:00–11:00');
-  assert.equal(eventWhen({ start: new Date(2026, 9, 23).toISOString(), end: new Date(2026, 9, 24).toISOString(), allDay: true }, NOW), '10월 23일(금) 종일');
-  assert.equal(eventWhen({ start: new Date(2026, 9, 23).toISOString(), end: new Date(2026, 9, 26).toISOString(), allDay: true }, NOW), '10월 23일(금) ~ 10월 25일(일)');
+  assert.equal(eventWhen(ev, NOW), '10/20 화요일 10:00 ~ 11:00');
+  assert.equal(eventWhen({ start: new Date(2026, 9, 23).toISOString(), end: new Date(2026, 9, 24).toISOString(), allDay: true }, NOW), '10/23 금요일 종일');
+  assert.equal(eventWhen({ start: new Date(2026, 9, 23).toISOString(), end: new Date(2026, 9, 26).toISOString(), allDay: true }, NOW), '10/23 금요일 ~ 10/25 일요일');
 });
 
 test('IPC 본문 거르기: 프로젝트 본문·id, 할 일의 projectId', () => {
@@ -194,7 +194,7 @@ test('화면: 카드 — 위계(이름 → 기한 배지·날짜·📅 칩 → �
   const order = card.kids.filter((k) => typeof k === 'object' && !k.cls.includes('mp-card-grip')).map((k) => k.cls.find((c) => ['head', 'mp-meta', 'ui-progress', 'mp-note', 'mp-todos', 'mp-foot'].includes(c)));
   assert.deepEqual(order, ['head', 'mp-meta', 'ui-progress', 'mp-note', 'mp-todos', 'mp-foot'], '정보 위계 순서(＋ 할 일은 맨 아래 줄)');
   const t = d.text(sec);
-  for (const want of ['가을 행사', 'D-13', '10월 30일(금)까지', '📅 일정에서 · 회사', '잔여 1개 / 전체 2개', '장소 섭외', '현수막']) assert.ok(t.includes(want), want);
+  for (const want of ['가을 행사', 'D-13', '10/30 금요일까지', '📅 일정에서 · 회사', '잔여 1개 / 전체 2개', '장소 섭외', '현수막']) assert.ok(t.includes(want), want);
   const badge = d.find(sec, (e) => e.cls?.includes('mp-due'));
   assert.ok(badge.cls.includes('ui-badge') && !badge.cls.includes('warn') && !badge.cls.includes('err'), 'D-13 은 보통 배지');
   assert.equal(d.find(sec, (e) => e.props.role === 'progressbar').props['aria-valuenow'], '1');
@@ -311,7 +311,7 @@ test('화면: 빈 프로젝트는 낮은 카드(「아직 할 일이 없어요 �
   assert.deepEqual([over.props.text, over.cls.includes('err')], ['3일 지남', true]);
   const soon = d.find(card('proj:s'), (e) => e.cls?.includes('mp-due'));
   assert.deepEqual([soon.props.text, soon.cls.includes('warn')], ['D-3', true]);
-  assert.match(d.text(card('proj:s')), /10월 10일\(토\) ~ 10월 20일\(화\)/, '시작·기한이 다 있으면 기간 한 줄');
+  assert.match(d.text(card('proj:s')), /10\/10 토요일 ~ 10\/20 화요일/, '시작·기한이 다 있으면 기간 한 줄');
   assert.match(d.text(card('proj:s')), /다 끝냈어요 · 2개/);
   assert.ok(d.find(card('proj:s'), (e) => e.cls?.includes('ui-progress')).cls.includes('full'));
   const done = card('proj:d');

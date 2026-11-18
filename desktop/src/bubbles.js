@@ -1,5 +1,6 @@
 // 말풍선 큐 — 순수 로직. 렌더러와 테스트가 같이 쓴다.
 import { normQuick } from './quick-ask.js';
+import { userCopy } from './user-copy.js';
 import { t } from './i18n.js';
 import { ui } from './lang.js';
 
@@ -17,14 +18,14 @@ const DETAIL_MAX = 12000;
 export function normalizeBubble(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const id = typeof raw.id === 'string' && raw.id ? raw.id : null;
-  const text = typeof raw.text === 'string' ? raw.text.trim() : '';
+  const text = typeof raw.text === 'string' ? userCopy(raw.text.trim()) : '';
   const image = IMAGES.includes(raw.image) ? raw.image : null;
   if (!id || (!text && !image)) return null; // 그림만 있는 말풍선도 된다
   const kind = KINDS.includes(raw.kind) ? raw.kind : 'info';
   const b = { id, text, kind };
   if (raw.transient === true) b.transient = true;
   if (image) b.image = image;
-  if (typeof raw.detail === 'string' && raw.detail.trim()) b.detail = raw.detail.trim().slice(0, DETAIL_MAX);
+  if (typeof raw.detail === 'string' && raw.detail.trim()) b.detail = userCopy(raw.detail.trim()).slice(0, DETAIL_MAX);
   const open = normalizeOpen(raw.open);
   if (open) b.open = open;
   // 제안은 자동으로 사라지지 않는다

@@ -1,3 +1,4 @@
+import { numericDate, dateRange } from './date-format.js';
 import { ui } from './lang.js';
 import { t } from './i18n.js';
 // 집중하기(포커스 타이머) — 순수 로직. 캐릭터 말풍선·패널(할 일 하단 「오늘 집중」·집중 기록)·테스트가 같이 쓴다.
@@ -182,7 +183,7 @@ export function monthGrid(from, to) {
 // 「10월 14일 (화)」
 export function dayLabel(day) {
   const d = parseDay(day);
-  return d ? t('date.mdw_space', { m: d.getMonth() + 1, d: d.getDate(), w: WEEKDAYS[mondayIdx(d)] }) : '';
+  return d ? numericDate(d,{weekday:true}) : '';
 }
 // 칸 위 설명(마우스 올리면)
 export function cellTitle(day, sec) {
@@ -202,7 +203,7 @@ export function rangeTitle(tab, r) {
   if (tab === 'month') return t('overlay.ym', { y: a.getFullYear(), m: a.getMonth() + 1 });
   const head = t('date.md', { m: a.getMonth() + 1, d: a.getDate() });
   const tail = a.getMonth() === z.getMonth() ? t('overlay.d_only', { d: z.getDate() }) : t('date.md', { m: z.getMonth() + 1, d: z.getDate() });
-  return `${head} ~ ${tail}`;
+  return dateRange(r.from,r.to,{long:true});
 }
 
 // 합계·하루 평균: 평균은 오늘까지 지난 날 수로(앞으로 올 날은 빼고). 앞으로만 남은 범위면 평균 0

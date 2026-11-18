@@ -59,10 +59,9 @@ export function setupSummary({ brain = {}, done = {}, repos = [], name = '', rea
 }
 
 // 폴더 경로 모양(절대 경로)
-// 앱을 켜자마자 설치 마법사(패널 setup)를 여는가: 이 앱 저장소(userData/state.json)가 처음이거나 CY_SHOW_SETUP=1.
-// 처음 쓰는 사람은 캐릭터만 떠 있고 어디를 눌러야 할지 모른다. 이미 쓰던 사람(state.json 있음)은 그대로
+// 설치 화면은 명시적으로 요청한 개발 환경에서만 자동으로 연다. 최초 실행은 개요.
 export function openSetupAtLaunch({ firstRun = false, env = {} } = {}) {
-  return firstRun || env.CY_SHOW_SETUP === '1';
+  return env.CY_SHOW_SETUP === '1';
 }
 
 export const okFolder = (p) => typeof p === 'string' && /^\//.test(p.trim()) && !/[\0\n]/.test(p);
