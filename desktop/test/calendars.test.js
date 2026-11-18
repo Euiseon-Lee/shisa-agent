@@ -99,10 +99,10 @@ test('화면 줄: 주소 대신 id·종류·가린 이름·별칭·켜짐, 데�
     { id: hash(G2), name: 'Family', phase: 'failed', reason: '구글 캘린더가 이 주소를 찾지 못했어요(HTTP 404).' },
   ] });
   assert.deepEqual(merged.map((r) => [r.name, r.phase, r.meetings, r.reason]), [['회사', 'ok', 5, undefined], ['캘린더 2', 'off', undefined, undefined], ['Family', 'failed', undefined, '구글 캘린더가 이 주소를 찾지 못했어요(HTTP 404).']]);
-  assert.deepEqual(merged.map(calendarRowState).map((s) => s.text), ['오늘·내일 일정 5개', '꺼 둠 · 가져오지 않아요', '못 가져옴: 구글 캘린더가 이 주소를 찾지 못했어요(HTTP 404).']);
+  assert.deepEqual(merged.map(calendarRowState).map((s) => s.text), ['오늘, 내일 일정 5개', '꺼짐, 일정을 가져오지 않아요', '가져오기 실패: 구글 캘린더가 이 주소를 찾지 못했어요(HTTP 404).']);
   assert.deepEqual(withCalendarResults(rows, null), rows, '결과가 없으면 그대로');
   // 카드 요약: 저장된 캘린더 수(구글·Outlook 카드가 같은 목록을 연다)
-  assert.equal(calendarCardSummary(rows), '저장됨 · 캘린더 3개');
+  assert.equal(calendarCardSummary(rows), '저장됨, 캘린더 3개');
   assert.equal(calendarCardSummary([]), '');
 });
 
@@ -125,10 +125,10 @@ test('설치 표시(done): 남은 주소에 구글이 없으면 gcal 을, Outloo
 
 test('[빼기] 문구·반영 안내·화면 글(해요체, em dash 없음)', () => {
   const row = { title: '구글 캘린더', label: 'chae…@gmail.com', name: '회사' };
-  assert.equal(calendarRemoveCopy(row, false).ask, '「회사」 캘린더를 뺄까요?');
-  assert.equal(calendarRemoveCopy({ title: '구글 캘린더', label: 'chae…@gmail.com' }, false).ask, '구글 캘린더 「chae…@gmail.com」 캘린더를 뺄까요?');
-  assert.match(calendarRemoveCopy(row, false).note, /이 캘린더만/);
-  assert.match(calendarRemoveCopy(row, true).note, /마지막 캘린더라서 빼면 캘린더 연결이 꺼져요/);
+  assert.equal(calendarRemoveCopy(row, false).ask, '「회사」 캘린더 연결을 삭제할까요?');
+  assert.equal(calendarRemoveCopy({ title: '구글 캘린더', label: 'chae…@gmail.com' }, false).ask, '구글 캘린더 「chae…@gmail.com」 연결을 삭제할까요?');
+  assert.match(calendarRemoveCopy(row, false).note, /이 캘린더의 연결 정보만/);
+  assert.match(calendarRemoveCopy(row, true).note, /마지막 캘린더를 삭제하면 캘린더 연결이 꺼져요/);
   assert.equal(calendarRemoveCopy(row, true).label, '빼기');
   const texts = [
     ...Object.values(calendarRemoveCopy(row, false)), ...Object.values(calendarRemoveCopy(row, true)),
@@ -155,7 +155,7 @@ test('패널 연결 카드: 캘린더마다 「회사: 일정 5개 / 개인: 못
   assert.equal(chip.hint, '회사: 일정 5개 / 개인: 못 가져옴(HTTP 404) / 가족: 꺼 둠');
   // 캘린더 하나뿐이면 예전 말 그대로
   const [one] = shapeConnectors([{ cap: 'calendar', mode: 'api', ready: true, sync: { phase: 'ok', meetings: 2, calendars: [{ id: id(1), name: '회사', phase: 'ok', meetings: 2 }] } }]);
-  assert.equal(connectorChipView(one).hint, '오늘·내일 일정 2개를 가져왔어요.');
+  assert.equal(connectorChipView(one).hint, '오늘, 내일 일정 2개를 가져왔어요.');
 });
 
 test('설정 창 IPC: 캘린더 목록·더하기·별칭·켜기/끄기·빼기는 이 창에서만, 모양이 맞을 때만 main 으로', async () => {
@@ -232,15 +232,15 @@ function setDoc() {
   globalThis.document = { createElement: (t) => new Node(t), createTextNode: (t) => { const n = new Node('#text'); n.textContent = t; return n; }, title: '' };
 }
 
-test('「더 연결할까요?」 카드: 저장된 캘린더가 있으면 「저장됨 · 캘린더 N개」(두 카드 같은 목록), 아래에 따로 목록은 없다', async () => {
+test('「더 연결할까요?」 카드: 저장된 캘린더가 있으면 「저장됨, 캘린더 N개」(두 카드 같은 목록), 아래에 따로 목록은 없다', async () => {
   setDoc();
   const { renderSetup } = await import('../renderer/setup-view.js');
   const root = new Node('div');
   const calendars = calendarRows({ connectors: { calendar: { calendars: [{ name: '회사', url: G1 }, { name: '개인', url: G2 }, { name: '팀', url: O1 }] } } }, hash);
   renderSetup(root, { phase: 'extras', done: {}, repos: [], calendars });
   const titles = root.byClass('setup-pick-title').map((n) => n.text);
-  assert.ok(titles.includes('구글 캘린더 · 저장됨 · 캘린더 3개'), titles.join('|'));
-  assert.ok(titles.includes('Outlook 캘린더 · 저장됨 · 캘린더 3개'));
+  assert.ok(titles.includes('구글 캘린더 · 저장됨, 캘린더 3개'), titles.join('|'));
+  assert.ok(titles.includes('Outlook 캘린더 · 저장됨, 캘린더 3개'));
   assert.equal(root.byClass('cal-editor').length, 0);
   assert.ok(!root.text.includes('private-'));
   renderSetup(root, { phase: 'extras', done: { gcal: true }, repos: [], calendars: [] });
@@ -292,8 +292,8 @@ test('캘린더 카드 안: 별칭·가린 주소·결과·켜기/끄기·별칭
   btn('연결').fire('click');
   await tick(); await tick();
   assert.deepEqual(calls.at(-1), ['add', { name: '회사', url: G1 }]);
-  assert.match(ed().text, /연결된 캘린더 · 1개/);
-  assert.match(ed().text, /「회사」 캘린더를 연결했어요\. 오늘·내일 일정 3개를 찾았어요/);
+  assert.match(ed().text, /연결된 캘린더, 1개/);
+  assert.match(ed().text, /「회사」 캘린더를 연결했어요\. 오늘, 내일 일정 3개를 찾았어요/);
   assert.equal(input('cal-add-url'), undefined, '연결하면 칸은 접히고');
   assert.ok(btn('＋ 캘린더 추가'), '「＋ 캘린더 추가」가 남는다');
   // 「개인」 하나 더
@@ -302,7 +302,7 @@ test('캘린더 카드 안: 별칭·가린 주소·결과·켜기/끄기·별칭
   type('cal-add-url', G2);
   btn('연결').fire('click');
   await tick(); await tick();
-  assert.match(ed().text, /연결된 캘린더 · 2개/);
+  assert.match(ed().text, /연결된 캘린더, 2개/);
   const rowsText = ed().byClass('cal-row').map((n) => n.text);
   assert.match(rowsText[0], /회사chae…@gmail\.com/);
   assert.match(rowsText[1], /개인abcd…@group\.calendar\.google\.com/);
@@ -313,7 +313,7 @@ test('캘린더 카드 안: 별칭·가린 주소·결과·켜기/끄기·별칭
   btn('연결').fire('click');
   await tick(); await tick();
   assert.match(ed().text, /이미 연결된 캘린더예요/);
-  assert.match(ed().text, /연결된 캘린더 · 2개/);
+  assert.match(ed().text, /연결된 캘린더, 2개/);
   assert.equal(input('cal-add-url').value, G1, '쓰던 값은 남는다');
   // 다시 들어와도(새로 그려도) 저장된 목록·별칭이 그대로
   renderSetup(root, state());
@@ -336,17 +336,17 @@ test('캘린더 카드 안: 별칭·가린 주소·결과·켜기/끄기·별칭
   tg.fire('change');
   await tick(); await tick();
   assert.deepEqual(calls.at(-1), ['toggle', hash(G2), false]);
-  assert.match(row1().text, /꺼 둠 · 가져오지 않아요/);
+  assert.match(row1().text, /꺼짐, 일정을 가져오지 않아요/);
   assert.match(ed().text, /「가족」 캘린더를 껐어요/);
   // 빼기: 그 자리에서 한 번 더 묻고 그 id 만
   row1().byClass('dc-open')[0].fire('click');
-  assert.match(row1().text, /「가족」 캘린더를 뺄까요\?/);
+  assert.match(row1().text, /「가족」 캘린더 연결을 삭제할까요\?/);
   row1().byClass('dc-yes')[0].fire('click');
   await tick(); await tick();
   assert.deepEqual(calls.at(-1), ['remove', hash(G2)]);
-  assert.match(root.text, /캘린더를 뺐어요/);
+  assert.match(root.text, /캘린더 연결을 삭제했어요/);
   await new Promise((r) => setTimeout(r, 1300)); // 뺐다는 글을 잠깐 보여 준 뒤 새 목록
-  assert.match(ed().text, /연결된 캘린더 · 1개/);
+  assert.match(ed().text, /연결된 캘린더, 1개/);
   assert.equal(ed().all((n) => n.dataset.id === hash(G2)).length, 0);
   delete globalThis.document;
 });

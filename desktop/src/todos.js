@@ -1,7 +1,8 @@
+import { reorderScheduleLocal } from './schedule-groups.js';
 // 할 일 편집 — 순수 로직. 낙관적 반영(대기 중인 변경을 서버 목록 위에 겹쳐 보기)과 입력 검증.
 import { isSafeLink } from './bubbles.js';
 import { reorderLocal } from './todo-rows.js';
-import { t as tr } from './i18n.js';
+import { language, t as tr } from './i18n.js';
 
 
 // 화면에 보이는 우선순위 이름(데이터는 1~4 그대로 — 모델 프롬프트는 P1~P4 로 쓴다)
@@ -67,6 +68,8 @@ export function overlayTodos(todos, ops) {
       out = out.map((t) => (t.id === op.id ? { ...applyPatch(t, op.patch), userEdited: op.rule ? t.userEdited : true, pending: true } : t));
     } else if (op.kind === 'remove') {
       out = out.filter((t) => t.id !== op.id);
+    } else if (op.kind === 'schedule-order') {
+      out = reorderScheduleLocal(out,op.id,op.beforeId,op.today).map(t=>t.id===op.id?{...t,pending:true}:t);
     } else if (op.kind === 'reorder') {
       out = reorderLocal(out, op.id, op.priority, op.beforeId).map((t) => (t.id === op.id ? { ...t, pending: true } : t));
     }
@@ -87,6 +90,10 @@ function applyPatch(t, patch) {
 export function sanitizeTodoPatch(v, { allowStatus = true } = {}) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const out = {};
+  if(v.schedule === null || (v.schedule && ['range','repeat'].includes(v.schedule.mode))) out.schedule = v.schedule;
+  if(v.stopRepeat === true) out.stopRepeat = true;
+  if (v.scheduledDate === null || (typeof v.scheduledDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.scheduledDate))) out.scheduledDate = v.scheduledDate;
+  if (typeof v.irrelevant === 'boolean') out.irrelevant = v.irrelevant;
   if (typeof v.title === 'string') out.title = v.title;
   if ([1, 2, 3, 4].includes(v.priority)) out.priority = v.priority;
   for (const k of ['link', 'note']) if (v[k] === null || typeof v[k] === 'string') out[k] = v[k] === null ? null : v[k];
@@ -98,18 +105,19 @@ export function sanitizeTodoPatch(v, { allowStatus = true } = {}) {
   return Object.keys(out).length ? out : null;
 }
 
-// 패널 '최근 완료': 이 창에서 방금 끝낸 것(local) + 서버가 알려준 최근 3일 완료(직접·자동 모두 — 앱을 다시 켜도 남게).
+// 패널 '최근 완료': 이 창에서 방금 끝낸 것(local) + 서버가 알려준 최근 7일 완료(직접·자동 모두 — 앱을 다시 켜도 남게).
 // 같은 id는 하나만(방금 끝낸 것 먼저), 되돌리는 중인 건 뺀다
-export function mergeRecentDone(local, server, hidden = [], limit = 8) {
+export function mergeRecentDone(local, server, hidden = [], limit = 100, now = Date.now()) {
   const hide = new Set(hidden);
   const out = [];
   const seen = new Set();
   for (const t of [...(Array.isArray(local) ? local : []), ...(Array.isArray(server) ? server : [])]) {
     if (!t || typeof t.id !== 'string' || seen.has(t.id) || hide.has(t.id)) continue;
     seen.add(t.id);
-    out.push(t);
+    const saved = (Array.isArray(server) ? server : []).find(x => x?.id === t.id && x.doneAt);
+    out.push(saved ? { ...t, ...saved } : t);
   }
-  return out.slice(0, limit);
+  return out.filter(t => !t.doneAt || Date.parse(t.doneAt) >= now - 7 * 864e5).sort((a,b) => (Date.parse(b.doneAt) || 0) - (Date.parse(a.doneAt) || 0)).slice(0, limit);
 }
 
 // 설명 직접 고치기(펼친 상세에서 더블클릭) → POST /todos/:id 패치. 안 바뀌면 { patch: null }
@@ -131,12 +139,14 @@ export function patchToday(today, id, change) {
   return typeof change.title === 'string' && change.title ? { ...today, items: [...today.items, { id, done: false, priority: 1, ...change }] } : today;
 }
 
-// 오늘 할 일 = 우선순위 1(오늘 꼭). 넣기 = 1 로, 빼기 = 2(이번 주)로
+// 오늘 할 일 = 우선순위 1(오늘 반드시). 넣기 = 1 로, 빼기 = 2(이번 주)로
 export const TODAY_PRIORITY = 1;
 export const OUT_OF_TODAY = 2;
 
-// 이 줄이 오늘 할 일인가(우선순위 1 오늘 꼭). date 는 예전 호출 호환으로 받기만 한다
-export const isToday = (t, _date) => t?.priority === TODAY_PRIORITY;
+// 이 줄이 오늘 할 일인가(우선순위 1 오늘 반드시). date 는 예전 호출 호환으로 받기만 한다
+export const isToday = (t, date = localDay()) => t?.schedule?.mode === 'range' ? t.schedule.start <= date && date <= t.schedule.end : t?.scheduledDate === date;
+export function localDay(now = new Date()) { return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; }
+export function dateTag(t, day = localDay()) { const d = t?.scheduledDate; if(t?.schedule?.mode==='range'){const s=t.schedule;return {text:s.start.slice(5).replace('-','/')+' - '+s.end.slice(5).replace('-','/'),tone:day>s.end?'overdue':day>=s.start?'today':'future',title:s.start+' ~ '+s.end};} if(t?.schedule?.mode==='repeat'){const tag=dateTag({scheduledDate:d},day);return {...tag,repeat:true,text:tag.text,title:tag.title+' · 반복'};} return { text: !d ? '날짜 없음' : d === day ? tr('date.today') : d.slice(5).replace('-', '/'), tone: !d ? 'none' : d === day ? 'today' : d < day ? 'overdue' : 'future', title: d || '날짜 선택' }; }
 // 오늘 할 일 넣기·빼기 패치(할 일 탭 줄의 「오늘」·오늘 할 일 탭)
-export const todayPatch = (on) => ({ priority: on ? TODAY_PRIORITY : OUT_OF_TODAY });
+export const todayPatch = (on) => ({ scheduledDate: on ? localDay() : null });
 

@@ -2,10 +2,11 @@
 // 집중 기록 계산 글(주·월 제목, 칸 title 등)은 src/i18n/overlay.js(src/focus.js). 날짜 낱말(요일·「10월 22일」)은 date 표
 export default {
   ko: {
+    focus_timer_label: '집중 타이머',
     // ---- 집중 탭 ----
     focus_err_off: '{who}가 꺼져 있어서 못 했어요',
     focus_err_retry: '잠깐 뒤에 다시 눌러 주세요',
-    focus_start_title: '{who}가 옆에서 같이 공부해요. 집중한 시간은 아래 「오늘 집중」에 쌓여요',
+    focus_start_title: '{who}가 옆에서 같이 공부해요. 집중 기록은 「통계」 탭에서 확인할 수 있어요',
     focus_start: '집중하기',
     focus_live_paused: '집중 일시정지',
     focus_live_on: '집중 중',
@@ -105,9 +106,10 @@ export default {
     cal_range_sep: ' ~ ',
   },
   ja: {
+    focus_timer_label: '集中タイマー',
     focus_err_off: '{who}がオフなのでできませんでした',
     focus_err_retry: '少ししてからもう一度押してください',
-    focus_start_title: '{who}がそばで一緒に勉強します。集中した時間は下の「今日の集中」にたまります',
+    focus_start_title: '{who}がそばで一緒に勉強します。集中記録は「統計」タブで確認できます',
     focus_start: '集中モード',
     focus_live_paused: '集中を一時停止中',
     focus_live_on: '集中中',

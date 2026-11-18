@@ -385,7 +385,7 @@ test('개요 연결 카드: 캘린더마다 줄(색·켜짐·결과), 누른 값
     { id: 'aaaaaaaaaaaaaaaa', name: '중복', enabled: true, phase: 'ok' }, { id: 'x', name: '이상' },
   ] }]);
   assert.deepEqual(c.calendars.map((r) => [r.name, r.color, r.enabled, r.phase]), [['회사', 'purple', true, 'ok'], ['개인', 'blue', true, 'failed'], ['가족', 'pink', false, 'off']]);
-  assert.deepEqual(c.calendars.map((r) => calendarRowState(r).text), ['오늘·내일 일정 2개', '못 가져옴: HTTP 404', '꺼 둠 · 가져오지 않아요']);
+  assert.deepEqual(c.calendars.map((r) => calendarRowState(r).text), ['오늘, 내일 일정 2개', '가져오기 실패: HTTP 404', '꺼짐, 일정을 가져오지 않아요']);
   assert.equal(shapeConnectors([{ cap: 'calendar', mode: 'mcp', ready: true, server: 'x', calendars: [] }])[0].calendars, undefined, 'MCP 는 줄 없음');
   assert.equal(cardRowOn(c.calendars[2], { cccccccccccccccc: true }), true, '응답 오기 전엔 누른 값');
   assert.equal(cardRowOn(c.calendars[2], {}), false);

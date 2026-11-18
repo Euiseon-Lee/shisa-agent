@@ -36,7 +36,7 @@ test('groupTodos: 우선순위 순, 모르는 건 기타, 위험한 링크 제�
   assert.deepEqual(g.map((x) => [x.priority, x.items.map((i) => i.id)]), [[1, ['b', 'd']], [2, ['a']], [9, ['c']]]);
   assert.equal(g[0].items[0].link, null);
   assert.equal(g[0].items[1].link, 'slack://open');
-  assert.equal(g[0].label, '오늘 꼭');
+  assert.equal(g[0].label, '오늘 반드시');
   assert.equal(g[2].label, '기타');
 });
 
@@ -49,7 +49,7 @@ test('shapeDashboard: 숫자 요약과 프로젝트 정리', () => {
       { name: 'a', path: '/p/a', lastActive: ago(10 * MIN), sessions24h: 2, commitsToday: 3, recentCommits: [{ sha: 'abcdef1234', subject: 'feat: x', time: ago(HOUR) }, { sha: 'zz' }] },
       { name: 'b', path: '/p/b', lastActive: ago(3 * DAY), sessions24h: 0, commitsToday: 0 },
     ],
-    todos: [{ id: '1', title: '리뷰', priority: 1 }, { id: '2', title: 'u', priority: 3 }],
+    todos: [{ id: '1', title: '리뷰', priority: 1, scheduledDate: '2026-10-09' }, { id: '2', title: 'u', priority: 3 }],
     proposals: [{ id: 'p', title: 'x', status: 'pending' }, { id: 'q', title: 'y', status: 'done' }],
     today: { date: '2026-10-09', items: [{ id: '1', title: '리뷰', done: false, priority: 1 }, { id: 'd', title: '끝', done: true, priority: 2 }] },
   }, NOW);
@@ -157,12 +157,12 @@ test('shapeDashboard: connectors → notReady, 오늘 할 일 탭은 항상 보�
   assert.equal(shapeConnectors([{ cap: 'slack', mode: 'gateway', ready: true }]).length, 0);
 });
 
-test('shapeDashboard: 오늘 할 일 = 우선순위 1(오늘 꼭): 「오늘 꼭」 줄 하나 + 오늘 끝냄 + 어제 남은 것 물음', () => {
+test('shapeDashboard: 오늘 할 일 = 우선순위 1(오늘 반드시): 「오늘 반드시」 줄 하나 + 오늘 끝냄 + 어제 남은 것 물음', () => {
   const vm = shapeDashboard({
     todos: [
       { id: 'a', title: '가', priority: 2 },
-      { id: 'b', title: '나', priority: 1, doing: true },
-      { id: 'c', title: '다', priority: 1 },
+      { id: 'b', title: '나', priority: 1, doing: true, scheduledDate: '2026-10-09' },
+      { id: 'c', title: '다', priority: 1, scheduledDate: '2026-10-09' },
       { id: 'e', title: '백로그', priority: 4 },
     ],
     today: { date: '2026-10-09', asked: true, carry: { n: 2, ids: ['c', 'x', 'nope'] }, items: [
@@ -171,7 +171,7 @@ test('shapeDashboard: 오늘 할 일 = 우선순위 1(오늘 꼭): 「오늘 꼭
       { id: 'gone', title: '응답 대기로 빠진 줄', done: false, priority: 1 },
     ] },
   }, NOW);
-  assert.deepEqual(vm.todayGroups.map((g) => [g.label, g.items.map((t) => t.id)]), [['오늘 꼭', ['b', 'c']]]);
+  assert.deepEqual(vm.todayGroups.map((g) => [g.label, g.items.map((t) => t.id)]), [['오늘 반드시', ['b', 'c']]]);
   assert.equal(vm.todayGroups[0].items[0].doing, true);
   assert.deepEqual(vm.todayDone.map((t) => [t.id, t.priority, t.auto]), [['x', 1, false]]);
   assert.equal(vm.stats.todayOpen, 2);

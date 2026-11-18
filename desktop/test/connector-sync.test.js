@@ -20,7 +20,7 @@ test('connectorChipView: 가져오는 중·못 가져옴(이유)·가져옴(일�
   assert.equal(connectorChipView({ ...base, sync: { phase: 'pending' } }).text, '연결됨 · 일정 가져오는 중');
   const fail = connectorChipView({ ...base, sync: { phase: 'failed', reason: '구글 캘린더의 「공개 주소」를 넣으셨어요' } });
   assert.deepEqual(fail, { tone: 'warn', text: '연결됨 · 일정을 못 가져옴', hint: '구글 캘린더의 「공개 주소」를 넣으셨어요' });
-  assert.equal(connectorChipView({ ...base, sync: { phase: 'ok', meetings: 0 } }).hint, '오늘·내일 일정 0개를 가져왔어요.');
+  assert.equal(connectorChipView({ ...base, sync: { phase: 'ok', meetings: 0 } }).hint, '오늘, 내일 일정 0개를 가져왔어요.');
   assert.deepEqual(connectorChipView({ cap: 'slack', mode: 'off' }), { tone: '', text: '연결 안 됨' });
   assert.deepEqual(connectorChipView({ ...base, ready: false }), { tone: 'warn', text: '준비 안 됨 · API' });
   for (const v of [fail, connectorChipView({ ...base, sync: { phase: 'pending' } })]) assert.ok(!JSON.stringify(v).includes('—'), 'em dash 없음');

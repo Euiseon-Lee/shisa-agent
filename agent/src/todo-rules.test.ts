@@ -264,10 +264,10 @@ test("프롬프트: 켜진 규칙을 브리핑·팝오버 맥락에 짧게, 백�
   s.store.upsertTodo({ id: "b", title: "견적 회신", source: "mail", priority: 1 });
   const ctx = buildContext(s.store, new Date("2026-10-08T01:00:00Z"));
   assert.match(ctx, /## 할 일 규칙[^\n]*\n- "앞으로 모든 세미나는 우선순위 매우 낮음" — 제목에 "세미나" → 언젠가·백로그\(P4\)/);
-  const open = ctx.slice(ctx.indexOf("## 현재 열린 할 일"), ctx.indexOf("## 언젠가·백로그"));
+  const open = ctx.slice(ctx.indexOf("## 현재 열린 할 일"), ctx.indexOf("## 낮은 중요도의 열린 할 일"));
   assert.match(open, /\[P1\] 견적 회신/);
   assert.doesNotMatch(open, /세미나 참석/);
-  assert.match(ctx.slice(ctx.indexOf("## 언젠가·백로그")), /id=a \[P4\] 세미나 참석/);
+  assert.match(ctx.slice(ctx.indexOf("## 낮은 중요도의 열린 할 일")), /id=a \[P4\] 세미나 참석/);
   assert.match(askPrompt(s.store, s.store.getTodo("b")!, "x"), /## 할 일 규칙/);
 });
 

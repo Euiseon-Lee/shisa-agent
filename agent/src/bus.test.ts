@@ -596,3 +596,16 @@ test("로컬 뇌 인사 말풍선은 고정 id(local-greet) — 같은 인사가
   bus.bubble({ id: LOCAL_GREET_ID, text: "좋은 저녁이에요.", kind: "info" });
   assert.equal((bus as any).recent.filter((b: any) => b.id === LOCAL_GREET_ID).length, 1);
 });
+
+test('scheduled-order endpoint validates scope, stale dates, target and CSRF', async()=>{
+ const {bus,post}=await serve({todoScheduleOrder:(id,date,before)=>id==='missing'?'missing':before==='other'?'bad_before':{id,scheduledDate:date}});
+ try {
+  const url='/todos/schedule-order';
+  assert.equal((await post(url,JSON.stringify({id:'a',date:null}),{})).status,403);
+  assert.equal((await post(url,JSON.stringify({id:'a',date:null}))).status,200);
+  assert.equal((await post(url,JSON.stringify({id:'a',date:'2026-11-18',beforeId:'b'}))).status,200);
+  assert.equal((await post(url,JSON.stringify({id:'a',date:'2026-11-18',beforeId:'other'}))).status,400);
+  assert.equal((await post(url,JSON.stringify({id:'missing',date:null}))).status,404);
+  for(const body of [{id:'a'}, {id:'a',date:3}, {id:'a',date:null,beforeId:2}])assert.equal((await post(url,JSON.stringify(body))).status,400);
+ } finally {bus.close();}
+});

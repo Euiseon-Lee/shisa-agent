@@ -1,4 +1,5 @@
-// 설정 창의 순수 로직: 모델·브리핑 출처·문구·자동 머지 레포·오늘 할 일 알림·일정 알림 저장 본문 검증, 문구 묶기·검사, 연결 상태 줄 묶기·표시 글.
+import { validSidebarPatch } from './sidebar.js';
+// 설정 창의 순수 로직: 모델·브리핑 출처·문구·자동 머지 저장소·오늘 할 일 알림·일정 알림 저장 본문 검증, 문구 묶기·검사, 연결 상태 줄 묶기·표시 글.
 // 데몬 GET/PUT /settings, GET /connections, POST /connections/check (docs/contract.md "설정 창").
 
 import { okCharacterId, MEDIA_SLOTS } from './character.js';
@@ -11,7 +12,7 @@ export const MODEL_ROLES = ['quick', 'general', 'code', 'light'];
 const okModel = (id) => typeof id === 'string' && /^[\w.-]{1,64}$/.test(id);
 const okSource = (s) => typeof s === 'string' && /^[a-z0-9-]{1,32}$/.test(s);
 const okPhraseKey = (k) => typeof k === 'string' && /^[a-z0-9_]{1,40}$/.test(k);
-// 자동 머지 레포 owner/name(데몬 agent/src/auto-merge.ts normSlug 와 같은 모양 — 링크는 데몬이 다듬지만 창은 owner/name 만 보낸다)
+// 자동 머지 저장소 owner/name(데몬 agent/src/auto-merge.ts normSlug 와 같은 모양 — 링크는 데몬이 다듬지만 창은 owner/name 만 보낸다)
 export const okRepoSlug = (s) => typeof s === 'string' && /^[\w.-]{1,100}\/[\w.-]{1,100}$/.test(s) && !s.includes('..') && !s.startsWith('.');
 export const AUTO_MERGE_MAX = 50;
 // 입력창 글 → owner/name(github 링크도 받는다). 모르면 ''
@@ -44,7 +45,7 @@ export function sanitizeSettingsPatch(p) {
     if (!okCharacterId(p.character)) return null; // 기본 여덟 또는 사용자 캐릭터 모양(있는지는 데몬이)
     out.character = p.character;
   }
-  // 이 맥의 Claude Code·Codex 작업 기록 읽기(켜고 끄기만)
+  // 이 컴퓨터의 Claude Code·Codex 작업 기록 읽기(켜고 끄기만)
   if (p.readSessions !== undefined) {
     if (typeof p.readSessions !== 'boolean') return null;
     out.readSessions = p.readSessions;
@@ -88,7 +89,7 @@ export function sanitizeSettingsPatch(p) {
     if (!Object.keys(ph).length || Object.keys(ph).length > 100) return null;
     out.phrases = ph;
   }
-  // 자동 머지 레포: 목록 통째로(빈 목록 = 전부 뺌)
+  // 자동 머지 저장소: 목록 통째로(빈 목록 = 전부 뺌)
   if (p.autoMerge !== undefined) {
     if (!Array.isArray(p.autoMerge) || p.autoMerge.length > AUTO_MERGE_MAX || !p.autoMerge.every(okRepoSlug)) return null;
     out.autoMerge = [...new Set(p.autoMerge)];
@@ -254,6 +255,11 @@ export function parseAlertMinutes(text) {
   return { mins: n };
 }
 // 칩으로 보일 분들: 기본 다섯 + 지금 고른 것 중 그 밖의 것
+export function alertTimeLabel(minutes) {
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  if (!h) return t('settings.min_before', { n: m });
+  return m ? t('settings.hours_minutes_before', { h, m }) : t('settings.hours_before', { h });
+}
 export const alertChoices = (list) => sortMins([...ALERT_PRESETS, ...(Array.isArray(list) ? list.filter(okAlertMin) : [])]).reverse();
 // 지금 설정을 한 줄로
 export function calendarAlertSummary(c) {
@@ -369,7 +375,7 @@ export const okStoredFile = (f) => typeof f === 'string' && /^[a-z_]{3,16}-[a-z0
 export const PANEL_TARGETS = ['setup', 'models'];
 export const okPanelTarget = (s) => typeof s === 'string' && PANEL_TARGETS.includes(s);
 // 줄에 [설치 안내]를 붙일까: 써야 하는데 안 되는 것만(안 씀·정상·모름은 아님)
-// 「이 맥에서 읽는 것」 카드: 작업 기록 읽기 켬/끔 + 레포 폴더(고른 폴더만 읽는다)
+// 「로컬 정보」 카드: 작업 기록 읽기 켬/끔 + 저장소 폴더(고른 폴더만 읽는다)
 export function localReadView(st) {
   const repos = Array.isArray(st?.repoRoots) ? st.repoRoots.filter((x) => typeof x === 'string') : [];
   return {
@@ -448,9 +454,10 @@ export function metaText(row, now = new Date()) {
 export function sanitizeAppPrefs(p) {
   if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
   const keys = Object.keys(p);
-  if (!keys.length || !keys.every((k) => k === 'openAtLogin' || k === 'updateCheck' || k === 'panelOverlay' || k === 'clickSwap' || k === 'appIcon')) return null;
+  if (!keys.length || !keys.every((k) => k === 'openAtLogin' || k === 'updateCheck' || k === 'panelOverlay' || k === 'clickSwap' || k === 'appIcon' || k === 'sidebarTabs')) return null;
   const out = {};
   for (const k of keys) {
+    if (k === 'sidebarTabs') { if (!validSidebarPatch(p[k])) return null; out[k] = { ...p[k] }; continue; }
     if (typeof p[k] !== 'boolean') return null;
     out[k] = p[k];
   }

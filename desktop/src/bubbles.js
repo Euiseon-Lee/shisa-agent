@@ -11,7 +11,7 @@ export const IMAGES = ['merge', 'merge_complete', 'lots', 'daily', 'daily_all_co
 export const SEQUENCE_GAP = 600; // 그림 → 글 사이
 export const STICKER_TTL = 15000; // 글이 오래 남아도 그림은 이만큼만
 const OPEN_SECTIONS = ['overview', 'projects', 'todos', 'today', 'chat', 'setup', 'models'];
-const DETAIL_MAX = 1200;
+const DETAIL_MAX = 12000;
 
 // 데몬에서 온 payload 정리. 잘못된 건 null.
 export function normalizeBubble(raw) {
@@ -22,6 +22,7 @@ export function normalizeBubble(raw) {
   if (!id || (!text && !image)) return null; // 그림만 있는 말풍선도 된다
   const kind = KINDS.includes(raw.kind) ? raw.kind : 'info';
   const b = { id, text, kind };
+  if (raw.transient === true) b.transient = true;
   if (image) b.image = image;
   if (typeof raw.detail === 'string' && raw.detail.trim()) b.detail = raw.detail.trim().slice(0, DETAIL_MAX);
   const open = normalizeOpen(raw.open);
@@ -169,7 +170,9 @@ export const isCarryDecision = (v) => v === 'keep' || v === 'demote';
 export const carryButtons = (b) => (b?.carry && !b.decided ? CARRY_CHOICES : []);
 
 export class BubbleQueue {
-  constructor({ max = MAX_VISIBLE } = {}) {
+  constructor({ max = MAX_VISIBLE, paged = false } = {}) {
+    this.paged = paged;
+    this.selectedId = null;
     this.max = max;
     this.items = []; // 오래된 것 → 최신 순
   }
@@ -180,6 +183,7 @@ export class BubbleQueue {
     if (i >= 0) this.items[i] = { ...b };
     else this.items.push(b);
     this.trim();
+    if (this.paged && (!this.selectedId || b.quick || b.tour)) this.selectedId = b.id;
     return this.visible();
   }
 
@@ -191,7 +195,9 @@ export class BubbleQueue {
 
   remove(id) {
     const n = this.items.length;
+    const index = this.items.findIndex((x) => x.id === id);
     this.items = this.items.filter((x) => x.id !== id);
+    if (this.selectedId === id) this.selectedId = this.items[Math.min(index, this.items.length - 1)]?.id ?? null;
     return this.items.length !== n;
   }
 
@@ -209,6 +215,7 @@ export class BubbleQueue {
   // 넘치면 오래된 비-제안부터 버린다. 제안만 남았으면 제일 오래된 걸 버린다(기다리는 승인 말풍선은 결정될 때까지 안 버림).
   // 방금 들어온 것(마지막)은 버리지 않는다 — 제안이 꽉 차 있어도 채팅 답은 보여야 함. 줄 서 있는 승인 말풍선은 개수에 안 친다
   trim() {
+    if (this.paged) return;
     for (;;) {
       const hidden = this.waitingHidden();
       const live = this.items.filter((x) => !hidden.has(x.id));
@@ -220,12 +227,28 @@ export class BubbleQueue {
     }
   }
 
+  page() {
+    return { index: Math.max(0, this.items.findIndex((x) => x.id === this.selectedId)), total: this.items.length };
+  }
+
+  move(delta) {
+    const { index, total } = this.page();
+    this.selectedId = this.items[Math.max(0, Math.min(total - 1, index + delta))]?.id ?? null;
+    return this.visible();
+  }
+
   visible() {
+    if (this.paged) {
+      const selected = this.items.find((x) => x.id === this.selectedId) ?? this.items[0];
+      this.selectedId = selected?.id ?? null;
+      return selected ? [selected] : [];
+    }
     const hidden = this.waitingHidden();
     return this.items.filter((x) => !hidden.has(x.id)).slice(-this.max);
   }
 
   clear() {
+    this.selectedId = null;
     this.items = [];
   }
 }
@@ -260,5 +283,5 @@ export const BUBBLE_PURIFY = {
   FORBID_ATTR: ['style'],
 };
 // 남길 class: 색 글자(c-red…)·콜아웃뿐. 렌더러가 거른 HTML 의 class 를 이걸로 한 번 더 추린다
-const BUBBLE_CLASS = /^(?:c-(?:red|green|blue|orange|purple|gray)|callout(?:-(?:note|tip|important|warning|caution|title))?)$/;
+const BUBBLE_CLASS = /^(?:notification-date|notification-day|c-(?:red|green|blue|orange|purple|gray)|callout(?:-(?:note|tip|important|warning|caution|title))?)$/;
 export const keepClasses = (cls) => String(cls ?? '').split(/\s+/).filter((c) => BUBBLE_CLASS.test(c)).join(' ');

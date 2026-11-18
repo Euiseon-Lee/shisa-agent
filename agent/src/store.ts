@@ -1,3 +1,5 @@
+import { installActivityTracking } from './activity-statistics.ts';
+import { parseSchedule, addScheduleDays, scheduledViewDate, type TodoSchedule } from "./todo-schedule.ts";
 // 로컬 지식그래프 + 작업 상태. node:sqlite 하나에 다 담는다(~/.cy-agent/cy.db).
 import { localDate } from "./calendar.ts";
 import { chmodSync } from "node:fs";
@@ -10,6 +12,8 @@ import { IS_WIN, pathWithin } from "./plat.ts";
 export type Node = { id: string; kind: string; label: string; props: Record<string, unknown>; updated: string };
 export type Todo = {
   id: string; title: string; source: string; link?: string; priority: number; status: string; created: string;
+  schedule?: TodoSchedule; seriesId?: string;
+  scheduleSort?: number; scheduledDate?: string; doneAt?: string; irrelevantAt?: string;
   note?: string; updated?: string; userEdited?: TodoField[]; // 사용자가 직접 고친 필드 — 브리핑이 덮어쓰지 않는다
   doneBy?: TodoDoneBy;          // 끝낸 주체(열린 할 일엔 없음)
   autoReason?: string;          // 자동 완료 이유(한 줄)
@@ -44,9 +48,9 @@ export const kstDay = (iso: string | number | Date) => {
 };
 export type AutoEvidence = { ids: string[]; permalink?: string };
 export type TodoField = "title" | "priority" | "link" | "note" | "status" | "description";
-// today: 오늘 할 일 = 우선순위 1(오늘 꼭). true·날짜 글 = 오늘 할 일에 넣기(P1), false·null = 빼기(P1 이면 P2 이번 주로, 할 일은 그대로)
+// today: 오늘 할 일 = 우선순위 1(오늘 반드시). true·날짜 글 = 오늘 할 일에 넣기(P1), false·null = 빼기(P1 이면 P2 이번 주로, 할 일은 그대로)
 // projectId: 직접 만든 프로젝트에 묶기(id)·빼기(null). 사용자 필드(userEdited)로 치지 않는다
-export type TodoPatch = { title?: string; priority?: number; link?: string | null; note?: string | null; status?: "open" | "done"; description?: string | null; doing?: boolean | null; today?: boolean | string | null; projectId?: string | null };
+export type TodoPatch = { schedule?: TodoSchedule | null; stopRepeat?: boolean; scheduledDate?: string | null; irrelevant?: boolean; title?: string; priority?: number; link?: string | null; note?: string | null; status?: "open" | "done"; description?: string | null; doing?: boolean | null; today?: boolean | string | null; projectId?: string | null };
 // 휴지통에 든 할 일(패널 '휴지통' 그룹). priority·status는 옮기기 전 것
 export type TrashedTodo = Todo & { trashedAt: string; prevStatus: string };
 export const TRASH_KEEP_DAYS = 30; // 휴지통에 이보다 오래 있으면 영구 삭제
@@ -103,7 +107,7 @@ CREATE INDEX IF NOT EXISTS todo_ledger_todo ON todo_ledger(todo_id, n);
 `;
 
 const now = () => new Date().toISOString();
-// 예전 「오늘로 고르기」 값 → 넣기(true)·빼기(false). 오늘 할 일은 우선순위 1(오늘 꼭)이라 plan_day 는 더 쓰지 않는다(읽기 호환만, daily-plan.ts)
+// 예전 「오늘로 고르기」 값 → 넣기(true)·빼기(false). 오늘 할 일은 우선순위 1(오늘 반드시)이라 plan_day 는 더 쓰지 않는다(읽기 호환만, daily-plan.ts)
 const intoToday = (v: boolean | string | null | undefined): boolean => v === true || (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v));
 
 function todoRow(r: any): Todo {
@@ -118,6 +122,11 @@ function todoRow(r: any): Todo {
   const done = r.status === "done";
   return {
     id: r.id, title: r.title, source: r.source, ...(r.link ? { link: r.link } : {}), priority: r.priority, status: r.status, created: r.created,
+    ...(r.schedule ? { schedule: JSON.parse(r.schedule) as TodoSchedule } : {}),
+    ...(r.series_id ? { seriesId: r.series_id } : {}),
+    ...(r.scheduled_date ? { scheduledDate: scheduledViewDate(r.schedule ? JSON.parse(r.schedule) : undefined, r.scheduled_date, kstDay(now())) } : {}),
+    ...(r.done_at ? { doneAt: r.done_at } : {}),
+    ...(r.irrelevant_at ? { irrelevantAt: r.irrelevant_at } : {}),
     ...(r.note ? { note: r.note } : {}), ...(r.updated ? { updated: r.updated } : {}), userEdited: edited,
     ...(done && r.done_by ? { doneBy: r.done_by } : {}),
     ...(done && r.done_by === "auto" && r.auto_reason ? { autoReason: r.auto_reason } : {}),
@@ -126,6 +135,7 @@ function todoRow(r: any): Todo {
     ...(r.description ? { description: r.description } : {}),
     ...(origin ? { origin } : {}),
     ...(r.source_ref ? { sourceRef: r.source_ref } : {}),
+    ...(Number.isFinite(r.schedule_sort) ? { scheduleSort: r.schedule_sort } : {}),
     ...(r.sort !== null && r.sort !== undefined ? { sort: r.sort } : {}),
     ...(rule ? { appliedRule: rule } : {}),
     ...(r.progress ? { progress: r.progress, ...(r.progress_at ? { progressAt: r.progress_at } : {}) } : {}),
@@ -153,6 +163,7 @@ export class Store {
     this.db.exec("PRAGMA journal_mode = WAL;");
     this.db.exec(SCHEMA);
     this.migrate();
+    installActivityTracking(this.db);
     lockDown(path);
   }
 
@@ -160,6 +171,8 @@ export class Store {
   private migrate() {
     const cols = new Set((this.db.prepare("PRAGMA table_info(todos)").all() as any[]).map((c) => c.name));
     const add: [string, string][] = [
+      ["schedule_sort", "REAL"], ["schedule", "TEXT"], ["series_id", "TEXT"],
+      ["scheduled_date", "TEXT"], ["done_at", "TEXT"], ["irrelevant_at", "TEXT"],
       ["note", "TEXT"], ["updated", "TEXT"], ["user_edited", "TEXT NOT NULL DEFAULT '[]'"],
       ["done_by", "TEXT"], ["auto_reason", "TEXT"], ["auto_evidence", "TEXT"], ["auto_reverted", "INTEGER NOT NULL DEFAULT 0"],
       ["description", "TEXT"], ["origin", "TEXT"], ["source_ref", "TEXT"], ["sort", "REAL"], ["applied_rule", "TEXT"],
@@ -171,6 +184,7 @@ export class Store {
       ["project_order", "INTEGER"], // 그 프로젝트 안 순서(manual-projects.ts reorder)
     ];
     for (const [name, type] of add) if (!cols.has(name)) this.db.exec(`ALTER TABLE todos ADD COLUMN ${name} ${type}`);
+    this.db.exec("CREATE TABLE IF NOT EXISTS todo_series (id TEXT PRIMARY KEY, template TEXT NOT NULL, schedule TEXT NOT NULL, cursor TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1)");
     // 순서 열이 막 생겼으면: 이미 묶인 할 일에 예전 보이던 순서(열린 것 먼저·우선순위·끌기 순서·만든 때)로 0..n 을 매긴다
     if (!cols.has("project_order")) this.db.exec(`UPDATE todos SET project_order = (SELECT n FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY project_id
       ORDER BY status = 'done', priority, sort IS NULL, sort, created) - 1 AS n FROM todos WHERE project_id IS NOT NULL) o WHERE o.id = todos.id) WHERE project_id IS NOT NULL`);
@@ -178,6 +192,22 @@ export class Store {
     const hadLedger = !!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'todo_ledger'").get();
     this.db.exec(LEDGER);
     if (!hadLedger) this.backfillLedger();
+    // Existing completion events are authoritative; old records without events use their last known time once.
+    if (!cols.has("done_at")) this.db.exec(`UPDATE todos SET done_at = coalesce(
+      (SELECT at FROM todo_ledger WHERE todo_id = todos.id AND action = 'done' ORDER BY n DESC LIMIT 1), updated, created)
+      WHERE status = 'done' OR (status = 'trashed' AND prev_status = 'done')`);
+    if (!cols.has("scheduled_date")) this.db.prepare("UPDATE todos SET scheduled_date = CASE WHEN plan_day IS NOT NULL THEN plan_day WHEN priority = 1 THEN ? ELSE NULL END WHERE status = 'open'").run(kstDay(now()));
+    // Record only actual completion transitions, never ordinary title/note edits.
+    this.db.exec(`
+      CREATE TRIGGER IF NOT EXISTS todo_completed_insert AFTER INSERT ON todos WHEN NEW.status = 'done'
+      BEGIN UPDATE todos SET done_at = coalesce(NEW.done_at, NEW.updated, NEW.created) WHERE id = NEW.id; END;
+      CREATE TRIGGER IF NOT EXISTS todo_completed_update AFTER UPDATE OF status ON todos WHEN OLD.status <> NEW.status
+      BEGIN UPDATE todos SET done_at = CASE
+        WHEN NEW.status = 'done' THEN CASE WHEN OLD.status IN ('trashed', 'irrelevant') THEN coalesce(NEW.done_at, NEW.updated) ELSE NEW.updated END
+        WHEN NEW.status = 'open' THEN NULL ELSE NEW.done_at END WHERE id = NEW.id; END;
+      CREATE TRIGGER IF NOT EXISTS todo_date_insert AFTER INSERT ON todos WHEN NEW.priority = 1 AND NEW.scheduled_date IS NULL
+      BEGIN UPDATE todos SET scheduled_date = date('now', 'localtime') WHERE id = NEW.id; END;
+    `);
     const chatCols = new Set((this.db.prepare("PRAGMA table_info(chat)").all() as any[]).map((c) => c.name));
     // edited_at·original_text: 고쳐 다시 보낸 말 · hidden_at: 말을 고쳐서 걷힌 뒤쪽 말(지우지 않고 숨김 — 기록은 남는다)
     for (const name of ["todo_id", "todo_title", "thread_id", "via", "client_id", "queued_at", "edited_at", "original_text", "hidden_at", "attachments"]) if (!chatCols.has(name)) this.db.exec(`ALTER TABLE chat ADD COLUMN ${name} TEXT`);
@@ -255,6 +285,7 @@ export class Store {
   // 새 id 라도 같은 일(todo-match.ts — 참조 키·제목)이 휴지통·묘비·최근 끝낸 일에 있으면 "blocked"(안 만든다),
   // 열린 할 일에 있으면 그 할 일로 합친다("merged" — 사용자가 고친 필드는 그대로). 둘 다 일지에 하루 한 번 남긴다
   upsertTodo(t: Omit<Todo, "status" | "created" | "userEdited" | "updated" | "origin"> & { status?: string; origin?: TodoSource }, by: TodoActor = "briefing"): UpsertResult {
+    if (this.isIrrelevant(t)) return "blocked";
     if (this.isTombstoned(t.id) || this.trashedTodo(t.id)) return "skipped"; // 지운(휴지통 포함) id는 되살리지 않는다
     const cur = this.getTodo(t.id);
     if (!cur) {
@@ -373,17 +404,66 @@ export class Store {
   }
 
   // 사용자가 직접 추가한 할 일
-  addTodo(t: { title: string; priority?: number; link?: string | null; note?: string | null; source?: string; description?: string | null; sourceRef?: string | null; origin?: TodoSource; today?: boolean | string | null; projectId?: string | null }, by: TodoActor = "user"): Todo {
-    const id = `user:${randomUUID()}`;
+  addTodo(t: { schedule?: TodoSchedule | null; title: string; priority?: number; link?: string | null; note?: string | null; source?: string; description?: string | null; sourceRef?: string | null; origin?: TodoSource; today?: boolean | string | null; scheduledDate?: string | null; projectId?: string | null }, by: TodoActor = "user"): Todo {
+    if (t.schedule?.mode === 'repeat') return this.addRepeatingTodo(t, by);
+    if (t.schedule) parseSchedule(t.schedule);
+    const id = 'user:' + randomUUID();
     const at = now();
-    const priority = intoToday(t.today) ? 1 : t.priority ?? 2; // 오늘 할 일에 넣어 만들면 P1(오늘 꼭)
+    const priority = intoToday(t.today) ? 1 : t.priority ?? 2; // 오늘 할 일에 넣어 만들면 P1(오늘 반드시)
     this.db
       .prepare("INSERT INTO todos (id, title, source, link, priority, status, created, note, updated, description, source_ref, origin, project_id, project_order) VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(id, t.title, t.source ?? "user", t.link ?? null, priority, at, t.note ?? null, at,
         t.description ?? null, t.sourceRef ?? null, t.origin ? JSON.stringify(t.origin) : null, t.projectId ?? null,
         t.projectId ? this.nextProjectOrder(t.projectId) : null);
+    if (t.scheduledDate !== undefined) this.db.prepare("UPDATE todos SET scheduled_date = ? WHERE id = ?").run(t.scheduledDate, id);
+    if (t.schedule) this.db.prepare("UPDATE todos SET schedule = ?, scheduled_date = ? WHERE id = ?").run(JSON.stringify(t.schedule), t.schedule.start, id);
     this.log(id, t.title, "added", by, undefined, at);
     return this.getTodo(id)!;
+  }
+
+  private addRepeatingTodo(t: Parameters<Store['addTodo']>[0], by: TodoActor, from?: string, skipDates: string[] = []): Todo {
+    const schedule = parseSchedule(t.schedule)!;
+    const id = 'series:' + randomUUID();
+    const { schedule: ignored, ...fields } = t;
+    const template = {...fields,skipDates};
+    // Find the first selected weekday, without expanding an unbounded series.
+    let first = from && from > schedule.start ? from : schedule.start;
+    while (first <= schedule.end && (skipDates.includes(first) || !schedule.days!.includes(new Date(first+'T12:00:00Z').getUTCDay()))) first = addScheduleDays(first,1);
+    if(first > schedule.end) throw Error('기간 안에 선택한 요일이 없습니다.');
+    this.db.prepare('INSERT INTO todo_series(id,template,schedule,cursor) VALUES (?,?,?,?)').run(id, JSON.stringify(template), JSON.stringify(schedule), first);
+    this.materializeRepeats();
+    const row = this.db.prepare('SELECT * FROM todos WHERE series_id = ? ORDER BY scheduled_date LIMIT 1').get(id);
+    return todoRow(row);
+  }
+
+  // Durable cursor prevents recreation after completion, exclusion or permanent deletion.
+  // Generate through two weeks ahead; a far-future series gets its first fortnight only.
+  materializeRepeats(day = kstDay(now())) {
+    this.db.exec('SAVEPOINT repeat_materialize');
+    try {
+      for(const row of this.db.prepare('SELECT * FROM todo_series WHERE active = 1').all() as any[]) {
+        const schedule = JSON.parse(row.schedule) as TodoSchedule;
+        const template = JSON.parse(row.template);
+        const horizon = addScheduleDays(day > schedule.start ? day : schedule.start,14);
+        const until = schedule.end < horizon ? schedule.end : horizon;
+        let date = row.cursor;
+        let scanned=0;
+        while(date <= until && scanned++ < 366) {
+          if(!template.skipDates?.includes(date) && schedule.days!.includes(new Date(date+'T12:00:00Z').getUTCDay())) {
+            const t=this.addTodo({...template,scheduledDate:date});
+            this.db.prepare('UPDATE todos SET series_id = ?, schedule = ? WHERE id = ?').run(row.id, row.schedule, t.id);
+          }
+          date=addScheduleDays(date,1);
+        }
+        this.db.prepare('UPDATE todo_series SET cursor = ? WHERE id = ?').run(date,row.id);
+      }
+      this.db.exec('RELEASE repeat_materialize');
+    } catch(e) {this.db.exec('ROLLBACK TO repeat_materialize; RELEASE repeat_materialize');throw e;}
+  }
+
+  stopRepeating(id: string) {
+    const t=this.getTodo(id);
+    if(t?.seriesId) this.db.prepare('UPDATE todo_series SET active = 0 WHERE id = ?').run(t.seriesId);
   }
 
   // 설명·원본 캐시(사용자 편집 아님 — user_edited 안 건드림)
@@ -412,6 +492,24 @@ export class Store {
   // 드래그 순서 바꾸기: priority 그룹으로 옮기고 beforeId 앞(없으면 끝)에. 그 그룹 순서를 0..n으로 다시 매긴다.
   // 옮긴 할 일의 우선순위는 같은 묶음 안에서 옮겨도 사용자 편집으로 기억한다(사용자가 그 자리에 둔 것이라 브리핑·규칙이 다른 묶음으로 빼서
   // 정한 순서를 흩뜨리지 않게). 없는 id면 undefined, beforeId가 그 그룹의 열린 할 일이 아니면 "bad_before"
+  reorderScheduledTodo(id: string, date: string | null, beforeId?: string): Todo | "bad_before" | undefined {
+    const cur = this.getTodo(id);
+    if (!cur || cur.status !== 'open') return undefined;
+    if ((cur.scheduledDate ?? null) !== date) return 'bad_before';
+    const group = this.openTodos().filter(t => (t.scheduledDate ?? null) === date && t.id !== id)
+      .sort((a,b) => (a.scheduleSort ?? Number.MAX_SAFE_INTEGER) - (b.scheduleSort ?? Number.MAX_SAFE_INTEGER));
+    const at = beforeId === undefined ? group.length : group.findIndex(t => t.id === beforeId);
+    if (at < 0) return 'bad_before';
+    const order = [...group.slice(0,at),cur,...group.slice(at)];
+    this.db.exec('SAVEPOINT schedule_order');
+    try {
+      const update = this.db.prepare('UPDATE todos SET schedule_sort = ? WHERE id = ?');
+      order.forEach((t,i) => update.run(i,t.id));
+      this.db.exec('RELEASE schedule_order');
+    } catch (e) { this.db.exec('ROLLBACK TO schedule_order; RELEASE schedule_order'); throw e; }
+    return this.getTodo(id);
+  }
+
   reorderTodo(id: string, priority: number, beforeId?: string): Todo | "bad_before" | undefined {
     const cur = this.getTodo(id);
     if (!cur) return undefined;
@@ -445,12 +543,37 @@ export class Store {
 
   // 사용자 수정: 바꾼 필드를 user_edited에 기억한다. 없는 id면 undefined
   editTodo(id: string, patch: TodoPatch): Todo | undefined {
+    if (patch.schedule !== undefined) {
+      const schedule = parseSchedule(patch.schedule);
+      const current = this.getTodo(id);
+      if(!current) return undefined;
+      this.db.exec('SAVEPOINT change_schedule');
+      try {
+        if(current.seriesId) {
+          this.stopRepeating(id);
+          // Only untouched future instances are replaced; completed/past work remains history.
+          this.db.prepare("DELETE FROM todos WHERE series_id = ? AND id <> ? AND scheduled_date >= ? AND status = 'open' AND coalesce(doing,0) = 0 AND user_edited = '[]'").run(current.seriesId,id,current.scheduledDate || kstDay(now()));
+        }
+        if(schedule?.mode==='repeat') {
+          const {schedule: old, seriesId, ...template}=current;
+          const skipDates=current.seriesId ? (this.db.prepare('SELECT scheduled_date FROM todos WHERE series_id = ? AND id <> ?').all(current.seriesId,id) as any[]).map(r=>r.scheduled_date) : [];
+          const created=this.addRepeatingTodo({...template,schedule},'user',current.seriesId?current.scheduledDate:undefined,skipDates);
+          this.db.prepare('DELETE FROM todos WHERE id = ?').run(created.id);
+          this.db.prepare('UPDATE todos SET schedule = ?, series_id = ?, scheduled_date = ? WHERE id = ?').run(JSON.stringify(schedule),created.seriesId!,created.scheduledDate!,id);
+        } else this.db.prepare('UPDATE todos SET schedule = ?, series_id = NULL, scheduled_date = ? WHERE id = ?').run(schedule?JSON.stringify(schedule):null,schedule?.start ?? patch.scheduledDate ?? null,id);
+        this.db.exec('RELEASE change_schedule');
+      } catch(e) {this.db.exec('ROLLBACK TO change_schedule; RELEASE change_schedule');throw e;}
+      const {schedule: ignored, scheduledDate: date, ...rest}=patch;
+      return Object.keys(rest).length ? this.editTodo(id,rest) : this.getTodo(id);
+    }
+    if(patch.stopRepeat) this.stopRepeating(id);
+    if (patch.irrelevant !== undefined) return this.setIrrelevant(id, patch.irrelevant);
     const cur = this.getTodo(id);
     if (!cur) return undefined;
     // 오늘 할 일 넣기·빼기 = 우선순위 1 로 올리기·2(이번 주)로 내리기. 우선순위를 같이 주면 그쪽이 먼저
     if (patch.today !== undefined) {
       const { today, ...rest } = patch;
-      patch = rest;
+      patch = { ...rest, scheduledDate: rest.scheduledDate !== undefined ? rest.scheduledDate : intoToday(today) ? kstDay(now()) : null };
       if (rest.priority === undefined) {
         if (intoToday(today)) { if (cur.priority !== 1) patch.priority = 1; }
         else if (cur.priority === 1) patch.priority = 2;
@@ -473,6 +596,8 @@ export class Store {
       sets.push("project_id = ?"); vals.push(patch.projectId || null);
       if ((patch.projectId || undefined) !== cur.projectId) { sets.push("project_order = ?"); vals.push(patch.projectId ? this.nextProjectOrder(patch.projectId) : null); }
     }
+    if (patch.scheduledDate !== undefined && cur.schedule?.mode === "range") { sets.push("schedule = NULL"); }
+    if (patch.scheduledDate !== undefined) { sets.push("scheduled_date = ?"); vals.push(patch.scheduledDate); }
     if (!sets.length) return cur;
     if (patch.status !== undefined && patch.status !== cur.status) { sets.push("done_by = ?"); vals.push(patch.status === "done" ? "user" : null); }
     sets.push("user_edited = ?", "updated = ?");
@@ -554,17 +679,50 @@ export class Store {
     return n;
   }
 
+  clearIrrelevant(id?: string): number {
+    const rows = (id === undefined
+      ? this.db.prepare("SELECT id, title FROM todos WHERE status = 'irrelevant' AND trashed_at IS NULL").all()
+      : this.db.prepare("SELECT id, title FROM todos WHERE status = 'irrelevant' AND trashed_at IS NULL AND id = ?").all(id)) as {id: string; title: string}[];
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const row of rows) {
+        this.log(row.id, row.title, 'purged', 'user', '관련없음 기록 삭제: 추천 제외 해제');
+        this.db.prepare("DELETE FROM todos WHERE id = ? AND status = 'irrelevant' AND trashed_at IS NULL").run(row.id);
+      }
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    return rows.length;
+  }
+
+  irrelevantTodos(): Todo[] {
+    return (this.db.prepare("SELECT * FROM todos WHERE status = 'irrelevant' ORDER BY irrelevant_at DESC").all() as any[]).map(todoRow);
+  }
+  isIrrelevant(t: { id: string; title: string; sourceRef?: string; source?: string; link?: string }): boolean {
+    const norm = (v: string) => v.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+    return this.irrelevantTodos().some(x => x.id === t.id || (
+      norm(x.title) === norm(t.title) && ((!!x.sourceRef && x.sourceRef === t.sourceRef) || (!!x.link && x.link === t.link))
+    ));
+  }
+  setIrrelevant(id: string, on: boolean): Todo | undefined {
+    const row = this.db.prepare("SELECT * FROM todos WHERE id = ? AND trashed_at IS NULL").get(id) as any;
+    if (!row || (on ? row.status !== 'open' : row.status !== 'irrelevant')) return undefined;
+    this.db.prepare("UPDATE todos SET status = ?, irrelevant_at = ?, updated = ? WHERE id = ?")
+      .run(on ? 'irrelevant' : 'open', on ? now() : null, now(), id);
+    this.log(id, row.title, on ? 'blocked' : 'restored', 'user', on ? '관련없음: 같은 원본의 동일 항목 제외' : '관련없음 해제');
+    return todoRow(this.db.prepare("SELECT * FROM todos WHERE id = ?").get(id));
+  }
   getTodo(id: string): Todo | undefined {
-    const r = this.db.prepare("SELECT * FROM todos WHERE id = ? AND trashed_at IS NULL").get(id); // 휴지통에 든 건 없는 셈
+    const r = this.db.prepare("SELECT * FROM todos WHERE id = ? AND trashed_at IS NULL AND status <> 'irrelevant'").get(id); // 휴지통에 든 건 없는 셈
     return r ? todoRow(r) : undefined;
   }
-  // 오늘 할 일 = 우선순위 1(오늘 꼭) 중 열린 것 + 그날(이 맥 시간대) 끝낸 것. 휴지통 제외. 순서는 열린 할 일 목록과 같다
+  // 오늘 할 일 = 우선순위 1(오늘 반드시) 중 열린 것 + 그날(이 맥 시간대) 끝낸 것. 휴지통 제외. 순서는 열린 할 일 목록과 같다
   todayTodos(day: string): Todo[] {
-    const rows = this.db.prepare("SELECT * FROM todos WHERE priority = 1 AND trashed_at IS NULL AND (status = 'open' OR (status = 'done' AND coalesce(updated, created) >= ?)) ORDER BY sort IS NULL, sort, created")
-      .all(new Date(Date.parse(`${day}T00:00:00Z`) - 2 * 864e5).toISOString()) as any[]; // 시간대 여유를 두고 거른 뒤 날짜로 다시 본다
-    return rows.map(todoRow).filter((t) => t.status === "open" || kstDay(t.updated ?? t.created) === day);
+    this.materializeRepeats(day);
+    const rows = this.db.prepare("SELECT * FROM todos WHERE (scheduled_date = ? OR (json_extract(schedule, '$.mode') = 'range' AND json_extract(schedule, '$.start') <= ? AND json_extract(schedule, '$.end') >= ?)) AND status IN ('open','done') AND trashed_at IS NULL ORDER BY sort IS NULL, sort, created").all(day,day,day) as any[];
+    return rows.map(todoRow).filter(t => t.status === 'open' || (!!t.doneAt && kstDay(t.doneAt) === day));
   }
   openTodos(): Todo[] {
+    this.materializeRepeats();
     return (this.db.prepare("SELECT * FROM todos WHERE status = 'open' ORDER BY priority, sort IS NULL, sort, created").all() as any[]).map(todoRow);
   }
   // 최근에 끝낸 할 일(되살리기 대상), 최신순
@@ -615,8 +773,16 @@ export class Store {
   }
 
   // 패널 '최근 완료': sinceIso 이후 끝난 할 일, 최신순
+  completionStats(at = new Date()): { days: { date: string; count: number }[]; total: number } {
+    const last = kstDay(at);
+    const first = new Date(at); first.setDate(first.getDate() - 6);
+    const rows = this.db.prepare("SELECT date(done_at, 'localtime') AS day, COUNT(*) AS n FROM todos WHERE status = 'done' AND date(done_at, 'localtime') BETWEEN ? AND ? GROUP BY day").all(kstDay(first), last) as any[];
+    const counts = new Map(rows.map(r => [r.day, Number(r.n)]));
+    const days = Array.from({length:7}, (_,i) => { const d = new Date(first); d.setDate(d.getDate()+i); const date = kstDay(d); return {date, count:counts.get(date) || 0}; });
+    return {days, total:days.reduce((sum,d)=>sum+d.count,0)};
+  }
   recentlyDone(sinceIso: string, limit = 10): Todo[] {
-    return (this.db.prepare("SELECT * FROM todos WHERE status = 'done' AND coalesce(updated, created) >= ? ORDER BY coalesce(updated, created) DESC LIMIT ?")
+    return (this.db.prepare("SELECT * FROM todos WHERE status = 'done' AND done_at >= ? ORDER BY done_at DESC, id LIMIT ?")
       .all(sinceIso, limit) as any[]).map(todoRow);
   }
 

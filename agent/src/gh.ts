@@ -131,13 +131,13 @@ export function shrinkJson(v: unknown, strMax = 4000, arrMax = 60): unknown {
   return v;
 }
 
-export type GhOpts = { bin?: string; timeoutMs?: number; maxOut?: number };
+export type GhOpts = { exec?: typeof execFile; bin?: string; timeoutMs?: number; maxOut?: number };
 export type GhResult = { ok: boolean; out: string; err?: string };
 
 export function runGh(args: string[], o: GhOpts = {}): Promise<GhResult> {
   if (!isAllowedArgv(args)) return Promise.resolve({ ok: false, out: "", err: `허용되지 않은 gh 명령: ${args.slice(0, 2).join(" ")}` });
   return new Promise((resolve) => {
-    execFile(o.bin ?? "gh", args, {
+    (o.exec ?? execFile)(o.bin ?? "gh", args, {
       timeout: o.timeoutMs ?? GH_TIMEOUT_MS,
       maxBuffer: RAW_MAX_BUFFER,
       encoding: "utf8",

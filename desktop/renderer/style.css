@@ -157,8 +157,8 @@ body.char-hidden #stage { visibility: hidden; }
 .bubble .md th, .bubble .md td { padding: 3px 7px 3px 0; text-align: left; border-bottom: 1px solid var(--bubble-border); vertical-align: top; }
 .bubble .md th { color: var(--bubble-muted); font-weight: 600; }
 /* 말풍선에 표가 오면 깨지지 않게 줄여 보인다: 말풍선 폭을 넘지 않고, 칸은 한 줄로 자르고 … */
-.bubble .md table { display: block; max-width: 100%; overflow: hidden; }
-.bubble .md th, .bubble .md td { max-width: 9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bubble .md table { display: table; width: 100%; max-width: 100%; table-layout: auto; }
+.bubble .md th, .bubble .md td { white-space: normal; overflow-wrap: anywhere; }
 .bubble .md a { color: var(--accent); }
 .bubble .md .c-red { color: #c62828; } .bubble .md .c-green { color: #1b7a3a; } .bubble .md .c-blue { color: #1f5fbf; }
 .bubble .md .c-orange { color: #b35400; } .bubble .md .c-purple { color: #6b3fc4; } .bubble .md .c-gray { color: var(--bubble-muted); }
@@ -554,3 +554,25 @@ body.char-hidden #stage { visibility: hidden; }
   #char, #char-body, #char-wrap.sleepy #char-body, #dots i, #zzz, .sticker, .bubble, #focus, #focus-label::before, #doing, #doing-label::before { animation: none !important; }
 }
 
+
+/* Readable todo tables: reserve most space for titles and scroll long lists. */
+.bubble.wide:has(table) { width: 380px; }
+.bubble .md table:has(th:nth-child(3):last-child) { table-layout: fixed; }
+.bubble .md table:has(th:nth-child(3):last-child) :is(th, td):first-child { width: 21%; }
+.bubble .md table:has(th:nth-child(3):last-child) :is(th, td):last-child { width: 17%; padding-right: 0; }
+.bubble.wide .detail:has(table) { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.bubble.wide.overflow .detail:has(table) { -webkit-mask-image: none; mask-image: none; }
+
+.notification-footer { display:flex; align-items:center; gap:8px; margin-top:10px; padding-top:8px; border-top:1px solid var(--bubble-border); }
+.notification-footer button { min-width:28px; min-height:26px; cursor:pointer; }
+.notification-footer button:disabled { opacity:.35; cursor:default; }
+.notification-count { color:var(--bubble-muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.notification-footer .notification-ack { margin-left:auto; }
+
+.notification-date { white-space:nowrap; }
+.notification-day { color:var(--bubble-muted); font-size:11px; }
+.notification-save-error { flex-basis:100%; color:var(--err, #c4271d); font-size:11px; }
+.notification-footer { flex-wrap:wrap; }
+
+/* Table headings share the same alignment; body cells retain their own alignment. */
+th, th[class], .md th, .briefing-tasks th { text-align: center !important; }

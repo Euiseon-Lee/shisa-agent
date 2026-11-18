@@ -170,7 +170,7 @@ test('설정 창: 한국어로 열어 둔 창이 언어 바뀜(lang)에 바로 �
   await page.settle();
   assert.equal(page.$('#h-rem').textContent, '오늘 할 일 알림');
   assert.equal(page.document.title, '설정');
-  assert.match(page.$('#rem-summary').textContent, /영업일 아침 첫 실행 때 한 번, 그 뒤 2시간마다\(8시~21시\), 10:00, 15:30에 알려요/);
+  assert.match(page.$('#rem-summary').textContent, /영업일 아침 첫 실행 때 한 번, 그 뒤 2시간마다\(8시~21시\), 10:00, 15:30에 알려 줘요/);
 });
 
 test('설정 창이 쓰는 순수 모듈 글(일본어): 요약·오류·연결 해제·캘린더·캐릭터 편집·행동 지침에 한글 없음', () => {
@@ -210,10 +210,10 @@ test('설정 창이 쓰는 순수 모듈 글(일본어): 요약·오류·연결 
   // 되돌리면 한국어 그대로(live binding 포함)
   setLanguage('ko');
   assert.equal(CALENDAR_DUP, '이미 연결된 캘린더예요. 다른 주소를 붙여 주세요.');
-  assert.equal(NOT_FOUND, '못 찾았어요. 구·시 이름으로 다시 적어 주세요');
+  assert.equal(NOT_FOUND, '검색 결과가 없어요. 시 또는 구 이름으로 다시 검색해 주세요.');
   assert.equal(MULTI_HINT, '여러 개 넣으면 그때마다 랜덤으로 하나가 나와요');
   assert.equal(STATE_LABEL.warn, '확인 필요');
   assert.equal(DAY_LABEL[4], '목');
-  assert.equal(CAL_TEXT.meetings(2), '오늘·내일 일정 2개');
+  assert.equal(CAL_TEXT.meetings(2), '오늘, 내일 일정 2개');
   assert.equal(t('settings.title'), '설정');
 });

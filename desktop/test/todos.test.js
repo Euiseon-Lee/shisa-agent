@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanLink, cleanTitle, detailPatch, newTodoBody, overlayTodos, sanitizeTodoPatch, patchToday, isToday, todayPatch } from '../src/todos.js';
+import { cleanLink, cleanTitle, detailPatch, newTodoBody, overlayTodos, sanitizeTodoPatch, patchToday, isToday, todayPatch, localDay } from '../src/todos.js';
 import { groupTodos } from '../src/dashboard.js';
 
 const server = [
@@ -100,19 +100,19 @@ test('(진행중): 사용자 토글이 먼저, 없으면 비서 진척', async (
   assert.equal(t.userEdited, false); // 토글은 '직접 수정' 표시를 달지 않는다
 });
 
-test('오늘 할 일 = 우선순위 1: 넣기·빼기 패치, 겹쳐 보기, 응답 전 맞추기', () => {
+test('오늘 할 일 = 예정일: 넣기·빼기 패치, 겹쳐 보기, 응답 전 맞추기', () => {
   assert.deepEqual(sanitizeTodoPatch({ today: true }), { today: true }, '예전 today 패치도 IPC 는 통과(데몬이 P1·P2 로 바꾼다)');
   assert.deepEqual(sanitizeTodoPatch({ today: null }), { today: null });
   assert.equal(sanitizeTodoPatch({ today: 'x' }), null);
-  assert.deepEqual(todayPatch(true), { priority: 1 });
-  assert.deepEqual(todayPatch(false), { priority: 2 }, '빼면 이번 주로');
+  assert.deepEqual(todayPatch(true), { scheduledDate: localDay() });
+  assert.deepEqual(todayPatch(false), { scheduledDate: null }, '날짜만 해제');
   const base = [{ id: 'a', title: '가', priority: 2 }, { id: 'b', title: '나', priority: 1 }];
   const on = overlayTodos(base, [{ kind: 'edit', id: 'a', patch: todayPatch(true) }]);
   assert.equal(isToday(on[0]), true);
   const off = overlayTodos(base, [{ kind: 'edit', id: 'b', patch: todayPatch(false) }]);
   assert.equal(isToday(off[1]), false);
-  assert.equal(off[1].priority, 2);
-  assert.equal(isToday({ priority: 1 }, ''), true, '날짜와 상관없이 P1 이면 오늘 할 일');
+  assert.equal(off[1].priority, 1);
+  assert.equal(isToday({ priority: 1 }, ''), false, '우선순위만으로는 오늘이 아님');
   // 대시보드 today 맞추기
   const t = { date: 'd', items: [{ id: 'b', title: '나', done: false, priority: 1 }] };
   assert.deepEqual(patchToday(t, 'b', { done: true }).items, [{ id: 'b', title: '나', done: true, priority: 1 }]);

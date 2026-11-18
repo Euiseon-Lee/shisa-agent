@@ -1,0 +1,42 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {Store} from './store.ts';
+import {Focus} from './focus.ts';
+import {activityStatistics,installActivityTracking} from './activity-statistics.ts';
+const at=(day:number,h=0,m=0)=>new Date(2026,10,day,h,m).getTime();
+test('noon/midnight split excludes pauses and future time',()=>{
+ const s=new Store(':memory:');new Focus(s);
+ const insert=s.db.prepare('INSERT INTO focus_spans(session_id,start,end,open) VALUES(?,?,?,?)');
+ insert.run('a',at(17,23,30),at(18,0,30),0);insert.run('b',at(18,11,30),at(18,12,30),0);insert.run('c',at(18,14),at(18,14),1);
+ const r=activityStatistics(s.db,'2026-11-17','2026-11-19',at(18,15));
+ assert.deepEqual(r.days.map(d=>[d.amSeconds,d.pmSeconds]),[[0,1800],[3600,5400],[0,0]]);
+ s.db.close();
+});
+test('actual completion day, historical doing, same-day dedup, and no scheduled-only tasks',()=>{
+ const s=new Store(':memory:');new Focus(s);
+ const insert=s.db.prepare("INSERT INTO todos(id,title,source,created,status,doing,scheduled_date) VALUES(?,?,'user',?,'open',?,?)");
+ insert.run('a','CAD',new Date(at(17)).toISOString(),1,'2026-11-20');
+ insert.run('b','Scheduled only',new Date(at(17)).toISOString(),0,'2026-11-18');
+ s.db.prepare('UPDATE todo_work_intervals SET started=? WHERE todo_id=?').run(at(17,9),'a');
+ s.db.prepare("UPDATE todos SET status='done' WHERE id='a'").run();
+ s.db.prepare('UPDATE todos SET done_at=? WHERE id=?').run(new Date(at(18,14)).toISOString(),'a');
+ s.db.prepare('UPDATE todo_work_intervals SET ended=? WHERE todo_id=?').run(at(18,14),'a');
+ const r=activityStatistics(s.db,'2026-11-17','2026-11-20',at(18,15));
+ assert.deepEqual(r.days.map(d=>d.completed.map(t=>t.id)),[[],['a'],[],[]]);
+ assert.deepEqual(r.days.map(d=>d.doing.map(t=>t.id)),[['a'],[],[],[]]);
+ s.db.prepare("UPDATE todos SET status='open',doing=0 WHERE id='a'").run();
+ assert.equal(activityStatistics(s.db,'2026-11-18','2026-11-18',at(18,15)).days[0].completed.length,0);
+ s.db.close();
+});
+test('tracking migration is idempotent and state transitions close intervals',()=>{
+ const s=new Store(':memory:');new Focus(s);
+ s.db.prepare("INSERT INTO todos(id,title,source,created,doing) VALUES('x','Task','user',?,1)").run(new Date().toISOString());
+ installActivityTracking(s.db);installActivityTracking(s.db);
+ assert.equal(s.db.prepare('SELECT count(*) n FROM todo_work_intervals').get()!.n,1);
+ s.db.exec("UPDATE todos SET doing=0 WHERE id='x'");
+ assert.ok(s.db.prepare('SELECT ended FROM todo_work_intervals').get()!.ended);
+ s.db.exec("UPDATE todos SET doing=1 WHERE id='x'");
+ assert.equal(s.db.prepare('SELECT count(*) n FROM todo_work_intervals').get()!.n,2);
+ s.db.exec("DELETE FROM todos WHERE id='x'");
+ assert.equal(s.db.prepare('SELECT count(*) n FROM todo_work_intervals').get()!.n,0);s.db.close();
+});

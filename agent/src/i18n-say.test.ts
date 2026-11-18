@@ -110,7 +110,7 @@ test("한국어(기본): 원문 그대로", () => {
   assert.equal(stoppedText(), "멈췄어요");
   assert.equal(phraseLabel("hello"), "앱을 켰을 때 인사");
   assert.equal(phraseGroup("머지"), "머지");
-  assert.equal(prioLabel(1), "오늘 꼭");
+  assert.equal(prioLabel(1), "오늘 반드시");
   assert.equal(withLang("sys"), "sys");
   assert.equal(actionStatusLine({ type: MERGE_TYPE, status: "pending" }), "머지 승인 대기 — [✓ 머지]를 눌러야 머지돼요");
 });

@@ -18,8 +18,9 @@ import { makeIco } from './make-ico.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DESKTOP = path.join(REPO, 'desktop');
-const APP_NAME = '시사'; // 바로 가기·작업 관리자·「앱」 목록에 보이는 이름(FileDescription·ProductName)
-const EXE_NAME = 'Shisa'; // 실행 파일·Squirrel id 는 영문(설치 폴더 %LOCALAPPDATA%\Shisa, 파일 이름이 한글이면 GitHub 릴리스가 못 받는다)
+const PERSONAL = process.argv.includes('--personal');
+const APP_NAME = PERSONAL ? '시사 개인용' : '시사'; // 바로 가기·작업 관리자·「앱」 목록에 보이는 이름(FileDescription·ProductName)
+const EXE_NAME = PERSONAL ? 'ShisaPersonal' : 'Shisa'; // 실행 파일·Squirrel id 는 영문(설치 폴더 %LOCALAPPDATA%\Shisa, 파일 이름이 한글이면 GitHub 릴리스가 못 받는다)
 const AUTHORS = 'cheo0y';
 const RELEASE_REPO = process.env.SHISA_RELEASE_REPO || 'cheo0y/shisa-agent';
 const pkg = JSON.parse(fs.readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'));
@@ -61,7 +62,7 @@ const packagerMod = await load('@electron/packager');
 const packager = packagerMod.packager ?? packagerMod.default?.packager ?? packagerMod.default;
 const ELECTRON_VERSION = String(pkg.devDependencies?.electron ?? '').replace(/^[^\d]*/, '');
 
-const DIST = path.join(DESKTOP, 'dist', 'win');
+const DIST = path.resolve(DESKTOP, 'dist', PERSONAL ? 'win-personal' : 'win');
 const STAGE = path.join(DIST, 'stage', ARCH);
 const run = (cmd, argv, opts = {}) => execFileSync(cmd, argv, { stdio: 'inherit', ...opts });
 // npm 은 윈도우에서 npm.cmd 라 셸 없이 못 띄운다(.cmd 를 바로 spawn 하면 EINVAL). 인자는 공백·따옴표 없는 것만 넘긴다
@@ -77,6 +78,7 @@ for (const f of [path.join(DIST, SETUP_EXE), ZIP, SUMS, path.join(DIST, `SHA256S
   fs.rmSync(f, { force: true });
 }
 
+if (!path.resolve(STAGE).startsWith(DIST + path.sep)) throw new Error('Build stage escapes output directory');
 fs.rmSync(STAGE, { recursive: true, force: true });
 fs.mkdirSync(STAGE, { recursive: true });
 
@@ -155,6 +157,11 @@ const paths = await packager({
   buildVersion: VERSION,
   appCopyright: 'MIT License',
   icon: ICO,
+  afterCopy: PERSONAL ? [async ({ buildPath }) => {
+    const file = path.join(buildPath, 'package.json');
+    const metadata = JSON.parse(fs.readFileSync(file, 'utf8'));
+    fs.writeFileSync(file, JSON.stringify({ ...metadata, name: 'shisa-personal', personalBuild: true }, null, 2));
+  }] : [],
   asar: true,
   prune: true,
   ignore: (p) => {
@@ -214,6 +221,7 @@ if (MAKE_INSTALLER) {
     fs.copyFileSync(src, dst);
   }
   const SQ_OUT = path.join(DIST, `squirrel-${ARCH}`); // RELEASES·nupkg 는 아키텍처마다 따로(같은 이름이라 겹친다)
+  if (!path.resolve(SQ_OUT).startsWith(DIST + path.sep)) throw new Error('Installer stage escapes output directory');
   fs.rmSync(SQ_OUT, { recursive: true, force: true });
   const setupExe = SETUP_EXE;
   await createWindowsInstaller({

@@ -102,7 +102,7 @@ test("chatPrompt(tools): 큰 맥락 섹션이 없고 머리말·이 대화·지�
   const s = fixture();
   const p = chatPrompt(cfg(), s, [{ role: "user", text: "안녕", at: "t" }], "어제 뭐 했지?", undefined);
   for (const gone of ["## 사용자 프로필", "자주 함께 일하는 사람", "요즘 집중 프로젝트", "## 업무 지식그래프", "### 질문과 관련", "### 진행 중 프로젝트", "### 열린 이슈",
-    "아직 답 안 한 Slack", "## 최근 48시간 작업 세션", "마지막 요청:", "마지막 응답:", "## 현재 열린 할 일", "## 언젠가·백로그", "## 최근 끝낸 할 일", "## 대시보드 요약", "### 최근 7일 프로젝트", "할 일 규칙"]) {
+    "아직 답 안 한 Slack", "## 최근 48시간 작업 세션", "마지막 요청:", "마지막 응답:", "## 현재 열린 할 일", "## 낮은 중요도의 열린 할 일", "## 최근 끝낸 할 일", "## 대시보드 요약", "### 최근 7일 프로젝트", "할 일 규칙"]) {
     assert.ok(!p.includes(gone), gone);
   }
   assert.match(p, /^## 지금\n- 시각: /);
@@ -153,7 +153,7 @@ test("contextMode 되돌리기: inline 이면 큰 맥락 블록·예전 시스�
   assert.equal(loadConfig({} as any).contextMode, "tools");
   const s = fixture();
   const p = chatPrompt(cfg({ contextMode: "inline" }), s, [], "오늘 뭐 하면 돼?", "## 대시보드 요약\n오늘 내 커밋: 0개");
-  for (const want of ["현재 시각:", "## 사용자 프로필", "## 업무 지식그래프", "아직 답 안 한 Slack", "## 최근 48시간 작업 세션", "## 현재 열린 할 일", "## 언젠가·백로그", "## 최근 끝낸 할 일", "## 대시보드 요약"]) assert.ok(p.includes(want), want);
+  for (const want of ["현재 시각:", "## 사용자 프로필", "## 업무 지식그래프", "아직 답 안 한 Slack", "## 최근 48시간 작업 세션", "## 현재 열린 할 일", "## 낮은 중요도의 열린 할 일", "## 최근 끝낸 할 일", "## 대시보드 요약"]) assert.ok(p.includes(want), want);
   assert.ok(!p.includes("필요하면 cy 도구"));
   assert.equal(chatAskOpts(cfg({ contextMode: "inline" }), "x").system, CHAT_SYSTEM_INLINE);
   assert.equal(chatAskOpts(cfg(), "x").system, CHAT_SYSTEM);
@@ -204,7 +204,7 @@ test("cy 도구: 픽스처에서 예전 블록과 같은 데이터를 짧게 —
   assert.match(prof, /\[선호\] 사용자는/);
   assert.match(prof, /### 자주 함께 일하는 사람\n- 동료/);
   assert.match(prof, /### 요즘 집중 프로젝트/);
-  assert.match(open, /- id=t0 \[P1\] 할 일 0 — 견적 회신·리뷰 \(mail, 사용자가 직접 고침\) — 메모: 메모 0/);
+  assert.match(open, /- id=t0 \[P1\] 할 일 0 — 견적 회신·리뷰 \(mail, 예정일: \d{4}-\d{2}-\d{2}, doing=false, 사용자가 직접 고침\) — 메모: 메모 0/);
   assert.ok(!open.includes("백로그 0"));
   assert.match(every, /### 언젠가·백로그[\s\S]*id=b0 \[P4\]/);
   assert.match(every, /### 최근 끝낸 할 일\n- id=d/);

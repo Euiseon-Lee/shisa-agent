@@ -16,16 +16,16 @@ import {
 
 const SID = "11111111-2222-4333-8444-555555555555";
 const FIX = fileURLToPath(new URL("./fixtures/cli-sync/", import.meta.url)); // Windows: .pathname 은 /C:/… 라 못 쓴다
-const REPO = "/Users/tester/code/demo";
+const REPO = process.platform === "win32" ? "C:/Users/tester/code/demo" : "/Users/tester/code/demo";
 const BRAIN = "/Users/tester/.cy-agent/brain";
-const lines = (f: string) => readFileSync(join(FIX, f), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+const lines = (f: string) => readFileSync(join(FIX, f), "utf8").replaceAll("/Users/tester/code/demo",REPO).split("\n").filter(Boolean).map((l) => JSON.parse(l));
 
 // 임시 ~/.claude: projects/<demo 레포>/<sid>.jsonl + 서브에이전트
 function claudeHome() {
   const dir = mkdtempSync(join(tmpdir(), "cy-cli-sync-"));
   const proj = join(dir, "projects", projectDirName(REPO));
   mkdirSync(join(proj, SID, "subagents"), { recursive: true });
-  copyFileSync(join(FIX, "session.jsonl"), join(proj, `${SID}.jsonl`));
+  writeFileSync(join(proj, `${SID}.jsonl`),readFileSync(join(FIX,"session.jsonl"),"utf8").replaceAll("/Users/tester/code/demo",REPO));
   for (const f of ["agent-a1.jsonl", "agent-a1.meta.json", "agent-other.jsonl", "agent-other.meta.json"]) copyFileSync(join(FIX, f), join(proj, SID, "subagents", f));
   return { dir, proj, file: join(proj, `${SID}.jsonl`), done: () => rmSync(dir, { recursive: true, force: true }) };
 }
@@ -89,7 +89,7 @@ test("userText·taskNotification: 슬래시 명령·! 셸·중단·알림 모양
   assert.equal(taskNotification("그냥 말"), undefined);
 });
 
-test("findSessionFile: 기록된 cwd 폴더에 없으면 projects/*/<sid>.jsonl · 실제 cwd 는 기록의 cwd 필드 · 심볼릭 링크·잘못된 id 거부", () => {
+test("findSessionFile: 기록된 cwd 폴더에 없으면 projects/*/<sid>.jsonl · 실제 cwd 는 기록의 cwd 필드 · 심볼릭 링크·잘못된 id 거부", (t) => {
   const h = claudeHome();
   try {
     assert.equal(findSessionFile(h.dir, SID, BRAIN)?.file, h.file); // brain 폴더엔 없지만 데모 레포 폴더에서 찾음
@@ -103,7 +103,7 @@ test("findSessionFile: 기록된 cwd 폴더에 없으면 projects/*/<sid>.jsonl 
     const evil = join(h.dir, "projects", "-evil");
     mkdirSync(evil);
     const sid2 = "33333333-2222-4333-8444-555555555555";
-    symlinkSync(h.file, join(evil, `${sid2}.jsonl`));
+    try { symlinkSync(h.file, join(evil, `${sid2}.jsonl`)); } catch(e) { if(process.platform === "win32" && (e as any).code === "EPERM") { t.skip("Windows file symlinks require developer mode"); return; } throw e; }
     assert.equal(findSessionFile(h.dir, sid2), undefined);
   } finally { h.done(); }
 });

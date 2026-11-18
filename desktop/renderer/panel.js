@@ -1,3 +1,7 @@
+import { language as personalLanguage, t as pt } from '../src/i18n.js';
+import { formatBriefing } from '../src/briefing-view.js';
+import { createStatisticsView } from './statistics-view.js';
+import { sidebarPrefs, shownSidebar } from '../src/sidebar.js';
 // 패널 렌더러 — 대시보드(개요·프로젝트·할 일·오늘 할 일)와 채팅. 네트워크는 전부 메인을 거친다.
 import { hasCoder as canCodeWith } from '../src/caps.js';
 import DOMPurify from './vendor/purify.js';
@@ -11,6 +15,7 @@ import { CALDAV_CARDS } from '../src/caldav-calendar.js';
 import { mailConnected, mailConnectedText, withMailAccount, withoutMailAccount } from '../src/mail-connect.js';
 import { mountModels } from './models-view.js';
 import { createFocusView } from './focus-view.js';
+import { groupScheduledTodos, dateDistance, scheduleGroup, effectiveDate, scheduleOrder, reorderScheduleLocal, scheduleKeyMove } from '../src/schedule-groups.js';
 import { createProjectsView } from './projects-view.js';
 import { createCalendarView } from './calendar-view.js';
 import { CALTAB_TEXT, cardRowOn, cardFolded } from '../src/calendar-tab.js';
@@ -22,12 +27,12 @@ import { brainView, connectCard, chatLock } from '../src/brain-state.js';
 import { initialChat, chatReducer, isBusy, isRunning, busyLabel, busyThreads, sendButton, stopTargets, localState, queuedChats, queuedLabel, sentLabel } from '../src/chat.js';
 import { stamp, withDayDividers } from '../src/chat-time.js';
 import { KIND_ICONS, KIND_LABELS, normThread, normThreads, upsertThread, groupThreads, filterThreads, initSeen, isUnread, markSeen, pruneSeen, unreadCount, pickInitial, neighborThread, afterRemoval, mergeMessages, appendLocal, tagLocal, dropLocal, dropFailed, markSent, isDoubleSend, todoChip, okThreadId, editTarget, dropFrom } from '../src/threads.js';
-import { PRIORITIES, mergeRecentDone, newTodoBody, overlayTodos, descriptionPatch, isDoing, patchToday, isToday, todayPatch, TODAY_PRIORITY } from '../src/todos.js';
+import { PRIORITIES, mergeRecentDone, newTodoBody, overlayTodos, descriptionPatch, isDoing, patchToday, isToday, todayPatch, TODAY_PRIORITY, dateTag, localDay } from '../src/todos.js';
 import { CARRY_CHOICES } from '../src/bubbles.js';
 import { createClickSorter, toggleOpen, dropTarget, autoScrollDelta, reorderLocal, isNoopMove, keyMove, detailView, LONG_PRESS, MOVE_SLOP } from '../src/todo-rows.js';
 import { openEdit, fillDescription, editKey, editPatch } from '../src/todo-edit.js';
 import { originPlan, todoPlan } from '../src/origin.js';
-import { trashModel, commitTrash, trashItemOf, todoBodyOf, confirmReducer, isConfirming, confirmKey, isTrashKey, createUndo, readTrashOpen, writeTrashOpen, overTrash, CONFIRM_TEXT, UNDO_MS } from '../src/todo-trash.js';
+import { daysAgo, trashModel, commitTrash, trashItemOf, todoBodyOf, confirmReducer, isConfirming, confirmKey, isTrashKey, createUndo, overTrash, CONFIRM_TEXT, UNDO_MS } from '../src/todo-trash.js';
 import { BACKLOG, rulesChip, overlayRules, hitsLabel, readBacklogOpen, writeBacklogOpen, isCollapsed } from '../src/todo-rules.js';
 import { attachSlashMenu } from './slash-menu.js';
 import { createUi } from './ui-kit.js';
@@ -98,7 +103,14 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href]');
   if (!a) return;
   e.preventDefault();
-  cy.openLink(a.getAttribute('href'));
+  const href=a.getAttribute('href');
+  if(a.closest('.briefing-body')&&href?.startsWith('#')){
+    let id=href.slice(1);try{id=decodeURIComponent(id)}catch{}
+    const task=findTodo(id);
+    if(task){foldedSchedule.delete(scheduleGroup(task.scheduledDate,localDay()));goto('todos');openId=id;loadDetail(id);renderTodos();requestAnimationFrame(()=>$('sec-todos').querySelector('[data-id="'+CSS.escape(id)+'"]')?.scrollIntoView({block:'nearest'}));}
+    return;
+  }
+  cy.openLink(href);
 });
 
 // 작은 DOM 헬퍼: h('div.card', {onclick}, '글자', child)
@@ -120,6 +132,7 @@ function h(sel, props, ...kids) {
 const ui = createUi({ h, fill: (el, ...k) => fill(el, ...k) });
 // 집중하기: 할 일 목록의 [집중하기] · 맨 아래 「오늘 집중」 · 주·월 기록(focus-view.js)
 const focusView = createFocusView({ h, cy });
+$('global-focus').append(focusView.bar('global'));
 // 직접 만든 프로젝트: 프로젝트 탭 위쪽 카드와 ＋ 만들기 창(새로 만들기·일정에서 가져오기)
 const projectsView = createProjectsView({ h, cy, fill: (el, ...k) => fill(el, ...k), onChanged: () => loadSoon(), openSettings: () => cy.openSettings() });
 // 캘린더 탭: 주·월·일 보기와 일정 카드(일정 → 프로젝트·할 일)
@@ -277,6 +290,8 @@ let setupAsked = false;
 let chat = initialChat();
 
 // ---- 탭 ----
+let sidebarTabs = sidebarPrefs();
+const shownSections = () => shownSidebar(visibleSections(vm), sidebarTabs);
 const nav = $('nav');
 const badges = {};
 for (const s of SECTIONS) {
@@ -287,7 +302,7 @@ for (const s of SECTIONS) {
 function goto(s) {
   const prevSection = section;
   section = normalizeSection(s) ?? section;
-  if (!visibleSections(vm).includes(section)) section = 'overview';
+  if (!shownSections().includes(section)) section = 'overview';
   try { localStorage.setItem('section', section); } catch { /* 무시 */ }
   for (const b of nav.children) b.setAttribute('aria-selected', String(b.dataset.section === section));
   for (const x of SECTIONS) $(`sec-${x}`).hidden = x !== section;
@@ -300,6 +315,7 @@ function goto(s) {
     loadSetupSettings();
     if (setupPhase === 'brain') detectAgents();
   }
+  if (section === 'statistics') { renderStatistics(); focusView.load(); if (prevSection !== section) $('content').scrollTop = 0; }
   if (section === 'models') loadSisa();
   if (section === 'calendar') calendarView.show();
   else if (prevSection === 'calendar') calendarView.hide();
@@ -316,7 +332,10 @@ function goto(s) {
 
 // 연결 안 된 기능의 탭은 숨긴다. 보고 있던 탭이 사라지면 개요로
 function renderNav() {
-  const shown = visibleSections(vm);
+  const shown = shownSections();
+  const ordered=[...SECTIONS.filter(k=>!sidebarTabs.order.includes(k)),...sidebarTabs.order];
+  const buttons=new Map([...nav.children].map(b=>[b.dataset.section,b]));
+  for(const key of ordered)if(buttons.has(key))nav.append(buttons.get(key));
   for (const b of nav.children) b.hidden = !shown.includes(b.dataset.section);
   if (!shown.includes(section)) goto('overview');
 }
@@ -362,6 +381,10 @@ let loadTimer = null;
 const loadSoon = () => { clearTimeout(loadTimer); loadTimer = setTimeout(load, 250); };
 
 
+
+const statisticsView = createStatisticsView({ h, cy, root: $('sec-statistics') });
+function renderStatistics() { statisticsView.refresh(); }
+
 function renderAll() {
   const todos = raw ? overlayTodos(raw.todos, pendingOps) : null;
   vm = shapeDashboard(raw ? { ...raw, todos, projects: overlayHidden(raw.projects, hidePending) } : null, Date.now());
@@ -376,6 +399,7 @@ function renderAll() {
   renderProjects();
   renderTodos(); // 할 일 탭과 오늘 할 일 탭(같은 줄·같은 묶음)
   renderBadges();
+  if (section === 'statistics') renderStatistics();
   renderThreadHead(); // 할 일 대화의 할 일 칩
 }
 
@@ -390,8 +414,10 @@ function setBanner(text) {
 }
 
 // ---- 개요 ----
-function stat(num, label, sub, hot) {
-  return h(`div.card.stat${hot ? '.hot' : ''}`, null, h('div.num', { text: String(num) }), h('div.label', { text: label }), sub ? h(`div.sub${hot ? '.hot' : ''}`, { text: sub }) : null);
+function stat(num, label, sub, subRight = false) {
+  return h('div.card.stat-metric', null,
+    h('span.muted', { text: label }), h('strong', { text: String(num) }),
+    sub ? h('span.muted.small' + (subRight ? '.stat-sub-right' : ''), { text: sub }) : null);
 }
 
 const PROPOSAL_LABEL = Object.defineProperties({}, Object.fromEntries(['pending', 'approved', 'held', 'running', 'done', 'failed'].map((k) => [k, { get: () => tr(`panel.prop_${k}`), enumerable: true }])));
@@ -399,13 +425,25 @@ const PROPOSAL_CHIP = { pending: 'accent', running: 'warn', done: 'ok', failed: 
 
 // 개요의 「오늘 할 일」: 한 줄 카드(남은 수 · 진행 막대 · 보기 ›). 누르면 오늘 할 일 탭
 function todayLink(today) {
-  const items = today?.items ?? [];
-  const left = items.filter((it) => !it.done).length;
-  return h('button.card.today-link', { type: 'button', 'aria-label': tr('panel.today_link_aria', { n: left }), onclick: () => goto('today') },
-    h('span.tl-title', { text: tr('panel.sec_today') }),
-    items.length ? h('span.ui-badge.accent', { text: left ? tr('panel.left_n', { n: left }) : tr('panel.all_done') }) : h('span.muted.small', { text: tr('panel.none_yet') }),
-    items.length ? ui.progress(items.length - left, items.length) : h('span.spacer'),
-    h('span.tl-go', { 'aria-hidden': 'true', text: tr('panel.view_go') }));
+  if(!sidebarTabs.today && !sidebarTabs.todos)return null;
+  const items=today?.items || [],left=items.filter(t=>!t.done).length;
+  return h('section.overview-today',{'aria-label':pt("personal.오늘 할 일")},
+    h('div.sec-head.overview-today-head',null,h('h2',{text:pt("personal.오늘 할 일")}),h('span.muted.small',{text:pt('personal.잔여 {n}개 / 전체 {m}개',{n:left,m:items.length})}),h('span.spacer'),
+      h('button.ghost.size-s',{type:'button',text:pt("personal.목록 보기"),onclick:()=>goto(sidebarTabs.todos?'todos':'today')})),
+    todoMsg&&!todoMsg.ok?h('p.result.err',{role:'alert',text:todoMsg.text}):null,
+    h('div.card.overview-today-list',null,...items.map(item=>{
+      const task=vm.todayGroups.flatMap(g=>g.items).find(t=>t.id===item.id) || vm.todayDone.find(t=>t.id===item.id) || item;
+      const input=h('input',{type:'checkbox',checked:item.done,disabled:task.pending,'aria-label':item.title+(item.done?pt("personal. 완료 취소"):pt("personal. 완료")),onchange:()=>item.done?reopenTodo(task):completeTodo(task)});
+      return h('div.overview-todo'+(item.done?'.is-done':''),null,input,h('span.t',{text:item.title}));
+    }),items.length?null:h('p.muted.small',{text:pt("personal.오늘 예정된 할 일이 없습니다.")})));
+}
+
+function pageDateHeading({iso=false,open,total}={}) {
+  const date=new Date();
+  const day=[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+  const weekday=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'][date.getDay()];
+  const text=personalLanguage()==='ja'?new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(date):(iso?day:date.getFullYear()+'년 '+(date.getMonth()+1)+'월 '+date.getDate()+'일')+' '+weekday;
+  return h('h2.page-date',null,h('time',{datetime:day,text}),open===undefined?null:h('span',{text:pt('personal.잔여 {n}개 / 전체 {m}개',{n:open,m:total})}));
 }
 
 function renderOverview() {
@@ -413,9 +451,10 @@ function renderOverview() {
   const el = $('sec-overview');
   const active = vm.projects.filter((p) => p.sessions24h > 0 || p.commitsToday > 0).map((p) => p.name);
   el.replaceChildren(...[ // null(제안 없음 등)은 빼야 'null' 글자로 안 찍힘
-    h('div.stats', null,
+    pageDateHeading(),
+    h('div.stats-metrics', null,
       stat(stats.commitsToday, tr('panel.stat_commits'), vm.projects.filter((p) => p.commitsToday > 0).map((p) => `${p.name} ${p.commitsToday}`).join(' · ') || null),
-      stat(stats.openTodos, tr('panel.stat_open'), stats.p1Todos ? tr('panel.stat_p1', { n: stats.p1Todos }) : tr('panel.stat_p1_none'), stats.p1Todos > 0),
+      stat(stats.openTodos, tr('panel.stat_open'), pt('personal.오늘 반드시 처리할 일 {n}건',{n:stats.p1Todos}), true),
       stat(stats.activeProjects, tr('panel.stat_active'), active.slice(0, 3).join(', ') || null),
       stat(stats.pendingProposals, tr('panel.stat_pending'), null)),
     connected ? null : h('div.card.off-note', null, ui.emptyState({ icon: '💤', compact: true, text: tr('panel.off_title', { who: who() }), sub: tr('panel.off_sub') })),
@@ -429,8 +468,8 @@ function renderOverview() {
       } })),
     briefing
       ? h('div.card', null,
-        h('div.row.briefing-head', null, h('span.chip.accent', { text: `${briefing.time} · ${briefing.rel}` }), briefing.bubble ? h('span.muted', { text: briefing.bubble }) : null),
-        md(h('div'), briefing.md || briefing.bubble))
+        h('div.row.briefing-head', null, h('span.chip.accent', { text: `${briefing.time} · ${briefing.rel}` }), briefing.bubble ? h('span.muted', { text: briefing.bubble.replaceAll('오늘 꼭', '오늘 반드시').replace(/참고\s*·\s*/g, '참고: ') }) : null),
+        briefingTable(formatBriefing(briefing.md || briefing.bubble || '', [...(raw?.todos||[]),...(raw?.recentDone||[])], localDay())))
       : h('div.card.empty-card', null, ui.emptyState({ icon: '📰', compact: true, text: tr('panel.brief_none'), sub: tr('panel.brief_none_sub') })),
     permissionsSection(),
     proposals.length ? h('h2', { text: tr('panel.proposals') }) : null,
@@ -1168,7 +1207,9 @@ let refocusGrip = false; // 그 줄의 손잡이로(손잡이에서 ↑↓ 로 �
 let recentDone = []; // 이 창에서 방금 완료한 것 — 되돌리기용
 let todoMsg = null; // { ok, text }
 let todosStale = false;
-let addPriority = 2;
+let addSchedule = null;
+let addScheduledDate; // undefined follows today; null explicitly means no date
+const newTodoDate = () => addScheduledDate === undefined ? localDay() : addScheduledDate;
 let addDraft = '';
 let carryBusy = false; // 오늘 할 일 탭 위 「어제 남은 N개」 답을 보내는 중
 let todayDraft = '';
@@ -1201,20 +1242,25 @@ const setRawTodos = (xs) => { raw = { ...raw, todos: xs }; };
 const visibleTodos = () => overlayTodos(rawTodos(), pendingOps);
 
 // 끌기·Alt 키로 순서·우선순위 바꾸기
-function moveTodo(id, priority, beforeId) {
-  if (isNoopMove(visibleTodos(), id, priority, beforeId)) return;
-  mutate({ kind: 'reorder', id, priority, beforeId }, () => cy.todoReorder(id, priority, beforeId ?? null), tr('panel.fail_reorder'),
-    () => setRawTodos(reorderLocal(rawTodos(), id, priority, beforeId)));
+function moveTodo(id, beforeId) {
+  const today=vm.today?.date||localDay(), current=findTodo(id);
+  if(!current)return;
+  const list=listTodos().filter(t=>effectiveDate(t,today)===effectiveDate(current,today)).sort(scheduleOrder);
+  if((list[list.findIndex(t=>t.id===id)+1]?.id??null)===(beforeId??null))return;
+  mutate({kind:'schedule-order',id,beforeId,today},()=>cy.todoScheduleOrder(id,effectiveDate(current,today),beforeId??null),tr('panel.fail_reorder'),
+    ()=>setRawTodos(reorderScheduleLocal(rawTodos(),id,beforeId,today)));
 }
 
-// scope 'today': 오늘 할 일 탭에서 추가 = 우선순위 1(오늘 꼭) 할 일로 만든다
+// scope 'today': 오늘 할 일 탭에서 추가 = 우선순위 1(오늘 반드시) 할 일로 만든다
 function addTodo(scope = 'todos') {
   const today = scope === 'today';
-  const body = newTodoBody(today ? todayDraft : addDraft, today ? TODAY_PRIORITY : addPriority);
+  const body = newTodoBody(today ? todayDraft : addDraft, today ? TODAY_PRIORITY : 2);
   if (!body) return;
   if (today) todayDraft = ''; else addDraft = '';
   const input = $(today ? 'today-add-input' : 'todo-add-input');
   if (input) input.value = '';
+  body.scheduledDate = today ? (vm.today?.date || localDay()) : newTodoDate();
+  if (!today) {body.schedule=addSchedule;addSchedule=null;addScheduledDate=undefined;}
   const shown = body; // P1 이면 응답 전에도 오늘 할 일에 보인다
   mutate({ kind: 'add', tempId: `tmp:${opSeq + 1}`, body: shown }, () => cy.todoAdd(body), tr('panel.fail_add'), (r) => {
     if (typeof r.data?.id !== 'string') return;
@@ -1222,14 +1268,14 @@ function addTodo(scope = 'todos') {
     if (today) raw = { ...raw, today: patchToday(raw.today, r.data.id, { title: body.title, priority: body.priority, source: 'user', done: false }) };
   }).then((r) => {
     if (r?.ok) return;
-    if (today) todayDraft = body.title; else addDraft = body.title;
+    if (today) todayDraft = body.title; else { addDraft = body.title; addScheduledDate = body.scheduledDate; addSchedule=body.schedule; }
     renderTodos();
   });
 }
 
-// 줄의 '오늘' 토글: 오늘 할 일에 넣기 = 우선순위 1(오늘 꼭)로, 빼기 = 2(이번 주)로(할 일은 그대로)
+// 줄의 pt("personal.오늘") 토글: 오늘 할 일에 넣기 = 우선순위 1(오늘 반드시)로, 빼기 = 2(이번 주)로(할 일은 그대로)
 function toggleToday(t) {
-  const on = isToday(t);
+  const on = isToday(t, vm.today?.date);
   const patch = todayPatch(!on);
   mutate({ kind: 'edit', id: t.id, patch }, () => cy.todoEdit(t.id, patch), tr('panel.fail_today'), () => {
     setRawTodos(rawTodos().map((x) => (x.id === t.id ? { ...x, ...patch, userEdited: true } : x)));
@@ -1258,7 +1304,7 @@ async function carryDecide(cmd) {
 let carryHidden = ''; // 「하나씩 볼게요」를 누른 날: 안내 단추는 접고 한 줄만 남긴다
 
 function completeTodo(t) {
-  const item = { id: t.id, title: t.title, source: t.source, priority: t.priority, link: t.linkRaw || undefined, note: t.note || undefined, userEdited: t.userEdited };
+  const item = { id: t.id, title: t.title, source: t.source, priority: t.priority, scheduledDate: t.scheduledDate, schedule:t.schedule, seriesId:t.seriesId, doneAt: new Date().toISOString(), link: t.linkRaw || undefined, note: t.note || undefined, userEdited: t.userEdited };
   mutate({ kind: 'remove', id: t.id }, () => cy.todoDone(t.id), tr('panel.fail_done'), () => {
     setRawTodos(rawTodos().filter((x) => x.id !== t.id));
     raw = { ...raw, today: patchToday(raw.today, t.id, { done: true }) }; // 오늘 할 일이면 '오늘 끝냄'으로
@@ -1278,7 +1324,7 @@ function reopenTodo(item) {
 const reverting = new Set();
 function revertAuto(item) {
   reverting.add(item.id);
-  const body = { id: item.id, title: item.title, source: item.source, priority: item.priority, link: item.link || undefined, userEdited: false };
+  const body = { id: item.id, title: item.title, source: item.source, priority: item.priority, scheduledDate: item.scheduledDate, schedule:item.schedule, seriesId:item.seriesId, link: item.link || undefined, userEdited: false };
   mutate({ kind: 'add', tempId: item.id, body }, () => cy.todoRevert(item.id), tr('panel.fail_revert'), () => {
     setRawTodos([body, ...rawTodos().filter((x) => x.id !== item.id)]);
     raw = { ...raw, recentDone: (raw.recentDone ?? []).filter((x) => x.id !== item.id) };
@@ -1290,16 +1336,16 @@ function doneRow(t) {
   return h('div.todo.is-done', { dataset: { id: t.id } },
     h('span.t', { text: t.title, title: t.auto && t.reason ? t.reason : null }),
     t.auto ? h('span.chip.ok.auto', { text: tr('panel.auto'), title: t.reason ? tr('panel.auto_why', { why: t.reason }) : tr('panel.auto_title') }) : null,
-    t.doneRel ? h('span.muted', { text: t.doneRel }) : null,
+    t.doneRel ? h('span.muted', { text: t.doneRel, title: t.doneAt ? new Date(t.doneAt).toLocaleString(personalLanguage()==='ja'?'ja-JP':'ko-KR') : null }) : null,
     t.auto && t.evidence ? h('button.ghost', { type: 'button', text: tr('panel.evidence'), title: tr('panel.evidence_title'), onclick: () => cy.openLink(t.evidence) }) : null,
-    h('button.ghost', { type: 'button', text: tr('panel.undo'), onclick: () => (t.auto ? revertAuto(t) : reopenTodo(t)) }));
+    ui.iconBtn('todo-undo', { label: pt("personal.완료 취소"), title: pt("personal.완료 취소 · 다시 할 일로"), icon: '↶', size: 's', onclick: () => (t.auto ? revertAuto(t) : reopenTodo(t)) }));
 }
 
 // ---- 휴지통: 줄의 휴지통 버튼·Delete 키·끌어 놓기 → 그 자리 확인 → 휴지통으로(5초 되돌리기). 맨 아래 '휴지통 (N)' ----
 let trashPending = []; // todo-trash.js trashModel 의 pending(응답 대기 중)
 let confirmState = null; // 그 자리 확인(todo-trash.js confirmReducer)
 let focusConfirm = false; // 다음 그리기에서 확인 버튼에 포커스
-let trashOpen = readTrashOpen(globalThis.localStorage);
+let trashOpen = false;
 const trashing = new Map(); // id → 휴지통으로 옮기는 요청(되돌리기는 이게 끝난 뒤 restore)
 
 function setConfirm(action) {
@@ -1370,7 +1416,7 @@ function emptyTrash() {
 
 function toggleTrash() {
   trashOpen = !trashOpen;
-  writeTrashOpen(globalThis.localStorage, trashOpen);
+
   renderTodos();
 }
 
@@ -1405,15 +1451,154 @@ function doingButton(t) {
   });
 }
 
-// '오늘' 토글: 켜져 있으면 오늘 할 일(우선순위 오늘 꼭), 누르면 넣기(오늘 꼭으로)·빼기(이번 주로)
+// pt("personal.오늘") 토글: 켜져 있으면 오늘 할 일(우선순위 오늘 반드시), 누르면 넣기(오늘 반드시으로)·빼기(이번 주로)
 function todayButton(t) {
-  if (!vm.today?.date) return null;
-  const on = isToday(t);
-  return h(`button.ghost.row-today${on ? '.on' : ''}`, {
-    type: 'button', text: tr('date.today'), disabled: t.pending, 'aria-pressed': String(on),
-    title: on ? tr('panel.today_out_title') : tr('panel.today_in_title'), 'aria-label': tr(on ? 'panel.today_out_aria' : 'panel.today_in_aria', { title: t.title }),
-    onclick: () => toggleToday(t),
+  if (!t.scheduledDate) return null;
+  const tag = dateTag(t, vm.today?.date || localDay());
+  return h('button.ghost.row-today.date-tag.' + tag.tone + (tag.repeat ? '.repeating' : '') + (tag.tone === 'future' ? '.d' + dateDistance(t.scheduledDate, vm.today?.date || localDay()) : '') + (scheduleGroup(t.scheduledDate, vm.today?.date || localDay()) === 'later' ? '.later' : ''), {
+    type: 'button', text: tag.text, disabled: t.pending, title: tag.title + pt("personal. · 날짜 변경"),
+    'aria-label': t.title + pt("personal. 예정일 변경"), 'aria-haspopup': 'dialog',
+    onclick: (e) => openDatePicker(t, e.currentTarget),
   });
+}
+
+function openDatePicker(t, trigger, onSave) {
+  const day = localDay();
+  const plus = (d,n) => { const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return localDay(x); };
+  let mode=t.schedule?.mode || 'once';
+  const date=h('input',{type:'date',value:t.scheduledDate || day,'aria-label':pt("personal.예정일")});
+  const start=h('input',{type:'date',value:t.schedule?.start || day,max:'9999-12-30','aria-label':pt("personal.시작일")});
+  const end=h('input',{type:'date',value:t.schedule?.end || plus(day,14),max:'9999-12-31','aria-label':pt("personal.종료일")});
+  const days=new Set(t.schedule?.days || [1,2,3,4,5]);
+  const error=h('p.date-error',{role:'alert'});
+  const close=()=>{dialog.close();dialog.remove();trigger?.focus();};
+  const constrain=()=>{
+    if(!start.value || !start.checkValidity())return;
+    end.min=plus(start.value,1);
+    if(end.value && end.value<end.min)end.value=plus(start.value,14)>'9999-12-31'?'9999-12-31':plus(start.value,14);
+  };
+  start.addEventListener('change',constrain);
+  const single=h('div.schedule-single',null,h('label',null,pt("personal.예정일"),date));
+  const range=h('div.schedule-dates',null,h('label',null,pt("personal.시작일"),start),h('label',null,pt("personal.종료일"),end));
+  const weekdays=h('div.schedule-weekdays',{'aria-label':pt("personal.반복할 요일"),role:'group'},
+    ...['월','화','수','목','금','토','일'].map((label,i)=>{
+      const value=(i+1)%7;
+      const button=h('button.ghost',{type:'button',text:label,'aria-pressed':String(days.has(value)),onclick:()=>{
+        days.has(value)?days.delete(value):days.add(value);button.setAttribute('aria-pressed',String(days.has(value)));error.textContent='';
+      }});return button;
+    }));
+  const repeat=h('div.schedule-repeat',null,h('div.schedule-label',{text:pt("personal.반복할 요일")}),weekdays);
+  const note=h('p.schedule-note');
+  const none=h('button.ghost.schedule-none',{type:'button',text:pt("personal.날짜 없음"),onclick:()=>{date.value='';error.textContent='';}});
+  const tabs=h('div.schedule-modes',{role:'group','aria-label':pt("personal.일정 방식")},...['once','range','repeat'].map((value,i)=>h('button.ghost',{
+    type:'button',text:[pt("personal.하루"),pt("personal.기간"),pt("personal.반복")][i],'data-mode':value,onclick:()=>{mode=value;draw();}
+  })));
+  const draw=()=>{
+    single.hidden=mode!=='once';range.hidden=mode==='once';repeat.hidden=mode!=='repeat';none.hidden=mode!=='once';
+    note.hidden=mode==='once';note.textContent=mode==='range'?pt("personal.기간 내 매일 같은 할 일이 표시되고, 완료 처리하면 전체 완료됩니다."):pt("personal.주기마다 할 일이 생성되고, 완료 처리하면 해당 할 일만 완료됩니다.");
+    for(const button of tabs.children)button.setAttribute('aria-pressed',String(button.dataset.mode===mode));
+    error.textContent='';constrain();
+  };
+  const save=()=>{
+    let patch;
+    if(mode==='once'){
+      if(date.value&&!date.checkValidity()){date.reportValidity();return;}
+      patch={scheduledDate:date.value||null,schedule:null};
+    }else{
+      constrain();
+      if(!start.value||!end.value||!start.checkValidity()||!end.checkValidity()) {error.textContent='시작일과 종료일을 입력해 주세요.';return;}
+      if(mode==='repeat'&&!days.size){error.textContent='반복할 요일을 하나 이상 선택해 주세요.';return;}
+      if(mode==='repeat'){
+        let found=false;
+        for(let i=0;i<7;i++){const d=plus(start.value,i);if(d<=end.value&&days.has(new Date(d+'T12:00:00').getDay()))found=true;}
+        if(!found){error.textContent='기간 안에 선택한 요일이 없습니다.';return;}
+      }
+      patch={scheduledDate:start.value,schedule:{mode,start:start.value,end:end.value,...(mode==='repeat'?{days:[...days].sort()}: {})}};
+    }
+    close();
+    if(onSave){onSave(patch);return;}
+    mutate({kind:'edit',id:t.id,patch},()=>cy.todoEdit(t.id,patch),'날짜를 변경하지 못했어요',()=>loadSoon());
+  };
+  const dialog=h('dialog.todo-date-dialog',{'aria-label':pt("personal.예정일 선택"),oncancel:e=>{e.preventDefault();close();}},
+    h('h3',{text:pt("personal.예정일 선택")}),tabs,single,repeat,range,note,
+    t.seriesId?h('p.schedule-note',{text:pt("personal.일정 변경은 이 날짜 이후의 미완료 항목에 적용됩니다. 완료·진행 중 기록은 유지됩니다.")}):null,
+    error,h('div.date-footer',null,none,h('button.ghost',{type:'button',text:pt("personal.취소"),onclick:close}),h('button.primary',{type:'button',text:pt("personal.적용"),onclick:save})));
+  draw();document.body.append(dialog);dialog.showModal();
+}
+
+function todoMenu(t) {
+  return ui.menuButton('row-more', { label: pt("personal.할 일 메뉴"), size: 's', disabled: t.pending, items: () => [
+    { label: t.scheduledDate ? pt("personal.날짜 변경") : pt("personal.날짜 지정"), iconImage: 'assets/todo-menu/calendar.png', onSelect: () => openDatePicker(t, null) },
+    ...(t.seriesId ? [{label:pt("personal.반복 종료"),onSelect:()=>{
+      if(!confirm('앞으로의 반복 생성을 종료할까요? 이미 생성된 할 일과 완료 기록은 유지됩니다.'))return;
+      mutate({kind:'edit',id:t.id,patch:{stopRepeat:true}},()=>cy.todoEdit(t.id,{stopRepeat:true}),'반복을 종료하지 못했어요',()=>loadSoon());
+    }}] : []),
+    { label: pt("personal.관련없음"), iconImage: 'assets/todo-menu/irrelevant.png', hint: pt("personal.추천 제외"), onSelect: () => markIrrelevant(t, true) },
+    { label: pt("personal.삭제"), iconImage: 'assets/todo-menu/delete.png', danger: true, hint: pt("personal.휴지통으로"), onSelect: () => askTrash(t) },
+  ] });
+}
+function markIrrelevant(t, on) {
+  mutate(on ? { kind: 'remove', id: t.id } : { kind: 'add', tempId: t.id, body: t },
+    () => cy.todoEdit(t.id, { irrelevant: on }), '관련없음 처리를 저장하지 못했어요', () => {
+      const list = (raw.irrelevant || []).filter(x => x.id !== t.id);
+      raw = { ...raw, irrelevant: on ? [t, ...list] : list };
+      setRawTodos(on ? rawTodos().filter(x => x.id !== t.id) : [t, ...rawTodos().filter(x => x.id !== t.id)]);
+      todoMsg = { ok: true, text: on ? '관련없음으로 옮겼어요. 같은 원본의 동일 항목은 다시 추천하지 않아요.' : '관련없음을 해제하고 할 일로 복원했어요.' };
+    });
+}
+let irrelevantOpen = false;
+let irrelevantConfirm = null;
+function toggleIrrelevant() { irrelevantOpen = !irrelevantOpen; renderTodos(); }
+function clearIrrelevant(id) {
+  irrelevantConfirm = null;
+  mutate([], () => cy.todoIrrelevantClear(id), '관련없음 기록을 삭제하지 못했어요', () => {
+    raw = { ...raw, irrelevant: id === undefined ? [] : (raw.irrelevant || []).filter(t => t.id !== id) };
+    todoMsg = { ok: true, text: '제외 기록을 삭제했어요. 같은 항목이 다시 자동 등록될 수 있어요.' };
+  });
+}
+function irrelevantConfirmBox(id) {
+  const cancel = () => { irrelevantConfirm = null; renderTodos(); };
+  return h('span.inline-confirm', { role: 'group', onkeydown: e => {
+    const k = confirmKey(e); if (!k) return; e.preventDefault(); e.stopPropagation();
+    if (k === 'confirm') clearIrrelevant(id); else cancel();
+  } }, h('span.q', { text: pt("personal.제외 기록을 삭제할까요? 같은 항목이 다시 자동 등록될 수 있어요.") }),
+    h('button.danger.yes', { type: 'button', text: id === undefined ? pt("personal.비우기") : pt("personal.영구 삭제"), onclick: () => clearIrrelevant(id) }),
+    h('button.ghost.no', { type: 'button', text: pt("personal.취소"), onclick: cancel }));
+}
+function irrelevantRow(t) {
+  const purge = ui.iconBtn('purge-icon.danger-text', { label: pt("personal.제외 기록 영구 삭제"), icon: '', size: 's', onclick: () => { irrelevantConfirm = t.id; renderTodos(); } });
+  purge.innerHTML = TRASH_ICON;
+  return h('div.todo.trashed', { dataset: { id: t.id } },
+    h('span.t', { text: t.title }),
+    h('span.chip.prio.p' + t.priority, { text: priorityLabel(t.priority), title: tr('panel.orig_priority') }),
+    t.irrelevantAt ? h('span.muted.small.ago', { text: daysAgo(t.irrelevantAt), title: t.irrelevantAt }) : null,
+    irrelevantConfirm === t.id ? irrelevantConfirmBox(t.id) : [
+      ui.iconBtn('restore-irrelevant', { label: pt("personal.관련없음 해제"), title: pt("personal.할 일로 복원"), icon: '↶', size: 's', onclick: () => markIrrelevant(t, false) }), purge]);
+}
+function irrelevantGroup() {
+  const list = raw?.irrelevant || [];
+  if (!list.length) { irrelevantConfirm = null; return null; }
+  return h('div.group.irrelevant-group', null,
+    h('h2.excluded-head', { role: 'button', tabindex: '0', 'aria-expanded': String(irrelevantOpen),
+      onclick: toggleIrrelevant, onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleIrrelevant(); } } },
+      h('span.caret', { 'aria-hidden': 'true' }), h('span', { text: pt("personal.관련없음") }), h('span.chip', { text: String(list.length) })),
+    irrelevantOpen ? h('div.card.todos.trash-list', null, list.map(irrelevantRow),
+      h('div.trash-foot', null,
+        h('span.muted.small', { text: pt("personal.같은 원본의 동일 항목을 계속 제외해요. 비우면 제외가 해제돼요.") }),
+        irrelevantConfirm === '*' ? irrelevantConfirmBox() : h('button.ghost.danger-text', { type: 'button', text: pt("personal.관련없음 비우기"), onclick: () => { irrelevantConfirm = '*'; renderTodos(); } }))) : null);
+}
+
+function scheduledGroups(groups) { return groupScheduledTodos(groups, vm.today?.date || localDay()); }
+const foldedSchedule = new Set(['later']);
+function scheduledGroup(g) {
+  const collapsible = g.bucket !== 'overdue';
+  const closed = collapsible && foldedSchedule.has(g.bucket);
+  const toggle = () => { if (!collapsible) return; closed ? foldedSchedule.delete(g.bucket) : foldedSchedule.add(g.bucket); renderTodos(); };
+  return h('div.group.schedule-group.bucket-' + g.bucket, null,
+    h('h2.schedule-head', collapsible ? { role: 'button', tabindex: '0', 'aria-expanded': String(!closed),
+      onclick: toggle, onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } } } : null,
+      h('span', { text: g.label }), h('span.chip', { text: String(g.items.length) })),
+    closed ? null : h('div.card.todos', null, g.items.map((t,i) => todoRow(t,i,g.items.length))));
 }
 
 function trashButton(t) {
@@ -1431,7 +1616,7 @@ function trashGroup() {
   const head = h('h2.trash-head', {
     role: 'button', tabindex: '0', 'aria-expanded': String(trashOpen), title: trashOpen ? tr('panel.fold') : tr('panel.unfold'),
     onclick: toggleTrash, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTrash(); } },
-  }, h('span.caret', { text: trashOpen ? '▾' : '▸' }), h('span', { text: tr('panel.trash') }), h('span.chip', { text: String(m.count) }));
+  }, h('span.caret', { 'aria-hidden': 'true' }), h('span', { text: tr('panel.trash') }), h('span.chip', { text: String(m.count) }));
   let body = null;
   if (trashOpen && m.items.length) {
     body = h('div.card.todos.trash-list', null,
@@ -1447,6 +1632,10 @@ function trashGroup() {
   return h('div.group.trash', null, head, body);
 }
 
+function purgeIcon(t) {
+  const b = ui.iconBtn('purge-icon.danger-text', { label: pt("personal.영구 삭제"), title: pt("personal.영구 삭제"), icon: '', size: 's', onclick: () => setConfirm({ type: 'ask', kind: 'purge', id: t.id }) });
+  b.innerHTML = TRASH_ICON; return b;
+}
 function trashRow(t) {
   return h('div.todo.trashed', { dataset: { id: t.id } },
     h('span.t', { text: t.title }),
@@ -1454,8 +1643,8 @@ function trashRow(t) {
     t.ago ? h('span.muted.small.ago', { text: t.ago, title: t.trashedAt }) : null,
     isConfirming(confirmState, 'purge', t.id)
       ? confirmBox('purge', () => purgeTodo(t.id))
-      : [h('button.ghost', { type: 'button', text: tr('panel.restore'), onclick: () => restoreTodo(t.id, t.title) }),
-        h('button.ghost.danger-text', { type: 'button', text: tr('panel.purge'), onclick: () => setConfirm({ type: 'ask', kind: 'purge', id: t.id }) })]);
+      : [ui.iconBtn('restore-trash', { label: tr('panel.restore'), title: pt("personal.할 일로 복원"), icon: '↶', size: 's', onclick: () => restoreTodo(t.id, t.title) }),
+        purgeIcon(t)]);
 }
 
 // 되돌리기 토스트(5초). ⌘Z 로도
@@ -1498,7 +1687,7 @@ const todaySec = $('sec-today');
 const isListSection = () => section === 'todos' || section === 'today';
 const listSec = () => (section === 'today' ? todaySec : todosSec);
 const listGroups = () => (section === 'today' ? vm.todayGroups : vm.todoGroups);
-const listTodos = () => (section === 'today' ? visibleTodos().filter((t) => isToday(t)) : visibleTodos());
+const listTodos = () => (section === 'today' ? visibleTodos().filter((t) => isToday(t, vm.today?.date || localDay())) : visibleTodos());
 const ADD_INPUTS = ['todo-add-input', 'today-add-input'];
 let composing = false;
 for (const sec of [todosSec, todaySec]) {
@@ -1538,45 +1727,59 @@ function renderTodos() {
 function todoListKids() {
   // 끄는 동안엔 빈 우선순위 칸도 보여서 거기로 옮길 수 있게
   const groups = dragGroups ? withEmptyGroups(vm.todoGroups) : vm.todoGroups;
-  const kids = [addForm(), rulesBar()];
+  const kids = [pageDateHeading(), addForm(), rulesBar()];
   if (todoMsg) kids.push(h(`div.result.${todoMsg.ok ? 'ok' : 'err'}`, { role: 'status', text: todoMsg.text }));
   if (!groups.length) kids.push(h('div.empty', { text: error && !raw ? tr('panel.load_failed') : tr('panel.no_todos') }));
-  kids.push(...groups.map(todoGroup));
+  kids.push(...scheduledGroups(groups).map(scheduledGroup));
   const done = mergeRecentDone(recentDone, vm.recentDone, [...reverting]);
   if (done.length) {
     kids.push(h('div.group.done', null,
-      h('h2', null, h('span', { text: tr('panel.recent_done') })),
+      h('h2', null, h('span', { text: pt("personal.최근 7일 완료") })),
       h('div.card.todos', null, done.map(doneRow))));
   }
+  const excluded = irrelevantGroup();
+  if (excluded) kids.push(excluded);
   const trash = trashGroup(); // 휴지통이 비면 null — replaceChildren 에 넘기면 "null" 글자가 찍힌다
   if (trash) kids.push(trash);
-  kids.push(focusView.foot('todos')); // 오늘 집중 N → 누르면 주·월 기록
+  // History and totals live in the Statistics tab.
   return kids;
 }
 
-// 오늘 할 일: 날짜·남은 수 머리 + (어제 남은 것 물음) + 추가 칸(오늘 꼭으로 생김) + 「오늘 꼭」 줄 + 오늘 끝낸 것
+// 오늘 할 일: 날짜·남은 수 머리 + (어제 남은 것 물음) + 추가 칸(오늘 반드시으로 생김) + 「오늘 반드시」 줄 + 오늘 끝낸 것
+function briefingTable(markdown) {
+  const body=md(h('div.briefing-body'),markdown);
+  for(const table of body.querySelectorAll('table')) {
+    const heads=[...table.querySelectorAll('th')].map(x=>x.textContent.trim());
+    if(heads.join('|')!=='예정일|상태|할 일')continue;
+    table.classList.add('briefing-tasks');
+    for(const row of table.querySelectorAll('tbody tr')) {
+      const cell=row.querySelector('td'),match=cell?.textContent.trim().match(/^(\d{4}-\d{2}-\d{2})\s*-\s*(\d{4}-\d{2}-\d{2})$/);
+      if(match)cell.replaceChildren(h('span.briefing-date-line',{text:match[1]}),h('span.briefing-date-line',{text:'- '+match[2]}));
+    }
+  }
+  return body;
+}
+
 function todayListKids() {
   const t = vm.today ?? { date: '', items: [] };
   const groups = dragGroups && section === 'today' ? withEmptyGroups(vm.todayGroups, [TODAY_PRIORITY]) : vm.todayGroups;
   const open = vm.stats.todayOpen, total = vm.stats.todayTotal;
   const kids = [
-    h('div.today-head', null,
-      h('h2', { text: t.date ? tr('panel.today_head', { date: t.date }) : tr('panel.sec_today') }),
-      total ? ui.progress(total - open, total, open ? tr('panel.today_progress', { n: open, total }) : tr('panel.today_all_done', { total })) : h('span.muted', { text: tr('panel.today_empty') }),
-      focusView.bar('today')),
+    pageDateHeading({open,total}),
   ];
   if (t.carry?.n) kids.push(carryBox(t));
   kids.push(addForm('today'));
   if (todoMsg) kids.push(h(`div.result.${todoMsg.ok ? 'ok' : 'err'}`, { role: 'status', text: todoMsg.text }));
   if (total && !groups.length) kids.push(h('div.empty', { text: tr('panel.today_done_all') }));
-  kids.push(...groups.map((g) => todoGroup(g, 'today')));
+  const todayItems = groups.flatMap(g => g.items).sort(scheduleOrder);
+  if (todayItems.length) kids.push(scheduledGroup({ bucket: 'today', label: pt("personal.오늘"), items: todayItems }));
   if (vm.todayDone.length) {
     kids.push(h('div.group.done', null,
       h('h2', null, h('span', { text: tr('panel.today_done') }), h('span.chip', { text: String(vm.todayDone.length) })),
       h('div.card.todos', null, vm.todayDone.map(doneRow))));
   }
   kids.push(h('div.muted.small.today-hint', { text: total ? tr('panel.today_hint') : tr('panel.today_hint_empty') }));
-  kids.push(focusView.foot('today'));
+
   return kids;
 }
 
@@ -1602,7 +1805,7 @@ function carryBox(t) {
 
 // 우선순위 묶음. 백로그(P4)는 기본 접힘(기억) — 접혀 있어도 끌어 놓을 칸은 남는다
 function todoGroup(g, scope = 'todos') {
-  const collapsed = isCollapsed(g.priority, backlogOpen);
+  const collapsed = !g.dateKey && isCollapsed(g.priority, backlogOpen);
   const head = g.priority === BACKLOG
     ? h('h2.backlog-head', {
       role: 'button', tabindex: '0', 'aria-expanded': String(!collapsed), title: collapsed ? tr('panel.unfold') : tr('panel.fold'),
@@ -1614,7 +1817,7 @@ function todoGroup(g, scope = 'todos') {
   const body = collapsed
     ? h('div.card.todos.drop-empty.collapsed', null, g.items.length ? null : h('div.muted.small', { text: tr('panel.drop_here') }))
     : h(`div.card.todos${g.items.length ? '' : '.drop-empty'}`, null, g.items.length ? g.items.map((t, i) => todoRow(t, i, g.items.length)) : h('div.muted.small', { text: tr('panel.drop_here') }));
-  return h(`div.group.p${g.priority}`, { dataset: [1, 2, 3, BACKLOG].includes(g.priority) ? { priority: String(g.priority) } : null }, head, body);
+  return h(`div.group.p${g.priority}${g.dateKey ? ".date-group" : ""}`, { dataset: [1, 2, 3, BACKLOG].includes(g.priority) ? { priority: String(g.priority) } : null }, head, body);
 }
 
 let backlogOpen = readBacklogOpen(globalThis.localStorage);
@@ -1636,14 +1839,14 @@ function rulesBar() {
     title: tr('panel.rules_title'),
     onclick: () => { rulesOpen = !rulesOpen; renderTodos(); },
   });
-  const bar = h('div.todo-tools', null, chip, vm.stats.backlogTodos ? h('span.muted.small', { text: tr('panel.backlog_n', { n: vm.stats.backlogTodos }) }) : null, focusView.bar('todos'));
+  const bar = h('div.todo-tools', null, chip, vm.stats.backlogTodos ? h('span.muted.small', { text: tr('panel.backlog_n', { n: vm.stats.backlogTodos }) }) : null);
   if (!rulesOpen) return bar;
   const list = rules.length
     ? rules.map((r) => h(`div.rule-row${r.enabled ? '' : '.off'}`, { dataset: { id: r.id } },
       h('input', { type: 'checkbox', checked: r.enabled, 'aria-label': tr('panel.rule_on_aria', { text: r.text }), title: r.enabled ? tr('panel.turn_off') : tr('panel.turn_on'), onchange: () => toggleRule(r) }),
       h('div.rule-main', null, h('span.rule-text', { text: r.text }), h('span.muted.small', { text: [r.summary, hitsLabel(r.hits)].filter(Boolean).join(' · ') })),
       h('button.ghost.rule-del', { type: 'button', text: '✕', title: tr('panel.rule_del'), 'aria-label': tr('panel.rule_del_aria', { text: r.text }), onclick: () => deleteRule(r) })))
-    : [h('div.muted.small', { text: tr('panel.no_rules') })];
+    : [h('div.rules-empty.muted.small', { text: tr('panel.no_rules') })];
   return h('div.todo-tools-wrap', null, bar, h('div.card.rules-list', null, list));
 }
 
@@ -1660,6 +1863,28 @@ async function ruleCall(r, pending, call, failText) {
 const toggleRule = (r) => ruleCall(r, { enabled: !r.enabled }, () => cy.todoRuleEdit(r.id, { enabled: !r.enabled }), tr('panel.fail_rule_edit'));
 const deleteRule = (r) => ruleCall(r, 'delete', () => cy.todoRuleDelete(r.id), tr('panel.fail_rule_del'));
 
+function newTodoDateTag() {
+  const date = newTodoDate();
+  const tag = dateTag({ scheduledDate: date, schedule:addSchedule }, localDay());
+  const tone = date ? tag.tone : 'none';
+  let hoverTimer;
+  const open = () => {
+    clearTimeout(hoverTimer);
+    if (!button.isConnected || document.querySelector('dialog.todo-date-dialog[open]')) return;
+    openDatePicker({ title: '', scheduledDate: newTodoDate(), schedule:addSchedule }, button, selected => {
+      addScheduledDate = selected.scheduledDate; addSchedule=selected.schedule; renderTodos(); $('todo-add-input')?.focus();
+    });
+  };
+  const button = h('button.ghost.add-date.date-tag.' + tone + (tag.repeat ? '.repeating' : '') + (tone === 'future' ? '.d' + dateDistance(date, localDay()) : '') + (scheduleGroup(date, localDay()) === 'later' ? '.later' : ''), {
+    type: 'button', text: date ? tag.text : pt("personal.날짜 없음"),
+    'aria-label': pt("personal.새 할 일 예정일 선택: ") + (date || pt("personal.날짜 없음")), 'aria-haspopup': 'dialog',
+    onclick: open,
+    onpointerenter: e => { if (e.pointerType === 'mouse') hoverTimer = setTimeout(open, 300); },
+    onpointerleave: () => clearTimeout(hoverTimer),
+  });
+  return button;
+}
+
 function addForm(scope = 'todos') {
   const today = scope === 'today';
   const input = h('input', { id: today ? 'today-add-input' : 'todo-add-input', type: 'text', placeholder: today ? tr('panel.add_today_ph') : tr('panel.add_ph'), 'aria-label': today ? tr('panel.add_today_aria') : tr('panel.add_aria') });
@@ -1672,7 +1897,7 @@ function addForm(scope = 'todos') {
   });
   return h('div.todo-add', null,
     input,
-    today ? null : prioritySelect(addPriority, (p) => { addPriority = p; }), // 오늘 할 일 탭에서 적으면 늘 「오늘 꼭」
+    today ? null : newTodoDateTag(),
     h('button.primary', { type: 'button', text: tr('panel.add'), onclick: () => addTodo(scope) }));
 }
 
@@ -1731,11 +1956,11 @@ function todoRow(t, i = 0, n = 1) {
   h('input.check', { type: 'checkbox', 'aria-label': tr('panel.done_aria', { title: t.title }), title: tr('panel.done'), disabled: t.pending, onchange: () => completeTodo(t) }),
   // (진행중): 사용자가 ▶ 로 켠 것, 아니면 작업 세션을 보니 하는 중(todo-progress.ts 가 진척을 남김) → 제목 앞
   h('span.t', null, isDoing(t) ? h('span.doing', { text: tr('panel.doing_prefix'), title: t.progress ? tr('panel.progress_title', { text: t.progress }) : tr('panel.doing_manual') }) : null, t.title),
-  t.source && t.source !== 'user' ? h('span.chip', { text: t.source }) : null, // 직접 추가한 건(대부분) 칩 없이: 줄이 가볍게. 원본 칸엔 그대로
+  t.source && t.source !== 'user' ? h(['calendar', 'session'].includes(t.source) ? 'span.todo-source.muted.small' : 'span.chip', { text: t.source }) : null, // 직접 추가한 건(대부분) 칩 없이: 줄이 가볍게. 원본 칸엔 그대로
   projectChip(t),
   confirming ? null : todayButton(t),
   confirming ? null : doingButton(t),
-  confirming ? confirmBox('trash', () => trashTodo(t)) : trashButton(t));
+  confirming ? confirmBox('trash', () => trashTodo(t)) : todoMenu(t));
   return open ? h('div.todo-wrap', null, row, todoDetailView(t)) : row;
 }
 
@@ -1758,8 +1983,8 @@ function gripButton(t, i, n) {
       e.preventDefault();
       e.stopPropagation();
       if (t.pending || drag) return;
-      const m = keyMove(listTodos(), t.id, k);
-      if (m) { refocusId = t.id; refocusGrip = true; moveTodo(t.id, m.priority, m.beforeId); }
+      const m = scheduleKeyMove(listTodos(), t.id, k, vm.today?.date||localDay());
+      if (m) { refocusId = t.id; refocusGrip = true; moveTodo(t.id, m.beforeId); }
     },
   }, h('span.grip-dots', { 'aria-hidden': 'true' }));
 }
@@ -1776,8 +2001,8 @@ function onRowKey(t, e) {
   if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || digit)) {
     e.preventDefault();
     if (t.pending) return;
-    const m = keyMove(listTodos(), t.id, digit ?? e.key);
-    if (m) { refocusId = t.id; moveTodo(t.id, m.priority, m.beforeId); }
+    const m = scheduleKeyMove(listTodos(), t.id, digit ?? e.key, vm.today?.date||localDay());
+    if (m) { refocusId = t.id; moveTodo(t.id, m.beforeId); }
   } else if (e.key === 'Enter') {
     e.preventDefault();
     if (e.shiftKey) startTodoEdit(t.id); else toggleDetail(t.id);
@@ -1983,13 +2208,13 @@ function startDrag(id, x, y) {
 }
 
 function dropGroups() {
-  return [...listSec().querySelectorAll('.group[data-priority]')].map((g) => {
-    const card = g.querySelector('.card.todos').getBoundingClientRect();
-    const head = g.getBoundingClientRect();
-    return {
-      priority: Number(g.dataset.priority), top: head.top, bottom: head.bottom, left: card.left, width: card.width,
-      rows: [...g.querySelectorAll('.todo.row')].map((r) => { const b = r.getBoundingClientRect(); return { id: r.dataset.id, top: b.top, bottom: b.bottom }; }),
-    };
+  const today=vm.today?.date||localDay(),current=findTodo(drag?.id);
+  if(!current)return [];
+  return [...listSec().querySelectorAll('.schedule-group')].flatMap(g=>{
+    const card=g.querySelector('.card.todos');if(!card)return [];
+    const box=card.getBoundingClientRect();
+    const rows=[...g.querySelectorAll('.todo.row')].filter(r=>{const t=findTodo(r.dataset.id);return t&&effectiveDate(t,today)===effectiveDate(current,today);}).map(r=>{const b=r.getBoundingClientRect();return {id:r.dataset.id,top:b.top,bottom:b.bottom};});
+    return rows.length?[{priority:1,top:rows[0].top,bottom:rows.at(-1).bottom,left:box.left,width:box.width,rows}]:[];
   });
 }
 
@@ -2010,7 +2235,7 @@ function moveDrag(y, x) {
     return;
   }
   const groups = dropGroups();
-  const tgt = dropTarget(y, groups, drag.id);
+  const tgt = groups.some(g=>y>=g.top&&y<=g.bottom) ? dropTarget(y, groups, drag.id) : null;
   drag.target = tgt;
   const g = tgt && groups.find((x) => x.priority === tgt.priority);
   drag.line.hidden = !g;
@@ -2041,7 +2266,7 @@ function finishDrag(commit) {
   refocusId = id;
   renderTodos();
   if (commit && target?.trash) askTrash(findTodo(id));
-  else if (commit && target) moveTodo(id, target.priority, target.beforeId);
+  else if (commit && target) moveTodo(id, target.beforeId);
 }
 
 // 꾹 누르기 전: 움직이면(스크롤·글자 선택) 끌기 아님, 떼면 그냥 클릭. 끌기가 시작된 뒤는 rowDrag 가 받는다
@@ -3440,13 +3665,13 @@ document.addEventListener('keydown', (e) => {
     if (next !== selectedId) selectThread(next);
   } else if (e.metaKey && /^[1-5]$/.test(e.key)) {
     e.preventDefault();
-    const shown = visibleSections(vm); // 숨긴 탭은 건너뛰고 보이는 순서대로
+    const shown = shownSections(); // 숨긴 탭은 건너뛰고 보이는 순서대로
     if (shown[Number(e.key) - 1]) goto(shown[Number(e.key) - 1]);
   }
 });
 
 // 상대 시각은 1분마다 다시 그림 (오늘 할 일 입력·채팅 입력은 건드리지 않음)
-setInterval(() => { if (raw) renderAll(); }, 60_000);
+setInterval(() => { if (raw) loadSoon(); }, 60_000);
 
 function applySisa(v) {
   sisa = {
@@ -3492,6 +3717,8 @@ function relang() {
 }
 bindLanguage(cy, relang, { whoName: () => who() });
 panelReady = true;
+cy.onSidebarPrefs?.(prefs => { sidebarTabs = sidebarPrefs(prefs); renderAll(); });
+cy.getSidebarPrefs?.().then(prefs => { sidebarTabs = sidebarPrefs(prefs); renderAll(); }).catch(() => {});
 
 goto(section);
 renderAll();

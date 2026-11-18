@@ -156,7 +156,7 @@ test("연결: 로그인해 캘린더를 찾고 전부 켜서 저장(권한 600) 
     assert.deepEqual(r.calendars.map((c) => [c.name, c.enabled]), [["내 캘린더", true], ["가족", true]]);
     assert.doesNotMatch(JSON.stringify(r), new RegExp(PASS));
     assert.equal(applied, 1);
-    assert.equal(statSync(path).mode & 0o777, 0o600);
+    if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600);
     const file = JSON.parse(readFileSync(path, "utf8"));
     assert.equal(file.brain.provider, "claude-code", "다른 키는 그대로");
     const cal = file.connectors.calendar;

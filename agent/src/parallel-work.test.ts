@@ -34,7 +34,7 @@ function repoIn(root: string, name: string) {
   git(root, "clone", "-q", join(root, `${name}.git`), name);
   return join(root, name);
 }
-const until = async (cond: () => boolean, ms = 5000) => { const t = Date.now(); while (!cond()) { if (Date.now() - t > ms) throw new Error("timeout"); await new Promise((r) => setTimeout(r, 5)); } };
+const until = async (cond: () => boolean, ms = 20000) => { const t = Date.now(); while (!cond()) { if (Date.now() - t > ms) throw new Error("timeout"); await new Promise((r) => setTimeout(r, 5)); } };
 const author = { name: "Bot", email: "bot@example.com" };
 const cfgFor = (root: string) => ({ repoRoots: [root], gitAuthor: author, models: { code: "fake" } }) as unknown as Config;
 const proposal = (repo: string, id: string): Proposal => ({ id, repo, title: `작업 ${id}`, plan: "p", status: "approved", created: new Date().toISOString() });

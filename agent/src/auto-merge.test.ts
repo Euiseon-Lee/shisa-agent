@@ -278,7 +278,7 @@ const states: Record<string, GitState> = {
 const pctx = (cwd: string): PermCtx => ({ roots: ["/h/code"], brainDir: "/h/.cy-agent/brain", cwd, home: HOME, cyHome: "/h/.cy-agent", gitProbe: probe(states) });
 const ok = (cwd: string, command: string) => hardDeny("Bash", { command }, pctx(cwd)).allow;
 
-test("채팅 git commit/push: cy 워크트리·cy/ 브랜치에선 됨, 기본·보호 브랜치·force·지우기·워크트리 밖은 막힘", () => {
+test("채팅 git commit/push: cy 워크트리·cy/ 브랜치에선 됨, 기본·보호 브랜치·force·지우기·워크트리 밖은 막힘", { skip: process.platform === "win32" ? "POSIX /h shell fixture; drive and MSYS permissions have dedicated Windows coverage" : false }, () => {
   for (const c of ["git add -A && git commit -m 'feat: x && y'", "git push", "git push -u origin cy/x", "git push origin HEAD", `git commit -F - <<'EOF'\nfix: git push 문구\nEOF`, "git commit -m \"$(cat <<'EOF'\nfeat: 커밋\nEOF\n)\"", "git merge origin/main"])
     assert.ok(ok(WT, c), c);
   assert.ok(ok(CLAUDE_WT, "git commit -am wip && git push origin worktree-agent-1"));

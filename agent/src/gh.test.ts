@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -35,7 +36,8 @@ else out("[]");
 `);
   chmodSync(bin, 0o755);
   const calls = () => { try { return readFileSync(log, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l) as string[]); } catch { return []; } };
-  return { bin, calls };
+  const exec = ((ignored: string, args: string[], opts: any, callback: any) => execFile(process.execPath,[bin,...args],opts,callback)) as typeof execFile;
+  return { bin, calls, exec };
 }
 
 test("argv 틀: 고정 명령 + 검증한 값만", () => {
@@ -90,14 +92,14 @@ test("주입 시도는 거부", () => {
 
 test("runGh 는 허용 밖 argv 를 실행하지 않는다", async () => {
   const g = fakeGh();
-  const r = await runGh(["pr", "merge", "1", "-R", "o/n"], { bin: g.bin });
+  const r = await runGh(["pr", "merge", "1", "-R", "o/n"], { exec: g.exec });
   assert.equal(r.ok, false);
   assert.equal(g.calls().length, 0);
 });
 
 test("핸들러: 입력 거부는 실행 없이 isError", async () => {
   const g = fakeGh();
-  const h = ghHandlers({ bin: g.bin });
+  const h = ghHandlers({ exec: g.exec });
   const r = await h.pr_view({ repo: "o/n --web", number: 1 } as any);
   assert.equal(r.isError, true);
   assert.match(r.content[0].text, /입력 거부/);
@@ -107,7 +109,7 @@ test("핸들러: 입력 거부는 실행 없이 isError", async () => {
 
 test("pr_view: 실제 argv 로 실행, JSON 긴 본문·배열 줄이고 상한 안", async () => {
   const g = fakeGh();
-  const h = ghHandlers({ bin: g.bin });
+  const h = ghHandlers({ exec: g.exec });
   const r = await h.pr_view({ repo: "octo-org/infra-manifests", number: 1817 });
   assert.equal(r.isError, undefined);
   assert.deepEqual(g.calls()[0].slice(0, 5), ["pr", "view", "1817", "-R", "octo-org/infra-manifests"]);
@@ -121,7 +123,7 @@ test("pr_view: 실제 argv 로 실행, JSON 긴 본문·배열 줄이고 상한 
 
 test("gh 실패는 stderr(ANSI 걷음)를 isError 로", async () => {
   const g = fakeGh();
-  const r = await ghHandlers({ bin: g.bin }).pr_view({ repo: "o/n", number: 404 });
+  const r = await ghHandlers({ exec: g.exec }).pr_view({ repo: "o/n", number: 404 });
   assert.equal(r.isError, true);
   assert.match(r.content[0].text, /Could not resolve/);
   assert.doesNotMatch(r.content[0].text, /\u001b/);
@@ -129,7 +131,7 @@ test("gh 실패는 stderr(ANSI 걷음)를 isError 로", async () => {
 
 test("pr_diff: ANSI 걷고 30KB 로 자름", async () => {
   const g = fakeGh();
-  const r = await ghHandlers({ bin: g.bin }).pr_diff({ repo: "o/n", number: 1 });
+  const r = await ghHandlers({ exec: g.exec }).pr_diff({ repo: "o/n", number: 1 });
   const t = r.content[0].text;
   assert.ok(t.startsWith("+added\n"));
   assert.doesNotMatch(t, /\u001b/);
@@ -149,7 +151,7 @@ test("비동기: 느린 gh 동안에도 이벤트 루프가 돈다", async () =>
   let ticks = 0;
   const iv = setInterval(() => ticks++, 10);
   const t0 = Date.now();
-  const r = await ghHandlers({ bin: g.bin }).pr_view({ repo: "o/n", number: 7 });
+  const r = await ghHandlers({ exec: g.exec }).pr_view({ repo: "o/n", number: 7 });
   clearInterval(iv);
   assert.ok(Date.now() - t0 >= 350);
   assert.ok(ticks >= 15, `ticks=${ticks}`);
@@ -159,7 +161,7 @@ test("비동기: 느린 gh 동안에도 이벤트 루프가 돈다", async () =>
 test("타임아웃: 끝나지 않는 gh 는 잘리고 isError", async () => {
   const g = fakeGh();
   const t0 = Date.now();
-  const r = await ghHandlers({ bin: g.bin, timeoutMs: 500 }).pr_view({ repo: "o/n", number: 8 });
+  const r = await ghHandlers({ exec: g.exec, timeoutMs: 500 }).pr_view({ repo: "o/n", number: 8 });
   assert.ok(Date.now() - t0 < 5000);
   assert.equal(r.isError, true);
   assert.match(r.content[0].text, /시간 초과/);
@@ -168,18 +170,18 @@ test("타임아웃: 끝나지 않는 gh 는 잘리고 isError", async () => {
 test("repo_find: 내 계정·org 마다 repo view, 찾으면 기억", async () => {
   _clearGhCache();
   const g = fakeGh();
-  const r = await repoFind("target", { bin: g.bin });
+  const r = await repoFind("target", { exec: g.exec });
   assert.deepEqual(r.searched, ["me-login", "org-a", "org-b"]);
   assert.deepEqual(r.matches, [{ nameWithOwner: "org-b/target", url: "https://github.com/org-b/target" }]);
   const n = g.calls().length;
-  await repoFind("target", { bin: g.bin });
+  await repoFind("target", { exec: g.exec });
   assert.equal(g.calls().length, n); // 캐시
   // 못 찾으면 search repos 로 후보
-  const miss = await repoFind("nothing", { bin: g.bin });
+  const miss = await repoFind("nothing", { exec: g.exec });
   assert.ok(g.calls().some((c) => c[0] === "search" && c[1] === "repos"));
   assert.equal(miss.matches.length, 2);
-  await assert.rejects(repoFind("--help", { bin: g.bin }));
-  assert.equal((await ghHandlers({ bin: g.bin }).repo_find({ name: "a b" })).isError, true);
+  await assert.rejects(repoFind("--help", { exec: g.exec }));
+  assert.equal((await ghHandlers({ exec: g.exec }).repo_find({ name: "a b" })).isError, true);
 });
 
 test("가드: gh 도구는 읽기 전용으로 통과, 다른 이름은 막힘", async () => {

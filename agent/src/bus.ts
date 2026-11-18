@@ -19,6 +19,7 @@ import { parseRange } from "./calendar-view.ts";
 
 export type Mood = "idle" | "thinking" | "working" | "alert";
 export type Bubble = {
+  transient?: boolean; // Informational progress only; not an unread notification.
   id?: string; text: string; kind: "info" | "todo" | "proposal" | "done" | "error"; ttlMs?: number; proposalId?: string; link?: string;
   image?: BubbleImage; // 그림 말풍선(스티커) — 오버레이가 그림 다음 ~600ms 뒤 글 말풍선을 띄운다
   detail?: string; // 긴 말풍선 본문(4–6줄 보이고, 누르면 open 으로)
@@ -45,8 +46,9 @@ export type BusHandlers = {
   todoDelete?(id: string): unknown; // 휴지통으로. 없는 id면 undefined/false → 404, 있으면 옮긴 할 일
   todoRestore?(id: string): unknown; // 휴지통에서 되살리기. 휴지통에 없으면 undefined → 404
   todoPurge?(id: string): boolean; // 영구 삭제(휴지통에 있는 것만). false → 404
+  todoIrrelevantClear?(id?: string): number;
   todoTrashEmpty?(): number; // 휴지통 비우기 → 지운 개수
-  todayCarry?(decision: "keep" | "demote"): { moved: number } | Promise<{ moved: number }>; // 어제 남은 오늘 꼭: 그대로 · 이번 주로
+  todayCarry?(decision: "keep" | "demote"): { moved: number } | Promise<{ moved: number }>; // 어제 남은 오늘 반드시: 그대로 · 이번 주로
   todoRevert?(id: string): unknown; // 자동 완료 되돌리기: "missing" → 404, "not_auto" → 409, 그 외 바뀐 할 일 → 200
   // 할 일 팝오버: 묻기(바꾸지 않음) → 적용/거절. 없는 할 일이면 undefined/false → 404
   todoAsk?(id: string, text: string): Promise<unknown>;
@@ -61,6 +63,7 @@ export type BusHandlers = {
   todoDetail?(id: string): Promise<unknown>; // 없는 id면 undefined → 404
   // 팝오버 마지막 문답(세션 창 "원래 화면 열기"). { missing: true, threadId?, trashed } → 404(본문에 그대로)
   todoLastAsk?(id: string): unknown;
+  todoScheduleOrder?(id: string, date: string | null, beforeId?: string): unknown;
   todoReorder?(id: string, priority: number, beforeId?: string): unknown; // "missing" → 404, "bad_before" → 400, 그 외 바뀐 할 일
   projectHide?(id: string): boolean | Promise<boolean>; // 프로젝트 숨기기(id = 경로). 모르는 프로젝트면 false → 404
   projectUnhide?(id: string): boolean | Promise<boolean>; // 숨긴 적 없으면 false → 404
@@ -877,6 +880,17 @@ export class Bus {
         if (body.decision !== "keep" && body.decision !== "demote") throw new BadRequest("decision must be keep or demote");
         return json(res, 200, { ok: true, ...(await h.todayCarry(body.decision)) });
       }
+      if (url.pathname === '/todos/schedule-order') {
+        if (!h.todoScheduleOrder) return json(res,503,{error:'schedule order unavailable'});
+        const body = await readJson(req);
+        if (typeof body.id !== 'string' || !body.id || body.id.length > 500) throw new BadRequest('id required');
+        if (body.date !== null && (typeof body.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.date))) throw new BadRequest('date required');
+        if (body.beforeId != null && (typeof body.beforeId !== 'string' || !body.beforeId || body.beforeId.length > 500)) throw new BadRequest('invalid beforeId');
+        const r = await h.todoScheduleOrder(body.id,body.date,body.beforeId ?? undefined);
+        if (!r || r === 'missing') return json(res,404,{error:'no such open todo'});
+        if (r === 'bad_before') throw new BadRequest('schedule changed or target is on another date');
+        return json(res,200,{ok:true,todo:r});
+      }
       if (url.pathname === "/todos/reorder") {
         if (!h.todoReorder) return json(res, 503, { error: "todo reorder unavailable" });
         const body = await readJson(req);
@@ -894,6 +908,13 @@ export class Bus {
         if (!p.ok) throw new BadRequest(p.error);
         if (p.value.projectId && h.projectExists && !h.projectExists(p.value.projectId)) throw new BadRequest("no such project");
         return json(res, 201, { id: (await h.todoAdd(p.value)).id });
+      }
+      if (url.pathname === "/todos/irrelevant/clear") {
+        if (!h.todoIrrelevantClear) return json(res, 503, { error: "todo irrelevant unavailable" });
+        const body = await readJson(req) as Record<string, unknown>;
+        if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => k !== 'id') ||
+          (body.id !== undefined && (typeof body.id !== 'string' || !body.id || body.id.length > 500))) throw new BadRequest('invalid irrelevant clear request');
+        return json(res, 200, { ok: true, purged: await h.todoIrrelevantClear(body.id as string | undefined) });
       }
       if (url.pathname === "/todos/trash/empty") {
         if (!h.todoTrashEmpty) return json(res, 503, { error: "todo trash unavailable" });

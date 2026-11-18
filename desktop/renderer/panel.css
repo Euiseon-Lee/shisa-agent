@@ -1557,3 +1557,283 @@ button.ai-add { align-self: flex-start; }
   padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--fg); font-size: 12.5px;
 }
 #chat-canned .canned-row button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--accent-soft); color: var(--accent); }
+
+/* Personal scheduling: tags occupy the old Today control; actions stay at the trailing edge. */
+:is(.todo.row, .todo-add) .date-tag { opacity: 1; min-width: 44px; text-align: center; }
+:is(.todo.row, .todo-add) .date-tag.today { color: var(--accent); background: var(--accent-soft); }
+:is(.todo.row, .todo-add) .date-tag.overdue { color: #994f47; background: #f7e3df; }
+:is(.todo.row, .todo-add) .date-tag.future { color: #486a53; background: #e3eee5; }
+:is(.todo.row, .todo-add) .date-tag.none { color: var(--muted); background: var(--surface); }
+.todo.row .row-more { flex: none; opacity: .65; }
+.todo.row:hover .row-more, .todo.row:focus-within .row-more { opacity: 1; }
+.date-group .todo-grip { visibility: hidden; pointer-events: none; }
+.todo-undo .ico, .restore-irrelevant .ico { font-size: 20px; }
+.todo-date-dialog { width: min(330px, calc(100vw - 36px)); box-sizing: border-box; border: 1px solid var(--line); border-radius: 16px; padding: 22px; background: var(--bg); color: var(--fg); box-shadow: 0 12px 48px #0003; }
+.todo-date-dialog::backdrop { background: #0003; }
+.todo-date-dialog h3 { margin: 0 0 8px; }
+.todo-date-dialog input { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; }
+.date-quick, .date-footer { display: flex; gap: 8px; margin-top: 14px; }
+.date-footer { justify-content: flex-end; }
+.date-error { color: var(--err); font-size: 12px; min-height: 16px; }
+.irrelevant-group .card { padding: 8px 12px; }
+
+/* Schedule groups share their accent with their date chips. */
+:root { --schedule-coral: #ef526a; --schedule-coral-ink: #c72d48; --schedule-coral-bg: #ffe0e6; --schedule-yellow: #e7b52c; --schedule-yellow-ink: #7c6100; }
+:is(.todo.row, .todo-add) .date-tag.overdue { color: var(--schedule-coral-ink); background: var(--schedule-coral-bg); }
+:is(.todo.row, .todo-add) .date-tag.future { color: var(--schedule-yellow-ink); background: #fff7db; }
+:is(.todo.row, .todo-add) .date-tag.future.d1 { background: #ffdf80; }
+:is(.todo.row, .todo-add) .date-tag.future.d2 { background: #ffe593; }
+:is(.todo.row, .todo-add) .date-tag.future.d3 { background: #ffeba6; }
+:is(.todo.row, .todo-add) .date-tag.future.d4 { background: #fff0b9; }
+:is(.todo.row, .todo-add) .date-tag.future.d5 { background: #fff4cb; }
+:is(.todo.row, .todo-add) .date-tag.future.d6 { background: #fff7db; }
+.group.bucket-overdue h2::before { background: var(--schedule-coral); }
+.group.bucket-today h2::before { background: var(--accent); }
+.group.bucket-week h2::before, .group.bucket-later h2::before { background: var(--schedule-yellow); }
+.group.bucket-undated h2::before { background: var(--p2); }
+.schedule-head { cursor: pointer; user-select: none; border-radius: 6px; }
+.schedule-head:focus-visible, .excluded-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.schedule-head .caret { color: var(--muted); font-size: 10px; }
+.schedule-group .todo-grip { display: none; }
+.group.irrelevant-group h2.excluded-head { cursor: pointer; user-select: none; color: var(--muted); border-radius: 6px; }
+.group.irrelevant-group h2.excluded-head::before { display: none; }
+.group.irrelevant-group .caret { font-size: 10px; }
+.irrelevant-group .card { padding: 0; }
+.irrelevant-group .card > p { padding: 10px 12px 0; }
+.restore-trash .ico { font-size: 20px; }
+.purge-icon { color: var(--err); }
+.purge-icon svg { width: 16px; height: 16px; flex-shrink: 0; }
+.stats-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
+.stat-metric { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.stat-metric strong { font-size: 25px; }
+.completion-chart { padding: 18px; margin-bottom: 24px; }
+.completion-chart h3 { margin: 0 0 6px; }
+.completion-days { display: grid; gap: 10px; margin-top: 18px; }
+.completion-day { display: grid; grid-template-columns: 50px 1fr 24px; align-items: center; gap: 12px; }
+.completion-day progress { width: 100%; height: 9px; accent-color: var(--accent); }
+.completion-day b { text-align: right; }
+.stats-today-focus { padding: 16px 18px; display: flex; justify-content: space-between; margin-bottom: 12px; }
+.focus-overview .focus-stats { margin-top: 0; }
+@media(max-width: 760px) { .stats-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(prefers-color-scheme: dark) {
+ :root { --schedule-coral: #ff8296; --schedule-coral-ink: #ffacb9; --schedule-coral-bg: #552534; --schedule-yellow: #f0cc64; --schedule-yellow-ink: #ffe29b; }
+ :is(.todo.row, .todo-add) .date-tag.future.d1 { background: #66501e; } :is(.todo.row, .todo-add) .date-tag.future.d2 { background: #5e4a20; }
+ :is(.todo.row, .todo-add) .date-tag.future.d3 { background: #564422; } :is(.todo.row, .todo-add) .date-tag.future.d4 { background: #4e3e24; }
+ :is(.todo.row, .todo-add) .date-tag.future.d5 { background: #463925; } :is(.todo.row, .todo-add) .date-tag.future.d6 { background: #3e3427; }
+}
+
+/* Personal palette and compact list alignment. */
+.group.bucket-later h2::before { background: var(--p2); }
+.group.bucket-undated h2::before { background: #8cc7ef; }
+:is(.todo.row, .todo-add) .date-tag.future.later { background: #fff0d9; color: #b96b06; }
+.todo.trashed button.icon-btn { padding: 0; width: 28px; height: 28px; }
+.todo.trashed button.purge-icon svg { width: 18px; height: 18px; flex: none; }
+.todo.row button.row-more, .ui-menu[aria-label="할 일 메뉴"], .ui-menu[aria-label="할 일 메뉴"] button { border: 0; }
+.todo-source { flex: none; }
+.focus-bar, .focus-overview { --grass: var(--accent); }
+#sec-today .today-hint { text-align: left; }
+.stats-metrics .stat-metric { align-items: flex-start; text-align: left; }
+.stats-metrics .stat-metric strong { width: 100%; text-align: left; }
+.irrelevant-group .trash-foot > button { flex: none; }
+@media(prefers-color-scheme: dark) {
+ :is(.todo.row, .todo-add) .date-tag.future.later { background: #513c22; color: #ffd08b; }
+ .group.bucket-undated h2::before { background: #96c9ef; }
+}
+
+/* One shared scale for disclosure carets and a brighter schedule palette. */
+.group.trash .trash-head .caret, .group.irrelevant-group .excluded-head .caret {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 10px; height: 14px; flex: 0 0 10px; font-size: 12px; line-height: 1; color: var(--muted);
+}
+:root { --schedule-coral: #ff7187; --schedule-yellow: #f4d44e; --schedule-apricot: #ffa66b; --schedule-blue: #8ec9ef; }
+.group.bucket-today h2::before { background: #a08aef; }
+.group.bucket-week h2::before { background: var(--schedule-yellow); }
+.group.bucket-later h2::before { background: var(--schedule-apricot); }
+.group.bucket-undated h2::before { background: var(--schedule-blue); }
+:is(.todo.row, .todo-add) .date-tag.future.d1 { background: #ffe781; }
+:is(.todo.row, .todo-add) .date-tag.future.d2 { background: #ffec96; }
+:is(.todo.row, .todo-add) .date-tag.future.d3 { background: #fff0aa; }
+:is(.todo.row, .todo-add) .date-tag.future.d4 { background: #fff3be; }
+:is(.todo.row, .todo-add) .date-tag.future.d5 { background: #fff6d0; }
+:is(.todo.row, .todo-add) .date-tag.future.d6 { background: #fff9df; }
+:is(.todo.row, .todo-add) .date-tag.future.later { background: #ffe8d8; color: #b85e21; }
+@media (prefers-color-scheme: dark) {
+ :root { --schedule-coral: #ff8c9d; --schedule-yellow: #f5dc72; --schedule-apricot: #ffb47f; --schedule-blue: #9ed2f3; }
+ :is(.todo.row, .todo-add) .date-tag.future.d1 { background: #66571e; } :is(.todo.row, .todo-add) .date-tag.future.d2 { background: #5e5120; }
+ :is(.todo.row, .todo-add) .date-tag.future.d3 { background: #564b22; } :is(.todo.row, .todo-add) .date-tag.future.d4 { background: #4e4524; }
+ :is(.todo.row, .todo-add) .date-tag.future.d5 { background: #463f25; } :is(.todo.row, .todo-add) .date-tag.future.d6 { background: #3e3927; }
+ :is(.todo.row, .todo-add) .date-tag.future.later { background: #513824; color: #ffbd8c; }
+}
+
+/* Count chips keep their neutral background and inherit each schedule tone. */
+.group.bucket-overdue .schedule-head .chip { color: var(--schedule-coral-ink); }
+.group.bucket-today .schedule-head .chip { color: var(--accent); }
+.group.bucket-week .schedule-head .chip { color: var(--schedule-yellow-ink); }
+.group.bucket-later .schedule-head .chip { color: #b85e21; }
+.group.bucket-undated .schedule-head .chip { color: #4385b2; }
+.todo-add button.add-date { flex: none; white-space: nowrap; color: var(--accent); }
+@media(prefers-color-scheme: dark) {
+ .group.bucket-later .schedule-head .chip { color: #ffbd8c; }
+ .group.bucket-undated .schedule-head .chip { color: #9ed2f3; }
+}
+
+.rules-list .rules-empty { padding: 10px 8px; }
+
+.todo-add button.add-date { align-self: center; height: 24px; padding: 2px 9px; border: 0; border-radius: 12px; font-size: 12px; line-height: 20px; }
+.todo-add:not(:focus-within):has(input:placeholder-shown) > button.add-date { display: inline-flex; }
+.todo-date-dialog .date-error:empty { display: none; }
+.todo-date-dialog .date-error { min-height: 0; margin: 6px 0 0; }
+.todo-date-dialog .date-quick { margin-top: 10px; }
+.todo-date-dialog .date-footer { margin-top: 12px; }
+
+.stat-metric .stat-sub-right { width: 100%; text-align: right; }
+.group.trash .trash-head .caret, .group.irrelevant-group .excluded-head .caret {
+  width: 8px; height: 8px; flex: 0 0 8px; background: var(--muted);
+  clip-path: polygon(15% 0, 100% 50%, 15% 100%);
+}
+.group.trash .trash-head[aria-expanded="true"] .caret,
+.group.irrelevant-group .excluded-head[aria-expanded="true"] .caret { transform: rotate(90deg); }
+
+/* 하루 / 기간 / 반복 예정일 선택 */
+.todo-date-dialog { width: min(390px, calc(100vw - 32px)); padding:20px; }
+.todo-date-dialog [hidden] { display:none !important; }
+.todo-date-dialog h3 { margin:0 0 16px; }
+.schedule-modes { display:flex; gap:3px; padding:3px; border-radius:10px; background:var(--btn); margin-bottom:18px; }
+.schedule-modes button { flex:1; font-size:13px; }
+.schedule-modes button[aria-pressed=true], .schedule-weekdays button[aria-pressed=true] { color:var(--accent); background:var(--accent-soft, #a998ff22); }
+.schedule-dates { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+.todo-date-dialog label, .schedule-label { font-size:12px; color:var(--muted); }
+.todo-date-dialog input[type=date] { display:block; min-width:0; margin-top:6px; height:40px; font-size:14px; border:1px solid var(--line); border-radius:7px; }
+.schedule-weekdays { display:flex; gap:3px; margin:8px 0 12px; }
+.schedule-weekdays button { flex:1; min-width:0; padding:7px 0; font-size:12px; }
+.schedule-note { margin:14px 0 0; font-size:12px; line-height:1.5; color:var(--muted); }
+.todo-date-dialog .date-footer { align-items:center; margin-top:18px; gap:4px; }
+.date-footer .schedule-none { margin-right:auto; font-size:12px; padding:6px 4px; }
+
+.overview-today .overview-today-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.overview-today h2 { margin:0; font-size:14px; }
+.overview-today .overview-todo { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--line); }
+.overview-today .overview-todo:first-of-type { margin-top:10px; }
+.overview-todo input { accent-color:var(--accent); }
+.overview-todo .t { flex:1; min-width:0; overflow-wrap:anywhere; }
+.overview-todo.is-done .t { color:var(--muted); text-decoration:line-through; }
+
+.overview-today .overview-today-head {margin-bottom:10px;}
+.overview-today .overview-todo:first-child {border-top:0;margin-top:0;}
+
+.schedule-note {word-break:keep-all;overflow-wrap:break-word;}
+
+/* Repeat symbol follows the date tag's foreground color in every theme. */
+.date-tag.repeating { display:inline-flex; align-items:center; justify-content:center; gap:4px; }
+.date-tag.repeating::before { content:""; display:inline-block; flex:none; width:14px; height:14px; background:currentColor; mask:url('assets/todo-menu/repeat.svg') center / contain no-repeat; }
+
+/* Completed, excluded and trashed lists share the same text inset (4 + 10px). */
+:is(.group.done,.group.irrelevant-group,.group.trash) .card.todos { padding:2px 4px; }
+:is(.group.done,.group.irrelevant-group,.group.trash) .card.todos > .todo { padding-inline:10px; }
+:is(.group.irrelevant-group,.group.trash) .trash-foot { padding-inline:10px; }
+
+/* Shared focus control stays available in every panel section. */
+#top { height:auto; min-height:52px; flex-wrap:wrap; padding-top:8px; padding-bottom:8px; }
+#top h1 { flex-shrink:0; }
+#global-focus { display:flex; align-items:center; min-width:0; max-width:100%; }
+#global-focus .focus-bar { margin-left:0; }
+#global-focus .focus-live { white-space:nowrap; }
+#global-focus .focus-err { flex-basis:100%; }
+
+/* Shared completion/focus statistics */
+.activity-toolbar,.activity-range,.activity-period,.activity-chart-heading{display:flex;align-items:center;gap:8px}
+.activity-toolbar{justify-content:space-between;flex-wrap:wrap;margin-bottom:16px}
+.activity-period .active{background:var(--accent,#7861ff);color:white}
+.activity-range strong{font-size:13px;font-variant-numeric:tabular-nums}
+.activity-chart{margin-bottom:16px;padding:18px}
+.activity-chart-heading{justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
+.activity-chart h3,.activity-detail h3{margin:0}
+.activity-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.activity-day{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 3px;background:transparent;border:1px solid transparent;border-radius:9px;min-width:0;color:inherit}
+.activity-day:hover:not(:disabled){background:#f3f0ff}
+.activity-day.selected{border-color:#8b76ff;background:#f5f2ff}
+.activity-day.future{opacity:.45}
+.activity-value{height:20px;line-height:20px;font-size:12px;white-space:nowrap}
+.activity-track{display:flex;align-items:flex-end;height:90px;width:55%;max-width:36px;background:#f4f2f8;border-radius:5px;overflow:hidden}
+.activity-bar{width:100%;background:#9b87ff;border-radius:5px 5px 0 0}
+.activity-date{font-size:11px;white-space:nowrap;height:18px;line-height:18px;font-variant-numeric:tabular-nums}
+.activity-grid.month .activity-track{height:38px}
+.activity-grid.month .activity-day{padding:5px 2px;gap:3px}
+.activity-detail{padding:18px}
+.activity-halves,.activity-tasks{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.activity-halves .card{background:#f7f5ff;margin:0;box-shadow:none}
+.activity-task-list h4{margin:0 0 10px}.activity-task-list ul{list-style:none;padding:0;margin:0}
+.activity-task-list li{display:flex;gap:8px;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere}
+.activity-task-list time{flex-shrink:0}
+@media(max-width:650px){.activity-tasks{grid-template-columns:1fr}.activity-value{font-size:10px}.activity-date{font-size:10px}.activity-chart{padding:12px}.activity-grid{gap:2px}}
+
+.activity-stack{display:flex;flex-direction:column;width:100%}.activity-am{background:#c8bcff}.activity-pm{background:#8971ed}.activity-month-focus{height:18px;line-height:18px;font-size:10px;white-space:nowrap}.activity-grid.month .activity-track{height:24px}
+.activity-day.future .activity-track{visibility:hidden}
+
+/* Shared soft card backgrounds, while retaining the theme palette. */
+:is(#sec-overview, #sec-todos, #sec-today) .card,
+#sec-statistics > .stats-metrics > .card,
+#sec-statistics > .activity-chart,
+#sec-statistics > .activity-detail { background: color-mix(in srgb, var(--card) 45%, var(--surface)); }
+
+/* Clear chart tracks without changing bar dimensions or future-date blanks. */
+.activity-track {
+  background: #f4f2f8;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 32%, transparent);
+}
+.activity-bar { background: var(--accent); }
+.activity-am { background: var(--focus-am); }
+.activity-pm { background: var(--focus-pm); }
+/* Shared morning/afternoon palette for weekly bars and monthly rings. */
+#sec-statistics {
+  --focus-am: color-mix(in srgb, var(--accent) 28%, var(--surface));
+  --focus-pm: color-mix(in srgb, var(--accent) 65%, var(--surface));
+  --focus-ring-track: color-mix(in srgb, var(--muted) 12%, var(--surface));
+  --focus-ring-center: color-mix(in srgb, var(--card) 45%, var(--surface));
+}
+.activity-grid.month .activity-day { gap:4px;padding:9px 2px; }
+.activity-donut { display:grid;place-items:center;position:relative;width:64px;max-width:100%;aspect-ratio:1;flex-shrink:0;border-radius:50%;isolation:isolate; }
+.activity-donut::before { content:'';position:absolute;inset:7px;border-radius:50%;background:var(--focus-ring-center);z-index:-1; }
+.activity-day.selected .activity-donut { --focus-ring-center:#f5f2ff; }
+.activity-day:hover:not(:disabled) .activity-donut { --focus-ring-center:#f3f0ff; }
+.activity-percent { font-size:12px;font-weight:650;font-variant-numeric:tabular-nums; }
+.activity-donut.empty { visibility:hidden; }
+@media(max-width:650px){.activity-donut{width:48px}.activity-donut::before{inset:5px}.activity-percent{font-size:10px}}
+
+/* Weekly cumulative completions. Node labels show daily counts. */
+.completion-plot{position:relative}
+.completion-line{position:absolute;left:0;top:0;width:100%;height:150px;pointer-events:none;overflow:visible}
+.completion-line polyline{fill:none;stroke:var(--focus-pm);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.activity-grid.completion-grid{gap:0;position:relative}
+.completion-grid .completion-day{padding:0 2px 8px;gap:6px;background:transparent;border-color:transparent}
+.completion-grid .completion-day.selected{background:transparent;border-color:transparent}
+.completion-node-area{position:relative;display:block;width:100%;height:150px}
+.completion-marker{position:absolute;left:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:100%}
+.completion-dot{display:block;width:10px;height:10px;border-radius:50%;background:var(--focus-pm);border:2px solid var(--surface)}
+.completion-day.selected .completion-dot{box-shadow:0 0 0 3px var(--accent-soft);background:var(--accent)}
+.completion-node-value{position:absolute;bottom:17px;white-space:nowrap;font-size:12px;font-weight:600}
+.completion-day.selected .activity-date{color:var(--accent);font-weight:700}
+.completion-day:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* Readable focus cards with chart colors around the complete rounded border. */
+.activity-halves :is(.focus-am-card, .focus-pm-card) {
+  background:#ffffff;
+  color:#1d1d1f;
+  border:3px solid var(--focus-am);
+  padding:14px;
+}
+.activity-halves .focus-pm-card { border-color:var(--focus-pm); }
+.activity-halves :is(.focus-am-card, .focus-pm-card) > .muted { color:#6e6e73; }
+.bucket-overdue > .schedule-head { cursor:default; }
+
+#sec-overview > .overview-date { margin:0 0 12px; color:var(--fg); }
+
+:is(#sec-overview,#sec-todos,#sec-today) > .page-date { display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin:0 0 12px;font-size:13px;font-weight:650;color:var(--fg); }
+
+.briefing-tasks{width:100%;table-layout:fixed}.briefing-tasks th:nth-child(1),.briefing-tasks td:nth-child(1){width:108px;padding-left:6px;padding-right:6px;box-sizing:border-box}.briefing-tasks th:nth-child(2),.briefing-tasks td:nth-child(2){width:68px}.briefing-tasks td{vertical-align:top;overflow-wrap:anywhere}.briefing-tasks th{text-align:left}.briefing-date-line{display:block;white-space:nowrap}@media(max-width:650px){.briefing-tasks th:nth-child(1),.briefing-tasks td:nth-child(1){width:108px}.briefing-tasks th:nth-child(2),.briefing-tasks td:nth-child(2){width:56px}}
+
+/* Table headings share the same alignment; body cells retain their own alignment. */
+th, th[class], .md th, .briefing-tasks th { text-align: center !important; }
+
+/* Keep hours and minutes intact on separate lines in statistics cards. */
+#sec-statistics .stat-duration-part { display: block; white-space: nowrap; }

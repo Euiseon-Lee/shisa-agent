@@ -72,7 +72,7 @@ export function createUi({ h, fill }) {
         const b = h(`button.ui-menu-item${it.danger ? '.danger' : ''}`, {
           type: 'button', role: 'menuitem', disabled: !!it.disabled, tabindex: '-1', title: it.title,
           onclick: () => choose(it),
-        }, h('span.ui-menu-ico', { 'aria-hidden': 'true', text: it.icon ?? '' }), h('span.ui-menu-label', { text: it.label }), it.hint ? h('span.ui-menu-hint', { text: it.hint }) : null);
+        }, h('span.ui-menu-ico', { 'aria-hidden': 'true' }, it.iconImage ? h('img.ui-menu-image', { src: it.iconImage, alt: '', draggable: false }) : (it.icon ?? '')), h('span.ui-menu-label', { text: it.label }), it.hint ? h('span.ui-menu-hint', { text: it.hint }) : null);
         if (!it.disabled) rows.push(b);
         return b;
       });

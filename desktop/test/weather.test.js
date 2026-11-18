@@ -85,7 +85,7 @@ test('검색 칸: 클릭으로 고르기, 결과 없으면 「못 찾았어요�
   const m = mount(async (q) => (q === '없는곳' ? { ok: true, data: { ok: true, items: [] } } : { ok: true, data: { ok: true, items: [SEOUL] } }));
   await m.type('없는곳');
   assert.deepEqual(labels(m.list), [NOT_FOUND]);
-  assert.equal(NOT_FOUND, '못 찾았어요. 구·시 이름으로 다시 적어 주세요');
+  assert.equal(NOT_FOUND, '검색 결과가 없어요. 시 또는 구 이름으로 다시 검색해 주세요.');
   m.key('Enter');
   assert.deepEqual(m.picked, []);
   await m.type('서울');
@@ -132,16 +132,16 @@ test('저장 본문: weather 는 아는 칸만, 지역은 이름·좌표, 시각
 
 test('화면 값·요약: 지역 없으면 꺼짐 안내, 있으면 「출근 후 브리핑 다음, 퇴근 20분 전(17:40)」, 시각 넣기·빼기', () => {
   assert.deepEqual(weatherView({}), { place: null, morning: true, leave: true, times: [], attribution: WEATHER_ATTRIBUTION });
-  assert.match(weatherSummary(weatherView({})), /지역을 고르면/);
+  assert.match(weatherSummary(weatherView({})), /지역을 먼저 선택해 주세요/);
   const v = weatherView({ weather: { place: SEOUL, morning: true, leave: true, times: ['13:00'] } });
-  assert.equal(weatherSummary(v, {}), '서울 날씨를 근무 요일에 출근 후 브리핑 다음, 퇴근 20분 전(17:40), 13:00에 하루 한 번씩 알려 줘요.');
+  assert.equal(weatherSummary(v, {}), '근무 요일에 서울 날씨를 알려 줘요. 알림 시점: 출근 브리핑 후, 퇴근 20분 전(17:40), 13:00');
   assert.match(weatherSummary(v, { workEnd: '18:30' }), /퇴근 20분 전\(18:10\)/);
-  assert.match(weatherSummary(weatherView({ weather: { place: SEOUL, morning: false, leave: false } })), /칩으로만/);
+  assert.match(weatherSummary(weatherView({ weather: { place: SEOUL, morning: false, leave: false } })), /직접 확인할 수 있어요/);
   assert.deepEqual(weatherTimesNext(['13:00'], '08:30', true), { times: ['08:30', '13:00'] });
   assert.deepEqual(weatherTimesNext(['13:00', '08:30'], '13:00', false), { times: ['08:30'] });
   assert.ok(weatherTimesNext([], '', true).error);
   assert.equal(weatherTimesNext(['01:00', '02:00', '03:00', '04:00', '05:00', '06:00'], '07:00', true).times.length, 7); // 개수 제한 없음
-  assert.equal(WEATHER_ATTRIBUTION.label, '날씨: Open-Meteo');
+  assert.equal(WEATHER_ATTRIBUTION.label, '날씨 제공: Open-Meteo');
   assert.equal(WEATHER_ATTRIBUTION.license, 'CC BY 4.0');
 });
 
@@ -175,7 +175,7 @@ test('칩 「오늘 날씨?」: 칩 목록에 있고, 답 말풍선은 데몬 �
   assert.equal(b.text, '☀️ 지금 서울 맑음, 14°C');
   assert.match(b.detail, /Open-Meteo/);
   const html = fs.readFileSync(path.join(ROOT, 'renderer', 'settings.html'), 'utf8');
-  assert.match(html, /날씨: Open-Meteo/);
+  assert.match(html, /날씨 제공: Open-Meteo/);
   assert.match(html, /CC BY 4\.0/);
   assert.match(html, /id="weather-q"[^>]*role="combobox"/);
   assert.doesNotMatch(html.slice(html.indexOf('h-weather'), html.indexOf('am-card')), /—/, '화면 글에 긴 줄표 없음');

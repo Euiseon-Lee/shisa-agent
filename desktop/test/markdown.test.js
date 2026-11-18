@@ -73,5 +73,5 @@ test('채팅 답의 표: 머리줄·정렬 줄·칸 안 굵게·색까지, 패�
   const bubble = readFileSync(new URL('../renderer/style.css', import.meta.url), 'utf8');
   assert.match(panel, /\.msg \.md table \{ display: block; max-width: 100%; overflow-x: auto;/);
   assert.match(panel, /\.msg \.md th, \.msg \.md td \{[^}]*overflow-wrap: break-word/);
-  assert.match(bubble, /\.bubble \.md th, \.bubble \.md td \{ max-width: 9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; \}/);
+  assert.match(bubble, /white-space: normal/, '긴 표 내용은 줄바꿈으로 표시');
 });

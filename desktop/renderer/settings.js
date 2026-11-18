@@ -1,12 +1,16 @@
+import { t as pt } from '../src/i18n.js';
+import { moveSidebarTab } from '../src/sidebar.js';
+import { OPTIONAL_TABS, sidebarPrefs } from '../src/sidebar.js';
+import { SECTION_LABELS } from '../src/dashboard.js';
 import { hasCoder as canCodeWith } from '../src/caps.js';
-// 설정 창: 캐릭터 · AI·모델 · 브리핑 출처 · 오늘 할 일 알림 · 일정 알림 · 자동 머지 레포 · 문구 · 행동 지침 · 연결 상태. 데몬은 메인 프로세스를 거쳐서만(window.cy)
+// 설정 창: 캐릭터 · AI·모델 · 브리핑 출처 · 오늘 할 일 알림 · 일정 알림 · 자동 머지 저장소 · 문구 · 행동 지침 · 연결 상태. 데몬은 메인 프로세스를 거쳐서만(window.cy)
 // Claude Code 가 없는 컴퓨터(Gemini·GPT 키·로컬)에서는 Claude 세부 모델·자동 머지 칸을 안내로 바꾼다
 import {
   groupRows, pendingChecks, mergeRows, toggleExclude, dotClass, metaText, STATE_LABEL,
   phraseGroups, phraseText, phraseDefaultText, phraseCustom, phraseSaveValue, phraseProblem,
   repoSlugFrom, autoMergeNext, needsSetupHint, localReadView,
   REMINDER_DEFAULT, REMINDER_HOURS, cleanReminder, parseTimes, reminderSummary,
-  ALERT_DEFAULT, cleanCalendarAlert, alertMinutesNext, parseAlertMinutes, alertChoices, calendarAlertSummary,
+  ALERT_DEFAULT, cleanCalendarAlert, alertMinutesNext, parseAlertMinutes, alertChoices, alertTimeLabel,
   workHoursView, workDaysNext, workTimeNext, WORK_DAY_ORDER, DAY_LABEL,
   weatherView, weatherTimesNext, weatherSummary,
 } from '../src/settings.js';
@@ -96,17 +100,18 @@ function renderModels() {
   $('models-hint').hidden = show;
   $('models-hint').textContent = show ? '' : slots?.provider === 'local' ? t('settings.models_local') : t('settings.models_noclaude');
   if (!show && !codeSlot) return;
-  $('models-title').textContent = show ? slots?.title ?? t('settings.models_claude_title') : t('settings.models_code_title');
+  $('models-title').textContent = t('settings.models_title');
   $('config-path').textContent = settings.configPathLabel || settings.configPath ? t('settings.config_saved_at', { path: settings.configPathLabel || settings.configPath }) : '';
   const roles = show ? slots?.roles ?? (settings.modelRoles ?? []).map((r) => ({ ...r, value: settings.models?.[r.role], enabled: true })) : [codeSlot];
   const list = claudeSlots ? null : (brainLists ?? []).find((b) => b.provider === slots.provider);
   if ((!claudeSlots || codeSlot?.coder?.provider === 'codex') && brainLists === null) loadBrainLists();
-  for (const slot of roles) {
+  const roleOrder=['general','quick','code','light'];
+  for (const slot of [...roles].sort((a,b)=>roleOrder.indexOf(a.role)-roleOrder.indexOf(b.role))) {
     if (slot.role === 'code' && slot.coder) { box.append(codeRow(slot)); continue; }
     const { role, label, value, enabled, why } = slot;
     const row = el('div', 'model-row');
     const id = `model-${role}`;
-    const lab = el('label', null, label);
+    const lab = el('label', null, language() === 'ko' ? ({general:'대화 및 브리핑',quick:'캐릭터 빠른 대화',light:'백그라운드 작업'}[role] || label) : label);
     lab.htmlFor = id;
     const sel = el('select');
     sel.id = id;
@@ -132,7 +137,7 @@ function renderModels() {
     const desc = el('div', 'desc', enabled ? (!claudeSlots && role === 'light' ? t('settings.role_light_other') : ROLE_DESC[role] ?? '') : (why ?? ''));
     if (enabled && settings.envLocked?.includes(role) && claudeSlots) desc.append(el('span', 'lock', t('settings.env_locked')));
     if (enabled && !claudeSlots && list?.listError && role === 'general') desc.append(el('span', 'lock', t('settings.list_error', { error: list.listError })));
-    row.append(lab, sel, desc);
+    const info=el('div','model-info'); info.append(lab,desc); row.append(info,sel);
     box.append(row);
   }
 }
@@ -182,8 +187,11 @@ function codeRow({ label, value, enabled, why, coder }) {
   const desc = el('div', 'desc', enabled ? ROLE_DESC.code : (picked?.why ?? why ?? ''));
   if (enabled && !codex && settings.envLocked?.includes('code')) desc.append(el('span', 'lock', t('settings.env_locked')));
   const pick = el('div', 'code-ai');
-  pick.append(ai, sel);
-  row.append(lab, pick, desc);
+  for(const [field,text] of [[ai,t('settings.code_ai_aria')],[sel,t('settings.models_title')]]) {
+    const fieldLabel=el('label','model-field-label',field===ai?(language()==='ko'?'AI':text):(language()==='ko'?'모델':text));fieldLabel.htmlFor=field.id;
+    const fieldBox=el('div','model-field');fieldBox.append(fieldLabel,field);pick.append(fieldBox);
+  }
+  const info=el('div','model-info');info.append(lab,desc);row.append(info,pick);
   return row;
 }
 
@@ -242,6 +250,7 @@ function renderBrains() {
 // ---- 이 앱(로그인할 때 켜기 · 새 버전 알림 · 패널이 열려 있어도 캐릭터 위에 답 띄우기) ----
 let appPrefs = null;
 function renderAppPrefs() {
+  renderSidebarPrefs();
   const box = $('app-prefs');
   box.replaceChildren();
   if (!appPrefs) return;
@@ -330,7 +339,7 @@ function renderSources() {
   }
 }
 
-// ---- 이 맥에서 읽는 것(작업 기록·레포 폴더) ----
+// ---- 로컬 정보(작업 기록·저장소 폴더) ----
 function renderLocal() {
   const box = $('local-read');
   box.replaceChildren();
@@ -697,7 +706,7 @@ function renderCharEditor() {
       const name = nameIn.value.trim();
       if (!name) { status.textContent = t('settings.need_name'); nameIn.focus(); return; }
       const miss = missingRequired(chosen);
-      if (miss.length) { status.textContent = t('settings.need_media', { list: miss.join('·') }); return; }
+      if (miss.length) { status.textContent = t('settings.need_media', { list: miss.join(', ') }); return; }
       make.disabled = true;
       status.textContent = '';
       const from = charEntry(src.value);
@@ -927,10 +936,11 @@ function renderReminder() {
   $('rem-auto').hidden = r.mode === 'off';
   const sel = $('rem-every');
   const hours = REMINDER_HOURS.includes(r.everyHours) ? REMINDER_HOURS : [...REMINDER_HOURS, r.everyHours].sort((a, b) => a - b);
-  sel.replaceChildren(...hours.map((h) => { const o = el('option', null, h ? t('settings.hours_n', { n: h }) : t('settings.none')); o.value = String(h); return o; }));
+  sel.replaceChildren(...hours.map((h) => { const o = el('option', null, h ? t('settings.rem_repeat_hours', { n: h }) : t('settings.rem_repeat_none')); o.value = String(h); return o; }));
   sel.value = String(r.everyHours);
   if (document.activeElement !== $('rem-times')) $('rem-times').value = r.times.join(', ');
-  $('rem-summary').textContent = reminderSummary(r);
+  $('rem-summary').hidden = r.mode === 'off';
+  $('rem-summary').textContent = r.mode === 'off' ? '' : reminderSummary(r);
 }
 $('rem-every').addEventListener('change', (e) => saveReminder({ everyHours: Number(e.target.value) || 0 }));
 async function saveTimes() {
@@ -960,6 +970,8 @@ function renderCalAlert() {
   if (!off) lastAlertOn = cur;
   $('cal-off').checked = off;
   $('cal-on').hidden = off;
+  $('cal-mins').hidden = off;
+  $('cal-custom-help').hidden = off;
   const box = $('cal-mins');
   box.replaceChildren();
   for (const m of alertChoices(cur)) {
@@ -972,10 +984,10 @@ function renderCalAlert() {
       if (r.error) { cb.checked = !cb.checked; $('cal-err').textContent = r.error; return; }
       saveCalAlert(r.minutesBefore);
     });
-    lab.append(cb, document.createTextNode(t('settings.min_before', { n: m })));
+    lab.append(cb, document.createTextNode(alertTimeLabel(m)));
     box.append(lab);
   }
-  $('cal-summary').textContent = calendarAlertSummary(calAlert());
+
 }
 // 근무 시간: 출근·점심·퇴근 시각, 요일, 알림 셋(출근 인사·점심시간 알림·퇴근 인사, 기본 다 켬)
 function renderWork() {
@@ -1117,7 +1129,7 @@ $('weather-time-add').addEventListener('click', addWeatherTime);
 $('weather-src').addEventListener('click', (e) => { e.preventDefault(); cy.openSource?.('weather'); });
 $('weather-license').addEventListener('click', (e) => { e.preventDefault(); cy.openSource?.('license'); });
 
-// ---- 자동 머지 레포 ----
+// ---- 자동 머지 저장소 ----
 function renderAutoMerge() {
   const box = $('am-list');
   box.replaceChildren();
@@ -1372,7 +1384,7 @@ window.addEventListener('focus', () => {
     renderBrains();
   });
 });
-// 채팅에서 바꾼 자동 머지 레포도 보이게
+// 채팅에서 바꾼 자동 머지 저장소도 보이게
 window.addEventListener('focus', () => { cy.getSettings().then((r) => { if (r?.ok && settings) { settings = { ...settings, autoMerge: r.data.autoMerge ?? [] }; renderAutoMerge(); } }).catch(() => {}); });
 window.addEventListener('focus', () => { loadCalendars(); }); // 패널에서 캘린더를 더하거나 뺐으면
 window.addEventListener('focus', () => { if (!busy.size) cy.getConnections().then((c) => { if (c?.ok && Array.isArray(c.data?.rows)) { rows = mergeRows(rows, c.data.rows); renderRows(); } }).catch(() => {}); });
@@ -1387,3 +1399,32 @@ function renderAll() {
 }
 bindLanguage(cy, () => { renderAll(); load(); loadAppPrefs(); guidelines.load(); }, { whoName: () => who() });
 load();
+
+let selectedSidebarTab = null;
+function renderSidebarPrefs() {
+  const box=$('sidebar-tabs');box.replaceChildren();if(!appPrefs)return;
+  const prefs=sidebarPrefs(appPrefs.sidebarTabs),order=prefs.order;
+  if(!order.includes(selectedSidebarTab))selectedSidebarTab=order[0];
+  const save=async patch=>{
+    for(const control of box.querySelectorAll('input,button'))control.disabled=true;
+    const r=await cy.setAppPrefs({sidebarTabs:patch}).catch(()=>null);
+    if(r?.ok){appPrefs=r;flash(t('settings.saved'));}else flash('메뉴 설정을 저장하지 못했어요.',true);
+    renderSidebarPrefs();
+  };
+  const list=el('div','sidebar-order-list');
+  for(const key of order){
+    const row=el('div','sidebar-order-row'+(selectedSidebarTab===key?' selected':''));
+    const cb=el('input');cb.type='checkbox';cb.checked=prefs[key];cb.setAttribute('aria-label',SECTION_LABELS[key]+pt("personal. 메뉴 표시"));
+    cb.addEventListener('change',()=>{selectedSidebarTab=key;save({[key]:cb.checked});});
+    const select=el('button');select.type='button';select.textContent=SECTION_LABELS[key];select.setAttribute('aria-pressed',String(selectedSidebarTab===key));
+    select.addEventListener('click',()=>{selectedSidebarTab=key;renderSidebarPrefs();box.querySelector('[aria-pressed="true"]')?.focus();});
+    row.append(cb,select);list.append(row);
+  }
+  const controls=el('div','sidebar-order-actions');
+  for(const [text,direction] of [[pt("personal.위로"),-1],[pt("personal.아래로"),1]]){
+    const button=el('button');button.type='button';button.textContent=text;
+    const at=order.indexOf(selectedSidebarTab);button.disabled=direction===-1?at===0:at===order.length-1;
+    button.addEventListener('click',()=>save({order:moveSidebarTab(order,selectedSidebarTab,direction)}));controls.append(button);
+  }
+  box.append(list,controls);
+}

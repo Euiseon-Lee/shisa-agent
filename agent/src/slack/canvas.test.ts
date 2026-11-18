@@ -51,7 +51,7 @@ test("todoCanvasMarkdown: 우선순위별 묶음, 체크리스트·링크·출�
     todo("d", "이상한 우선순위", 9),
   ], NOW);
   assert.match(md, /^# cy 할 일\n마지막 업데이트: 2026-10-08 10:05 KST · 열린 일 4개/);
-  const i1 = md.indexOf("## 🔴 오늘 꼭 (1)"), i2 = md.indexOf("## 🟡 이번 주 (1)"), i3 = md.indexOf("## ⚪️ 참고 (2)");
+  const i1 = md.indexOf("## 🔴 오늘 반드시 (1)"), i2 = md.indexOf("## 🟡 이번 주 (1)"), i3 = md.indexOf("## ⚪️ 참고 (2)");
   assert.ok(i1 > 0 && i2 > i1 && i3 > i2, md);
   assert.match(md, /- \[ \] \[리뷰 답장\]\(https:\/\/mail\/x\)  `mail`/);
   assert.match(md, /- \[ \] 회의 준비  `calendar`/);

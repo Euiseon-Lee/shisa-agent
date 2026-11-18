@@ -36,8 +36,12 @@ contextBridge.exposeInMainWorld('cy', {
   todoRestore: (id) => ipcRenderer.invoke('todo-restore', String(id)),
   todoPurge: (id) => ipcRenderer.invoke('todo-purge', String(id)),
   todoTrashEmpty: () => ipcRenderer.invoke('todo-trash-empty'),
+  getSidebarPrefs: () => ipcRenderer.invoke('sidebar-prefs-get'),
+  onSidebarPrefs: on('sidebar-prefs'),
+  todoIrrelevantClear: (id) => ipcRenderer.invoke('todo-irrelevant-clear', id),
   todoRevert: (id) => ipcRenderer.invoke('todo-revert', String(id)),
   todoDetail: (id) => ipcRenderer.invoke('todo-detail', String(id)),
+  todoScheduleOrder: (id, date, beforeId) => ipcRenderer.invoke('todo-schedule-order', String(id), date, beforeId == null ? null : String(beforeId)),
   todoReorder: (id, priority, beforeId) => ipcRenderer.invoke('todo-reorder', String(id), Number(priority), beforeId == null ? null : String(beforeId)),
   // 프로젝트 숨기기(hide=true) / 다시 보이기(false). id = 프로젝트 경로
   projectHide: (path, hide) => ipcRenderer.invoke('project-hide', String(path), !!hide),

@@ -1,17 +1,12 @@
-// 오늘 할 일 = 우선순위 1(오늘 꼭)인 할 일. 따로 표나 날짜를 두지 않는다.
-// 「오늘 할 일에 넣기」 = P1 로 올리기, 「빼기」 = P2(이번 주)로 내리기. '오늘 할 일' 탭은 P1 만 모아 보는 화면이다.
-// 탭·진행률·아침 알림은 「열린 P1 + 오늘 끝낸 P1」을 본다(날짜가 넘어가면 어제 끝낸 건 빠진다).
-// 아침 알림 때 어제부터 남은 P1 이 있으면 「어제 남은 N개, 오늘도 할까요?」 물어 그대로 둘지 이번 주로 내릴지 고르게 한다(carry).
-// 예전에 날짜로 골라 둔 오늘 할 일(todos.plan_day)·더 예전 표(daily_plan)는 한 번만 P1 로 옮긴다(migrateToP1). plan_day 는 읽기 호환만.
-// 서버에 올리지 않고 로컬 SQLite 에만 둔다. 패널·에이전트 plan_ops 가 같이 쓴다.
-// 알림(영업일 아침 첫 실행 등)은 설정 todayReminder 를 따르고, 모델 없이 정해진 말로만 한다.
+// 날짜별 할 일: 예정일이 오늘인 항목과 그날 완료한 항목을 모은다. 중요도와 날짜는 독립적이다.
+// 지난 미완료는 원래 날짜를 유지하며 날짜 선택창에서 오늘로 옮긴다.
 import type { Store, Todo, TodoPatch } from "./store.ts";
 import { kstDay } from "./store.ts";
 import { isBusinessDay, localDate, localHhmm } from "./calendar.ts";
 import { phrase } from "./phrases.ts";
 import { t as tr } from "./i18n.ts";
 
-export type PlanItem = { id: string; title: string; done: boolean; priority: number; source: string; doing?: boolean };
+export type PlanItem = { schedule?: Todo["schedule"]; scheduledDate?: string; seriesId?: string; id: string; title: string; done: boolean; priority: number; source: string; doing?: boolean };
 // carry: 아침에 물은 「어제 남은 P1」 중 아직 고르지 않았고 그대로 열려 있는 것(패널 오늘 할 일 탭 위 안내)
 export type PlanCarry = { n: number; ids: string[] };
 export type DailyPlan = { date: string; items: PlanItem[]; asked: boolean; carry?: PlanCarry };
@@ -24,11 +19,11 @@ export type PlanOp =
 
 // 할 일을 바꾸는 길(core 의 addTodo·editTodo: 갱신 신호·규칙·일지가 그대로 돈다). 없으면 store 를 바로 쓴다
 export type PlanPorts = {
-  add(t: { title: string; priority: number; source: string }): Todo;
+  add(t: { title: string; priority: number; source: string; scheduledDate?: string }): Todo;
   edit(id: string, patch: TodoPatch): Todo | undefined;
 };
 
-export const TODAY_PRIORITY = 1; // 오늘 꼭 = 오늘 할 일
+export const TODAY_PRIORITY = 1; // 오늘 반드시 = 오늘 할 일
 export const OUT_OF_TODAY = 2; // 오늘 할 일에서 빼면 이번 주로
 
 const SCHEMA = `
@@ -46,7 +41,7 @@ const P1_FLAG = "today-is-p1"; // plan_day → P1 옮기기를 마친 표시(한
 
 export const PLAN_OPS_SCHEMA = {
   type: "array",
-  description: "오늘 할 일(패널 '오늘 할 일' 탭)을 바꿀 때. 오늘 할 일 = 우선순위 1(오늘 꼭)인 할 일이다. 새로 적으면 add(title) → P1 할 일로 생긴다. 있는 할 일을 오늘 할 일에 넣으면(「오늘 할 일에 넣어 줘」「그거 오늘 할게」) add(id) → P1 로 올린다. 「오늘은 빼 줘」는 remove → P2(이번 주)로 내린다(할 일은 남는다). 오늘 안에 해야 하는 것만 넣는다. 일정·회의를 보고 오늘 할 일을 적어 달라면 add. 없으면 빈 배열.",
+  description: "오늘 할 일(패널 '오늘 할 일' 탭)을 바꿀 때. 오늘 할 일 = 우선순위 1(오늘 반드시)인 할 일이다. 새로 적으면 add(title) → P1 할 일로 생긴다. 있는 할 일을 오늘 할 일에 넣으면(「오늘 할 일에 넣어 줘」「그거 오늘 할게」) add(id) → P1 로 올린다. 「오늘은 빼 줘」는 remove → P2(이번 주)로 내린다(할 일은 남는다). 오늘 안에 해야 하는 것만 넣는다. 일정·회의를 보고 오늘 할 일을 적어 달라면 add. 없으면 빈 배열.",
   items: {
     type: "object",
     additionalProperties: false,
@@ -65,7 +60,7 @@ const prio = (v: unknown, d = 2) => (Number.isInteger(v) && (v as number) >= 1 &
 const parseIds = (v: unknown): string[] => { try { const x = JSON.parse(String(v ?? "[]")); return Array.isArray(x) ? x.filter((i) => typeof i === "string") : []; } catch { return []; } };
 
 export function planItem(t: Todo): PlanItem {
-  return { id: t.id, title: t.title, done: t.status === "done", priority: t.priority, source: t.source, ...(t.doing !== undefined ? { doing: t.doing } : {}) };
+  return { schedule:t.schedule, scheduledDate:t.scheduledDate, seriesId:t.seriesId, id: t.id, title: t.title, done: t.status === "done", priority: t.priority, source: t.source, ...(t.doing !== undefined ? { doing: t.doing } : {}) };
 }
 
 // ---- 알림 설정(config.json todayReminder · 설정 창) ----
@@ -134,18 +129,18 @@ export class DailyPlanService {
     if (!cols.has("carry")) store.db.exec("ALTER TABLE daily_plan_meta ADD COLUMN carry TEXT"); // 아침에 물은 어제 남은 P1 id(JSON)
     if (!cols.has("carry_done")) store.db.exec("ALTER TABLE daily_plan_meta ADD COLUMN carry_done TEXT"); // 고른 답(keep·demote)
     this.migrateLegacy();
-    this.migrateToP1();
+    // Date scheduling supersedes the former priority-only migration.
   }
 
   private today() { return localDate(this.now()); } // 이 맥의 시간대 기준 하루
 
-  // 아주 예전 따로 있던 표(daily_plan)의 오늘·앞날 줄 → 할 일(P1 오늘 꼭). 옮긴 줄은 지운다. 지난 날 줄은 그대로 둔다
+  // 아주 예전 따로 있던 표(daily_plan)의 오늘·앞날 줄 → 할 일(P1 오늘 반드시). 옮긴 줄은 지운다. 지난 날 줄은 그대로 둔다
   private migrateLegacy() {
     const db = this.store.db;
     const rows = db.prepare("SELECT date, id, title, done FROM daily_plan WHERE date >= ? ORDER BY date, sort, id").all(this.today()) as any[];
     if (!rows.length) return;
     for (const r of rows) {
-      const t = this.store.addTodo({ title: String(r.title), priority: TODAY_PRIORITY });
+      const t = this.store.addTodo({ title: String(r.title), priority: TODAY_PRIORITY, scheduledDate: String(r.date) });
       if (r.done) this.store.editTodo(t.id, { status: "done" });
     }
     db.prepare("DELETE FROM daily_plan WHERE date >= ?").run(this.today());
@@ -174,11 +169,11 @@ export class DailyPlanService {
     return { date, items, asked: !!meta?.asked, ...(ids.length ? { carry: { n: ids.length, ids } } : {}) };
   }
 
-  // 오늘 할 일 탭에서 적기 = P1(오늘 꼭) 할 일. priority 는 예전 호출 호환으로 받기만 한다
+  // 오늘 할 일 탭에서 적기 = P1(오늘 반드시) 할 일. priority 는 예전 호출 호환으로 받기만 한다
   add(title: string, _priority?: number): { ok: true; item: PlanItem; plan: DailyPlan } | { ok: false; message: string } {
     const t = tidy(title);
     if (!t) return { ok: false, message: tr("say.dp_empty_title") };
-    const todo = this.ports.add({ title: t, priority: TODAY_PRIORITY, source: "user" });
+    const todo = this.ports.add({ title: t, priority: TODAY_PRIORITY, source: "user", scheduledDate: this.today() });
     return { ok: true, item: planItem(todo), plan: this.state() };
   }
 
@@ -201,20 +196,20 @@ export class DailyPlanService {
         if (op.id) {
           const cur = this.store.getTodo(op.id);
           if (!cur || (cur.status !== "open" && cur.status !== "done")) { errors.push(tr("say.dp_todo_missing", { id: op.id })); continue; }
-          if (cur.priority !== TODAY_PRIORITY) this.ports.edit(cur.id, { priority: TODAY_PRIORITY });
+          this.ports.edit(cur.id, { scheduledDate: date });
           applied.push(tr("say.dp_to_today", { title: cur.title.slice(0, 40) }));
           continue;
         }
         const t = tidy(op.title ?? "");
         if (!t) { errors.push(tr("say.dp_no_title")); continue; }
-        this.ports.add({ title: t, priority: TODAY_PRIORITY, source: "user" });
+        this.ports.add({ title: t, priority: TODAY_PRIORITY, source: "user", scheduledDate: date });
         applied.push(tr("say.dp_added", { title: t.slice(0, 40) }));
         continue;
       }
       const it = items.find((x) => x.id === op.id);
       if (!it) { errors.push(tr("say.dp_today_missing", { id: op.id })); continue; }
       if (op.op === "remove") {
-        this.ports.edit(it.id, { priority: OUT_OF_TODAY });
+        this.ports.edit(it.id, { scheduledDate: null });
         applied.push(tr("say.dp_removed", { title: it.title.slice(0, 40) }));
         continue;
       }
@@ -279,9 +274,8 @@ export class DailyPlanService {
     if (!meta?.asked) {
       if (!opts.opened && hour < 9) return null;
       const passed = cfg.times.filter((t) => t <= hhmm(now));
-      // 어제(전날까지) 생겨 아직 열린 P1 = 어제 남은 것 → 「오늘도 할까요?」 물음. 오늘 새로 생긴 P1 은 묻지 않는다
-      const left = this.store.todayTodos(date).filter((t) => t.status === "open" && kstDay(t.created) < date).map((t) => t.id);
-      return fire("ask", { asked: true, slots: passed, ...(left.length ? { carry: left } : {}) }); // 아침 안내가 지난 지정 시각 몫까지 한다
+      // 날짜를 명시해서 계획한 일은 만들어진 시각 때문에 다시 이월 여부를 묻지 않는다.
+      return fire("ask", { asked: true, slots: passed });
     }
     let slots: string[] = [];
     try { slots = meta.slots ? JSON.parse(meta.slots) : []; } catch {}

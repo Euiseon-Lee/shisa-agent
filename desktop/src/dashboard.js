@@ -1,12 +1,12 @@
 // 대시보드 패널 뷰모델 — 순수 로직. GET /dashboard 응답을 그리기 좋게 다듬는다.
 import { isSafeLink } from './bubbles.js';
 import { shapeRules } from './todo-rules.js';
-import { PRIORITIES } from './todos.js';
+import { PRIORITIES, isToday } from './todos.js';
 import { shapeManualProjects } from './manual-projects.js';
 import { okCalendarColor, CAL_COLORS } from './calendar-tab.js';
 import { t as tr, monthDay } from './i18n.js';
 
-export const SECTIONS = ['setup', 'overview', 'projects', 'calendar', 'todos', 'today', 'chat', 'models'];
+export const SECTIONS = ['setup', 'overview', 'projects', 'calendar', 'todos', 'today', 'statistics', 'chat', 'models'];
 // 탭 이름(부를 때 지금 언어로: 게터)
 export const SECTION_LABELS = Object.defineProperties({}, Object.fromEntries(SECTIONS.map((s) => [s, { get: () => tr(`panel.sec_${s}`), enumerable: true }])));
 
@@ -47,7 +47,7 @@ export function clockTime(iso) {
   return `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
 }
 
-// 우선순위 이름: todos.js PRIORITIES(오늘 꼭·이번 주·천천히·언젠가)
+// 우선순위 이름: todos.js PRIORITIES(오늘 반드시·이번 주·천천히·언젠가)
 export function priorityLabel(p) {
   return PRIORITIES.find((x) => x.value === p)?.label ?? tr('panel.other');
 }
@@ -72,7 +72,10 @@ export function groupTodos(todos) {
       note: str(t.note),
       userEdited: t.userEdited === true,
       pending: t.pending === true, // 낙관적 반영 중(서버 응답 대기)
-      priority: p,
+      priority: p, ...(Number.isFinite(t.scheduleSort)?{scheduleSort:t.scheduleSort}:{}),
+
+      ...(t.schedule ? {schedule:t.schedule} : {}), ...(t.seriesId ? {seriesId:t.seriesId} : {}),
+      ...(str(t.scheduledDate) ? { scheduledDate: t.scheduledDate } : {}),
       ...(t.appliedRule && str(t.appliedRule.text) ? { appliedRule: { id: str(t.appliedRule.id), text: t.appliedRule.text } } : {}), // 적용된 할 일 규칙
       ...(str(t.progress) ? { progress: t.progress, progressAt: str(t.progressAt) } : {}), // 어디까지 됐는지(데몬 진행 확인)
       ...(typeof t.doing === 'boolean' ? { doing: t.doing } : {}), // 사용자가 누른 (진행중) 토글
@@ -98,6 +101,8 @@ export function shapeRecentDone(list, now = Date.now()) {
       auto: t.doneBy === 'auto',
       reason: t.doneBy === 'auto' ? str(t.autoReason) : '',
       evidence: t.doneBy === 'auto' && str(t.autoEvidence) && isSafeLink(t.autoEvidence) ? t.autoEvidence : null,
+      doneAt: str(t.doneAt),
+      scheduledDate: str(t.scheduledDate), schedule:t.schedule, seriesId:t.seriesId,
       doneRel: relativeTime(t.doneAt, now),
     }));
 }
@@ -283,14 +288,14 @@ export function shapeDashboard(raw, now = Date.now()) {
   const b = r.briefing && typeof r.briefing === 'object' ? r.briefing : null;
   const today = r.today && typeof r.today === 'object' ? r.today : null;
   const connectors = shapeConnectors(r.connectors);
-  // 오늘 할 일 = 우선순위 1(오늘 꼭)인 할 일. 열린 건 할 일 탭의 「오늘 꼭」 묶음 그대로(낙관적 반영 포함), 끝낸 건 '오늘 끝냄'
+  // 오늘 할 일 = 우선순위 1(오늘 반드시)인 할 일. 열린 건 할 일 탭의 「오늘 반드시」 묶음 그대로(낙관적 반영 포함), 끝낸 건 '오늘 끝냄'
   const todayDate = str(today?.date);
-  const todayGroups = todayDate ? groupTodos(arr(r.todos).filter((t) => t && t.priority === 1)) : [];
+  const todayGroups = todayDate ? groupTodos(arr(r.todos).filter((t) => t && isToday(t, todayDate))) : [];
   const todayOpen = todayGroups.flatMap((g) => g.items);
   const openIds = new Set(todayOpen.map((t) => t.id));
   const todayDone = arr(today?.items)
     .filter((it) => it && typeof it === 'object' && str(it.id) && str(it.title) && it.done === true && !openIds.has(it.id))
-    .map((it) => ({ id: it.id, title: it.title, source: str(it.source), priority: [1, 2, 3, 4].includes(it.priority) ? it.priority : 1, auto: false, doneRel: '' }));
+    .map((it) => ({ id: it.id, title: it.title, source: str(it.source), priority: [1, 2, 3, 4].includes(it.priority) ? it.priority : 1, auto: false, doneRel: '', scheduledDate:it.scheduledDate, schedule:it.schedule, seriesId:it.seriesId }));
   const todayItems = [
     ...todayOpen.map((t) => ({ id: t.id, title: t.title, done: false, priority: t.priority })),
     ...todayDone.map((t) => ({ id: t.id, title: t.title, done: true, priority: t.priority })),

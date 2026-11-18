@@ -111,7 +111,7 @@ test('긴 말풍선: detail 정리, open 은 아는 섹션만, 누르면 그 항
   assert.equal(normalizeBubble({ id: 'n', text: 't', open: { section: 'evil' } }).open, undefined);
   assert.deepEqual(normalizeOpen({ section: 'todos', id: 'x'.repeat(501) }), { section: 'todos' });
   assert.equal(normalizeOpen(null), null);
-  assert.equal(normalizeBubble({ id: 'n', text: 't', detail: 'x'.repeat(5000) }).detail.length, 1200);
+  assert.equal(normalizeBubble({ id: 'n', text: 't', detail: 'x'.repeat(15000) }).detail.length, 12000);
 });
 
 test('머지 승인 말풍선: actions 는 proposalId 있는 제안에만, 추가질문 정리', () => {

@@ -323,3 +323,6 @@ pre.diff .ctx { color: var(--muted); }
 #btn-stop-run[hidden] { display: none; }
 #compose-tray { padding: 0 0 8px; } /* 첨부 칩(attach.css) — 입력칸 위 */
 #compose-hint .connect-btn { margin-left: 6px; }
+
+/* Table headings share the same alignment; body cells retain their own alignment. */
+th, th[class], .md th, .briefing-tasks th { text-align: center !important; }

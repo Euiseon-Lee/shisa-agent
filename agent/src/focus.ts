@@ -1,3 +1,4 @@
+import { activityStatistics } from './activity-statistics.ts';
 // 집중하기(포커스 타이머): 할 일 목록의 [집중하기] → 캐릭터가 공부 영상, 말풍선에 경과 시간 · 일시정지 · 그만하기.
 // 기록은 cy.db 에 세션(focus_sessions)과 실제로 집중한 구간(focus_spans)으로 남긴다. 일시정지 = 구간 끝, 다시 시작 = 새 구간.
 // 그래서 일시정지 시간은 빠지고, 자정을 넘긴 구간도 날마다 나눠 셀 수 있다. 날짜는 이 맥의 로컬 시간 기준 하루.
@@ -332,6 +333,12 @@ export class Focus {
     return { from, to, days, total };
   }
 
+  report(from: string, to: string) {
+    this.bridgeGap();
+    const focus = this.stats(from, to);
+    return focus ? { ...focus, activity: activityStatistics(this.store.db, from, to, this.now()) } : undefined;
+  }
+
   private changed() {
     try { this.armGoal(); } catch (e: any) { console.warn("[focus] 정한 시간 타이머:", e?.message ?? e); }
     try { this.onChange?.(this.view()); } catch (e: any) { console.warn("[focus] onChange:", e?.message ?? e); }
@@ -356,5 +363,5 @@ export type FocusApi = {
   act(cmd: FocusCmd): unknown;
 };
 export function focusApi(f: Focus): FocusApi {
-  return { view: () => f.view(), stats: (from, to) => f.stats(from, to), act: (cmd) => f.act(cmd) };
+  return { view: () => f.view(), stats: (from, to) => f.report(from, to), act: (cmd) => f.act(cmd) };
 }

@@ -78,7 +78,7 @@ test('글: 안내 단계(appleid.apple.com · 앱 암호 · 2단계 인증 · �
   assert.match(ICAL.steps[2], /Apple ID 이메일과 그 앱 암호/);
   assert.deepEqual(ICAL.links.map((l) => l.url), ['https://appleid.apple.com/', 'https://www.icloud.com/calendar/']);
   assert.equal(ICAL.timetree, '', '타임트리 안내는 네이버 카드에만');
-  assert.match(ICAL.connectedText({ account: 'a@x.com', calendars: [{}, {}], events: 3 }), /a@x\.com 연결했어요.*캘린더 2개, 오늘·내일 일정 3개/);
+  assert.match(ICAL.connectedText({ account: 'a@x.com', calendars: [{}, {}], events: 3 }), /a@x\.com 연결했어요.*캘린더 2개, 오늘, 내일 일정 3개/);
   assert.match(ICAL.connectedText({ account: 'a@x.com', calendars: [{}], updated: true }), /a@x\.com 앱 암호를 바꿨어요/);
   assert.match(ICAL.removeCopy({ user: 'a@x.com' }).ask, /a@x\.com 계정을 뺄까요/);
   assert.match(ICAL.removeCopy({}).note, /앱 암호/);
@@ -166,10 +166,10 @@ test('화면: 네이버 카드 옆에 iCloud 카드(안내·링크·Apple ID·�
   assert.doesNotMatch(card().text, /NAVERPW1|네이버 캘린더 /);
   const boxes = accts[0].all((n) => n.attrs.type === 'checkbox');
   assert.deepEqual(boxes.map((b) => b.checked), [true, false]);
-  assert.match(accts[0].text, /오늘·내일 일정 2개/);
+  assert.match(accts[0].text, /오늘, 내일 일정 2개/);
   assert.ok(card().byClass('setup-mail-add')[0].text.includes('다른 Apple ID 추가'));
   // 구글 카드 요약은 네이버·iCloud 를 세지 않는다
-  assert.match(root.text, /구글 캘린더 · 저장됨 · 캘린더 1개/);
+  assert.match(root.text, /구글 캘린더 · 저장됨, 캘린더 1개/);
   boxes[1].checked = true; boxes[1].fire('change');
   assert.deepEqual(toggled, [[hash(I2), true]]);
   accts[0].byClass('dc-open')[0].fire('click');

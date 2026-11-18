@@ -169,7 +169,7 @@ test('편집 칸: 묶음·설명, 줄 칸은 한 줄에 하나(줄 안의 줄바
   assert.deepEqual(fieldValue(list, `${text}\n\n   \n`), v);
   assert.match(fieldProblem(list, '{done} {nope}'), /\{nope\}.*\{done\} \{open\}/);
   assert.equal(fieldProblem(list, '{done}'), '');
-  assert.match(fieldProblem({ path: 'phrases.dance', kind: 'list', vars: [] }, '{x}'), /자리표시를 못 써요/);
+  assert.match(fieldProblem({ path: 'phrases.dance', kind: 'list', vars: [] }, '{x}'), /지원하지 않는 변수/);
   assert.deepEqual(fieldValue({ path: 'flair.lead.happy', kind: 'list' }, '우와, \n있지, '), ['우와, ', '있지, '], '양념 끝 빈칸 그대로');
   assert.equal(fieldValue({ path: 'prompt.tone', kind: 'text', oneLine: true }, '반말\n\n규칙'), '반말 규칙');
   assert.equal(fieldValue({ path: 'tour.today_cal', kind: 'text' }, ' 일정 전에'), ' 일정 전에', '앞 빈칸이 뜻이 있는 글');
@@ -212,16 +212,22 @@ test('cy-asset 사용자 캐릭터 주소: 저장 이름 모양만, 경로 조�
   assert.equal(resolveAsset('cy-asset://app/user-characters/shisa/eyes_open-0a1b2c3d.png').type, 'image/png');
 });
 
-test('cy-asset 사용자 캐릭터 파일: 목록에 있는 그 캐릭터 파일만, 링크로 폴더 밖에 나가면 안 준다', () => {
+test('cy-asset 사용자 캐릭터 파일: 목록에 있는 그 캐릭터 파일만, 링크로 폴더 밖에 나가면 안 준다', (t) => {
   const root0 = fs.mkdtempSync(path.join(os.tmpdir(), 'cy-ucf-'));
   const root = path.join(root0, 'characters');
   fs.mkdirSync(path.join(root, U), { recursive: true });
   fs.writeFileSync(path.join(root, U, 'cheer-0a1b2c3d.gif'), 'GIF89a');
   const secret = path.join(root0, 'secret.png');
   fs.writeFileSync(secret, 'x');
-  fs.symlinkSync(secret, path.join(root, U, 'dance-0a1b2c3d.png'));
+  let emulateFileLink = false;
+  const linkFile = path.join(root,U,'dance-0a1b2c3d.png');
+  try { fs.symlinkSync(secret,linkFile); } catch(e) {
+    if(e.code!=='EPERM'||process.platform!=='win32')throw e;
+    emulateFileLink=true;fs.writeFileSync(linkFile,'x');
+    t.diagnostic('No Windows file symlink privilege: injected realpath escape; actual directory junction is checked below.');
+  }
   const list = [{ id: U, custom: true, media: { cheer: 'cheer-0a1b2c3d.gif', dance: 'dance-0a1b2c3d.png' } }];
-  const fsx = { realpath: fs.realpathSync, lstat: fs.lstatSync };
+  const fsx = { realpath: p => emulateFileLink && p === linkFile ? secret : fs.realpathSync(p), lstat: fs.lstatSync };
   const at = (f, l = list, id = U) => userCharacterFile(resolveAsset(`cy-asset://app/user-characters/${id}/${f}`), root, l, fsx, path);
   assert.equal(at('cheer-0a1b2c3d.gif'), fs.realpathSync(path.join(root, U, 'cheer-0a1b2c3d.gif')));
   assert.equal(at('dance-0a1b2c3d.png'), null, '파일이 링크');
@@ -239,7 +245,7 @@ test('cy-asset 사용자 캐릭터 파일: 목록에 있는 그 캐릭터 파일
   const outside = path.join(root0, 'outside');
   fs.mkdirSync(outside);
   fs.writeFileSync(path.join(outside, 'cheer-0a1b2c3d.gif'), 'GIF89a');
-  fs.symlinkSync(outside, path.join(root, U2));
+  fs.symlinkSync(outside, path.join(root, U2), process.platform === 'win32' ? 'junction' : 'dir');
   assert.equal(at('cheer-0a1b2c3d.gif', [{ id: U2, custom: true, media: { cheer: 'cheer-0a1b2c3d.gif' } }], U2), null);
   assert.equal(userCharacterFile(null, root, list, fsx, path), null);
   assert.equal(userCharacterFile(resolveAsset('cy-asset://app/character/eyes_open.png'), root, list, fsx, path), null, '사용자 캐릭터 주소가 아님');

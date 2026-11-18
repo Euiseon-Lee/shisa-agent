@@ -1,3 +1,5 @@
+import { notificationDate } from './notification-date.js';
+import { language } from './i18n.js';
 // 마크다운 → HTML. marked 를 주입받는다(렌더러는 vendor/marked.js, 테스트는 같은 파일).
 // 원시 HTML·이미지는 글자로만, 링크는 http/https/slack 만 살린다. 렌더러에서 DOMPurify 로 한 번 더 거른다.
 import { isSafeLink } from './bubbles.js';
@@ -20,6 +22,18 @@ export function createMarkdown(Marked) {
     // 한글 조사 앞 굵게: CommonMark는 `**이름(X)**야`처럼 닫는 ** 앞이 문장부호, 뒤가 글자면 닫지 않는다.
     // 같은 줄 안의 **…** 는 앞뒤 글자와 상관없이 굵게 처리한다.
     extensions: [{
+      name: 'notificationDate',
+      level: 'inline',
+      start(src) { return src.indexOf(':date['); },
+      tokenizer(src) {
+        const match = /^:date\[(\d{4}-\d{2}-\d{2})\]/.exec(src);
+        if (match && notificationDate(match[1])) return { type: 'notificationDate', raw: match[0], date: match[1] };
+      },
+      renderer(token) {
+        const value = notificationDate(token.date, new Date(), language());
+        return '<span class="notification-date">' + value.date + '<br><span class="notification-day">' + value.label + '</span></span>';
+      },
+    }, {
       // :red[글자] → 색 글자(허용 색만)
       name: 'colorText',
       level: 'inline',

@@ -92,7 +92,7 @@ select { padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line); ba
 .subsec > h3:first-child { margin-top: 0; }
 .toggle { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; user-select: none; }
 .toggle input { margin: 0; accent-color: var(--accent); }
-.toggle.off { color: var(--faint); text-decoration: line-through; }
+.toggle.off { color: var(--faint); text-decoration: none; }
 
 /* 연결 상태 */
 .conn-list { display: grid; gap: 6px; }
@@ -118,7 +118,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 .gl-list { display: grid; gap: 6px; }
 .gl-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 9px; background: var(--surface); border: 1px solid var(--line); }
 .gl-row.am-row { grid-template-columns: 1fr auto; }
-.gl-row.off .gl-text { color: var(--faint); text-decoration: line-through; }
+.gl-row.off .gl-text { color: var(--faint); text-decoration: none; }
 .gl-row input[type="checkbox"] { margin: 0; accent-color: var(--accent); }
 .gl-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .gl-text { overflow-wrap: anywhere; cursor: text; border-radius: 5px; padding: 1px 3px; }
@@ -179,6 +179,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 .weather-list .ws-error { color: var(--err-fg); }
 .weather-picked { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; }
 .weather-place { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.weather-src { text-align: right; }
 .weather-src a { color: inherit; }
 /* 날씨 알림 시각: 근무 시간 묶음과 같은 간격(칩 줄 → 시각 줄). 정한 시각은 「20:19 [빼기]」 칩, 그 옆에 시각 넣기 */
 .weather-when { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
@@ -195,7 +196,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 .weather-add input { box-sizing: border-box; height: 34px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; line-height: 1.5; min-width: 0; }
 
 /* 일정 알림 */
-.cal-off-line { margin-top: 10px; }
+.cal-choices { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cal-off-line { margin: 0; }
+#cal-mins[hidden] { display: none; }
 
 /* [연결 해제]: 그 자리에서 한 번 더 묻는다 */
 .dc { margin-top: 4px; }
@@ -289,3 +292,60 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 .cal-editor input[type="text"] { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--fg); min-width: 0; }
 .cal-editor .setup-gate { margin: 0; font-size: 12px; color: var(--err-fg); }
 .cal-editor .setup-gate.ok { color: var(--ok); }
+
+.sidebar-order-list {display:flex;flex-direction:column;gap:4px;margin-top:10px;}
+.sidebar-order-row {display:flex;align-items:center;gap:10px;border-radius:7px;padding:3px 10px;}
+.sidebar-order-row.selected {background:var(--accent-soft, #6b5cff18);}
+.sidebar-order-row input {width:auto;flex:none;accent-color:var(--accent, #6b5cff);}
+.sidebar-order-row button {flex:1;text-align:left;background:transparent;border:0;color:inherit;padding:7px 0;box-shadow:none;}
+.sidebar-order-actions {display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
+
+/* AI settings: connection management followed by task-specific model choices. */
+.ai-settings > .hint { margin-top:6px; }
+.ai-settings .ai-section > h3 { margin:16px 0 8px; color:var(--fg); }
+.ai-settings .ai-disconnect-hint { margin:8px 0 0; }
+.ai-settings #models-note > h3 { color:var(--fg); }
+.ai-settings .hint, .ai-settings .desc { word-break:keep-all; overflow-wrap:anywhere; line-height:1.5; }
+.ai-settings #models { gap:0; }
+.ai-settings .model-row { grid-template-columns:minmax(0,1fr) minmax(180px,240px); gap:16px; padding:12px 0; border-bottom:1px solid var(--line); align-items:start; }
+.ai-settings .model-row:last-child { border-bottom:0; padding-bottom:0; }
+.ai-settings .model-info { min-width:0; }
+.ai-settings .model-info > label { display:block; font-size:12.5px; margin-bottom:4px; }
+.ai-settings .model-row .desc { margin:0; font-size:12px; white-space:pre-line; }
+.ai-settings .model-row select { width:100%; min-width:0; }
+.ai-settings .model-row .code-ai { gap:8px; }
+.ai-settings .model-field-label { display:block; font-size:11.5px; color:var(--muted); font-weight:400; margin-bottom:3px; }
+.ai-settings .conn .name .badge { margin-left:8px; }
+@media(max-width:560px) { .ai-settings .model-row {grid-template-columns:minmax(0,1fr);gap:8px;} .ai-settings .card-head {flex-wrap:wrap;} }
+
+/* Keep reminder interval and specific times on one row. */
+#rem-auto { flex-direction: row; align-items: center; gap: 12px; }
+#rem-auto .rem-line { flex: 0 0 auto; white-space: nowrap; }
+#rem-auto .gl-add { flex: 1; min-width: 0; margin-top: 0; }
+#rem-times { width: 0; }
+#rem-times-save { flex-shrink: 0; }
+
+/* Shared vertical rhythm: visible card content owns its spacing via gap. */
+#app > .card {
+  --settings-gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--settings-gap);
+}
+#app > .card > * { margin-block: 0; }
+#app > .card > .card-head > h2 { margin-block: 0; }
+#app > .card > .subsec,
+#app > .card > .ai-section,
+#app > .card > .subsec > .subsec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--settings-gap);
+}
+#app > .card > .subsec { margin-top: 8px; padding-top: 16px; }
+#app > .card > :is(.subsec, .ai-section) > * { margin-block: 0; }
+#app > .card > .ai-section { margin-top: 8px; }
+#app > .card .hint { line-height: 1.5; }
+#app > .card .hint:empty { display: none; }
+#app > .card[hidden], #app > .card [hidden] { display: none; }
+#cal-on > .gl-add { margin-top: 0; }
+.sidebar-order-list { margin-top: 0; }

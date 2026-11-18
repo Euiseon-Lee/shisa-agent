@@ -19,12 +19,14 @@ export type DashProject = {
 };
 export type Dashboard = {
   generatedAt: string;
+  completionStats: ReturnType<Store["completionStats"]>;
   briefing: { at: string; bubble: string; replyMd: string } | null;
   commitsToday: number;
   projects: DashProject[];
   manualProjects: ManualProjectView[]; // 직접 만든 프로젝트(진행 중 먼저) — 패널 프로젝트 탭 위쪽
   todos: DashTodo[];
-  recentDone: (DashTodo & { doneAt: string })[]; // 최근 3일 안에 끝난 것(최신순, 최대 10) — 패널 "최근 완료"
+  irrelevant: DashTodo[];
+  recentDone: (DashTodo & { doneAt: string })[]; // 최근 7일 안에 끝난 것(완료 시각 최신순, 최대 100) — 패널 "최근 완료"
   proposals: { id: string; title: string; repo: string; status: ProposalStatus; result?: string; base?: string }[];
   today: DailyPlan;
   todoRules: DashRule[]; // 할 일 규칙(패널 '규칙 N' 칩)
@@ -34,6 +36,8 @@ export type Dashboard = {
 export type DashTrash = { id: string; title: string; priority: number; source: string; trashedAt: string };
 export type DashRule = { id: string; text: string; summary: string; enabled: boolean; hits: number; created: string };
 export type DashTodo = {
+  schedule?: Todo["schedule"]; seriesId?: string;
+  scheduledDate?: string;
   id: string; title: string; source: string; link?: string; priority: number; note?: string; userEdited: boolean;
   doneBy?: TodoDoneBy; autoReason?: string; autoEvidence?: string; // 자동 완료일 때 이유·근거 메시지 링크
   description?: string; // 있으면(브리핑이 썼거나 한 번 만들어 둔 것) — 원본은 GET /todos/:id/detail
@@ -66,13 +70,15 @@ export async function buildDashboard(cfg: Config, store: Store, deps: DashboardD
   const repos = gitAllowed(cfg) ? await (deps.git ?? ((c) => gitActivity(c)))(cfg).catch(() => [] as RepoActivity[]) : [];
   return {
     generatedAt: now.toISOString(),
+    completionStats: store.completionStats(now),
     briefing: store.latestBriefing(),
     commitsToday: repos.reduce((n, r) => n + r.commitsToday.length, 0),
     projects: projects(store, repos, now, sessionsAllowed(cfg)),
     manualProjects: new ManualProjects(store).views(),
     todos: store.openTodos().map(dashTodo),
-    recentDone: store.recentlyDone(new Date(now.getTime() - 3 * DAY).toISOString(), 10)
-      .map((t) => ({ ...dashTodo(t), doneAt: t.updated ?? t.created })),
+    irrelevant: store.irrelevantTodos().map(dashTodo),
+    recentDone: store.recentlyDone(new Date(now.getTime() - 7 * DAY).toISOString(), 100)
+      .map((t) => ({ ...dashTodo(t), doneAt: t.doneAt! })),
     proposals: store.recentProposals(new Date(now.getTime() - 7 * DAY).toISOString())
       .map((p) => ({ id: p.id, title: p.title, repo: p.repo, status: p.status, ...(p.result ? { result: p.result } : {}), ...(p.base ? { base: p.base } : {}) })),
     today: new DailyPlanService(store, { now: () => now }).state(),
@@ -85,6 +91,9 @@ export async function buildDashboard(cfg: Config, store: Store, deps: DashboardD
 function dashTodo(t: Todo): DashTodo {
   return {
     id: t.id, title: t.title, source: t.source, ...(t.link ? { link: t.link } : {}), priority: t.priority,
+    ...(t.schedule ? {schedule:t.schedule} : {}), ...(t.seriesId ? {seriesId:t.seriesId} : {}),
+    ...(Number.isFinite(t.scheduleSort) ? {scheduleSort:t.scheduleSort} : {}),
+    ...(t.scheduledDate ? { scheduledDate: t.scheduledDate } : {}),
     ...(t.note ? { note: t.note } : {}), userEdited: !!t.userEdited?.some((f) => f !== "status"), // 상태만 바꾼 건 표시 안 함
     ...(t.doneBy ? { doneBy: t.doneBy } : {}),
     ...(t.description ? { description: t.description } : {}),
@@ -127,7 +136,7 @@ function projects(store: Store, repos: RepoActivity[], now: Date, withSessions =
       .map((x) => new Date(x).toISOString()).sort().at(-1);
     if (!lastActive) continue;
     out.push({
-      name: g.repo?.name ?? path.split(sep).filter(Boolean).at(-1) ?? path,
+      name: g.repo?.name ?? path.split(/[\\/]/).filter(Boolean).at(-1) ?? path,
       path,
       lastActive,
       sessions24h: sessions.filter((s) => Date.parse(s.updated) >= now.getTime() - DAY).length,

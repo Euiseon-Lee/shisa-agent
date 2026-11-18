@@ -1,0 +1,32 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {Store} from './store.ts';
+test('scheduled reorder preserves priority, recurrence and completion, rejects another date and stale date',()=>{
+ const s=new Store(':memory:');
+ const a=s.addTodo({title:'a',priority:1,scheduledDate:'2026-11-18'});
+ const b=s.addTodo({title:'b',priority:3,scheduledDate:'2026-11-18'});
+ const c=s.addTodo({title:'c',scheduledDate:'2026-11-19'});
+ const range=s.addTodo({title:'range',schedule:{mode:'range',start:'2026-11-18',end:'2026-11-30'}});
+ const before=s.getTodo(b.id)!;
+ assert.equal((s.reorderScheduledTodo(b.id,'2026-11-18',a.id) as any).scheduleSort,0);
+ assert.equal(s.getTodo(a.id)!.scheduleSort,1);
+ assert.equal(s.getTodo(b.id)!.priority,before.priority);
+ assert.deepEqual(s.getTodo(b.id)!.userEdited,before.userEdited);
+ assert.equal(s.reorderScheduledTodo(b.id,'2026-11-18',c.id),'bad_before');
+ assert.equal(s.reorderScheduledTodo(b.id,'2026-11-17',a.id),'bad_before');
+ assert.deepEqual(s.getTodo(range.id)!.schedule,range.schedule);
+ s.editTodo(b.id,{status:'done'});
+ assert.equal(s.reorderScheduledTodo(b.id,'2026-11-18'),undefined);
+ assert.equal(s.getTodo(b.id)!.status,'done');
+ s.db.close();
+});
+test('undated reorder persists across schema initialization and does not assign today to P1',()=>{
+ const s=new Store(':memory:');
+ const a=s.addTodo({title:'a',priority:1,scheduledDate:null});
+ const b=s.addTodo({title:'b',scheduledDate:null});
+ assert.equal(a.scheduledDate,undefined);
+ s.reorderScheduledTodo(b.id,null,a.id);
+ assert.equal(s.getTodo(b.id)!.scheduleSort,0);
+ assert.equal(s.getTodo(a.id)!.scheduledDate,undefined);
+ s.db.close();
+});

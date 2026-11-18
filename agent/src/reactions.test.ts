@@ -94,18 +94,18 @@ test("새 할 일: to_do_new 스티커 + 목록 detail + 패널 할 일 열기",
   assert.equal(b.image, "to_do_new");
   assert.equal(b.text, "새 할 일이 2개 생겼어요~");
   assert.deepEqual(b.open, { section: "todos", id: "slack:1" });
-  assert.equal(b.detail, "- **[오늘 꼭]** 할 일 slack:1 · slack\n  팀원이 물어봄\n- **[이번 주]** 할 일 mail:2 · mail");
+  assert.equal(b.detail, "- **[오늘 반드시]** 할 일 slack:1 · slack\n  팀원이 물어봄\n- **[이번 주]** 할 일 mail:2 · mail");
 });
 
 test("할 일 목록 마크다운: 1–3개는 글머리표, 4개 넘으면 표, 많으면 …외 N개, 표 칸의 | 는 바꿈", () => {
-  assert.equal(todoListMd([todo("a", 1)], "브리핑"), "- **[오늘 꼭]** 할 일 a · slack");
+  assert.equal(todoListMd([todo("a", 1)], "브리핑"), "- **[오늘 반드시]** 할 일 a · slack");
   const many = Array.from({ length: 8 }, (_, i) => todo(`t${i}`, (i % 2) + 1, { title: i === 0 ? "A | B" : `일 ${i}` }));
   const md = todoListMd(many, "브리핑");
   const lines = md.split("\n");
-  assert.equal(lines[0], "| | 할 일 | 출처 |");
+  assert.equal(lines[0], "| 날짜 | 할 일 | 출처 |");
   assert.equal(lines[1], "|---|---|---|");
-  assert.equal(lines[2], "| **오늘 꼭** | A / B | slack |");
-  assert.equal(lines.filter((l) => l.startsWith("| **")).length, 6);
+  assert.equal(lines[2], "| 날짜 없음 | A / B | slack |");
+  assert.equal(lines.filter((l) => l.startsWith("| 날짜 없음 |")).length, 6);
   assert.match(md, /…외 2개$/);
   assert.equal(todoListMd([{ id: "x", title: "줄\n바꿈" }], "슬랙"), "- 줄 바꿈 · 슬랙");
 });
@@ -352,4 +352,24 @@ test("core: ✗ 뒤 Slack 머지 버튼은 오류(머지 안 함)", async () => 
   assert.equal((await s.agent.mergeDecide(pid, "decline")).ok, true);
   await assert.rejects(s.agent.merge(pid), /머지 안 하기로/);
   assert.deepEqual(s.merged, []);
+});
+
+test("할 일 표는 긴 제목을 생략하지 않는다", () => {
+  const title = "CAD 시험 공부: 지난 문제를 검토하고 틀린 문제의 원인을 정리한 다음 다음 주 학습 계획까지 작성하기";
+  const items = Array.from({ length: 4 }, (_, i) => ({ id: String(i), title, source: "user" }));
+  const md = todoListMd(items, "직접 입력");
+  assert.equal(md.split(title).length - 1, 4);
+});
+
+test("할 일 표는 예정일과 기간을 표시하고 우선순위를 날짜로 추측하지 않는다", () => {
+ const md = todoListMd([
+  {id:"1",title:"하루",scheduledDate:"2026-11-18",priority:1},
+  {id:"2",title:"반복",scheduledDate:"2026-11-20",schedule:{mode:"repeat",start:"2026-11-18",end:"2026-12-02"}},
+  {id:"3",title:"기간",schedule:{mode:"range",start:"2026-11-18",end:"2026-12-02"}},
+  {id:"4",title:"미정",priority:2}
+ ], "user");
+ assert.match(md, /\| :date\[2026-11-18\] \| 하루/);
+ assert.match(md, /\| :date\[2026-11-20\] \| 반복/);
+ assert.match(md, /11\/18 - 12\/02/);
+ assert.match(md, /날짜 없음 \| 미정/);
 });

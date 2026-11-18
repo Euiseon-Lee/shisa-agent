@@ -2,7 +2,8 @@
 export default {
   ko: {
     list_more: "\n\n…외 {n}개",
-    list_head: "| | 할 일 | 출처 |",
+    list_head: "| 날짜 | 할 일 | 출처 |",
+    list_no_date: "날짜 없음",
     todo: "할 일",
     merge_busy: "벌써 머지하는 중이에요",
     merge_no_pr: "머지할 PR을 못 찾았어요",
@@ -367,7 +368,7 @@ export default {
     run_todo_auto: "끝난 할 일 판정",
     progress_reason: "작업 기록: {reason}",
     run_todo_progress: "할 일 진행 확인",
-    rule_p1: "P1 오늘 꼭",
+    rule_p1: "P1 오늘 반드시",
     rule_p2: "P2 이번 주",
     rule_p3: "P3 참고",
     rule_p4: "언젠가·백로그(P4)",
@@ -466,7 +467,7 @@ export default {
     pl_daily_half: "오늘 할 일 절반 넘김",
     pl_today_ask: "오늘 할 일 알림 — 아직 안 적음",
     pl_today_left: "오늘 할 일 알림 — 남은 것",
-    pl_today_carry: "아침 알림: 어제 남은 오늘 꼭 할 일({n} = 남은 수)",
+    pl_today_carry: "아침 알림: 어제 남은 오늘 반드시 할 일({n} = 남은 수)",
     pl_lots: "할 일이 많을 때(앞부분)",
     pl_lots_briefing: "할 일이 많을 때 — 브리핑 뒤 꼬리",
     pl_meeting_alert: "일정 알림({mins} = 몇 분 전, {where} = ' · 📍 장소 · 온라인', 없으면 빈칸)",
@@ -496,7 +497,8 @@ export default {
   } as Record<string, string>,
   ja: {
     list_more: "\n\n…ほか{n}件",
-    list_head: "| | やること | 出どころ |",
+    list_head: "| 日付 | やること | 出どころ |",
+    list_no_date: "日付なし",
     todo: "やること",
     merge_busy: "もうマージしています",
     merge_no_pr: "マージするPRが見つかりませんでした",

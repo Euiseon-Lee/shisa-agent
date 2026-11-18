@@ -151,7 +151,7 @@ test('늘 보이는 머리·사이드바(ja): 「N分前に更新」·再読み�
   assert.equal(page.document.title, 'シーサー秘書');
   assert.equal(page.$('#brand-name').textContent, 'シーサー秘書');
   const tabs = [...page.document.querySelectorAll('#nav .nav-label')].map((n) => n.textContent);
-  assert.deepEqual(tabs, ['セットアップ', '概要', 'プロジェクト', 'カレンダー', 'やること', '今日やること', 'チャット', 'モデル']);
+  assert.deepEqual(tabs, ['セットアップ', '概要', 'プロジェクト', 'カレンダー', 'やること', '今日やること', '統計', 'チャット', 'モデル']);
   assert.equal(page.$('#title').textContent, '概要');
   // 꺼지면 「シーサー オフ」
   page.cy.__emit('onConnection', { connected: false });
@@ -177,7 +177,9 @@ test('패널 탭마다(ja) 한글 0: 개요·프로젝트·캘린더·할 일(�
   await page.settle(6);
   assert.ok(page.$('.todo-detail'), '펼침');
   assert.deepEqual(within(page, '#sec-todos'), [], '할 일 펼침·규칙·휴지통');
-  page.click('#sec-todos .todo.row[data-id="t4"] .row-trash');
+  page.click('#sec-todos .todo.row[data-id="t4"] .row-more');
+  await page.settle(3);
+  page.click('.ui-menu-item.danger');
   await page.settle(3);
   assert.ok(page.$('.inline-confirm'), '휴지통 확인');
   assert.deepEqual(within(page, '#sec-todos'), [], '휴지통 확인');
@@ -265,6 +267,6 @@ test('순수 함수(ja): 상대 시각·연결 칩·우선순위·프로젝트 �
   for (const s of all) assert.ok(!H.test(s), s);
   setLanguage('ko');
   assert.equal(relativeTime(new Date(now - 5 * 60_000).toISOString(), now), '5분 전');
-  assert.equal(priorityLabel(1), '오늘 꼭');
+  assert.equal(priorityLabel(1), '오늘 반드시');
   assert.equal(dueText(ymd(0), now), '오늘까지');
 });

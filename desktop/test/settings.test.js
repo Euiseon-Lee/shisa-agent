@@ -5,7 +5,7 @@ import {
   sanitizeAppPrefs, sanitizeSettingsPatch, okPanelTarget, needsSetupHint, okCheckId, dotClass, agoText, latencyText, groupRows, pendingChecks, mergeRows, toggleExclude, metaText,
   phraseGroups, phraseText, phraseCustom, phraseSaveValue, phraseProblem, repoSlugFrom, autoMergeNext,
   cleanReminder, parseTimes, reminderSummary, REMINDER_DEFAULT,
-  cleanCalendarAlert, alertMinutesNext, parseAlertMinutes, alertChoices, calendarAlertSummary, ALERT_DEFAULT,
+  cleanCalendarAlert, alertMinutesNext, parseAlertMinutes, alertChoices, alertTimeLabel, calendarAlertSummary, ALERT_DEFAULT,
 } from '../src/settings.js';
 import { setupSettings } from '../src/settings-window.js';
 
@@ -153,8 +153,8 @@ test('문구: 저장 본문(키 → 글|null)·묶기·보일 글·저장 값·�
   assert.equal(phraseSaveValue(dance, '   '), null, '비우면 기본값');
   assert.equal(phraseSaveValue(dance, '💃 춤춰요!'), null, '기본값과 같으면 기본값');
   assert.equal(phraseProblem(todo, '{title} 왔어요'), '');
-  assert.match(phraseProblem(todo, '{pr} {title}'), /모르는 자리표시 \{pr\} — 쓸 수 있는 것: \{title\}/);
-  assert.match(phraseProblem(dance, '{title}'), /자리표시를 못 써요/);
+  assert.match(phraseProblem(todo, '{pr} {title}'), /지원하지 않는 변수: \{pr\} — 사용할 수 있는 변수: \{title\}/);
+  assert.match(phraseProblem(dance, '{title}'), /변수를 사용할 수 없어요/);
   assert.equal(phraseProblem(dance, Array.from({ length: 50 }, (_, i) => `줄${i}`).join('\n')), '', '줄 수 제한 없음');
   assert.equal(phraseProblem(dance, 'x'.repeat(5000)), '');
 });
@@ -187,9 +187,9 @@ test('오늘 할 일 알림: 저장 본문 거르기 · 시각 읽기 · 한 줄
   assert.equal(cleanReminder(null), null);
   assert.deepEqual(parseTimes('10:00, 9:5 15시'), { times: ['09:05', '10:00', '15:00'] });
   assert.deepEqual(parseTimes(''), { times: [] });
-  assert.match(parseTimes('25:00').error, /10:00 처럼/);
-  assert.equal(reminderSummary(REMINDER_DEFAULT), '영업일 아침 첫 실행 때 한 번 알려요. 다 끝냈으면 조용히 있어요.');
-  assert.equal(reminderSummary({ mode: 'auto', everyHours: 2, times: ['15:00'] }), '영업일 아침 첫 실행 때 한 번, 그 뒤 2시간마다(8시~21시), 15:00에 알려요. 다 끝냈으면 조용히 있어요.');
+  assert.match(parseTimes('25:00').error, /10:00처럼/);
+  assert.equal(reminderSummary(REMINDER_DEFAULT), '영업일 아침 첫 실행 때 한 번 알려 줘요. 오늘 할 일을 모두 완료하면 알리지 않아요.');
+  assert.equal(reminderSummary({ mode: 'auto', everyHours: 2, times: ['15:00'] }), '영업일 아침 첫 실행 때 한 번, 그 뒤 2시간마다(8시~21시), 15:00에 알려 줘요. 오늘 할 일을 모두 완료하면 알리지 않아요.');
   assert.match(reminderSummary({ mode: 'off' }), /알리지 않아요/);
   assert.doesNotMatch(reminderSummary({ mode: 'auto', everyHours: 1, times: [] }), /—/);
   const html = readFileSync(new URL('../renderer/settings.html', import.meta.url), 'utf8');
@@ -233,6 +233,7 @@ test('일정 알림: 저장 본문 거르기 · 칩 켜고 끄기 · 직접 적�
   assert.match(parseAlertMinutes('0').error, /1 이상/);
   assert.match(parseAlertMinutes('열').error, /1 이상/);
   assert.match(parseAlertMinutes('-3').error, /1 이상/);
+  for (const [minutes, label] of [[5, '5분 전'], [60, '1시간 전'], [90, '1시간 30분 전'], [1440, '24시간 전'], [1505, '25시간 5분 전']]) assert.equal(alertTimeLabel(minutes), label);
   assert.deepEqual(alertChoices([10]), [5, 10, 15, 30]);
   assert.deepEqual(alertChoices([45, 3]), [3, 5, 10, 15, 30, 45]);
   assert.equal(calendarAlertSummary(ALERT_DEFAULT), '일정 10분 전에 춤추며 알려요.');
@@ -240,7 +241,9 @@ test('일정 알림: 저장 본문 거르기 · 칩 켜고 끄기 · 직접 적�
   assert.match(calendarAlertSummary({ minutesBefore: [] }), /껐어요/);
   for (const c of [ALERT_DEFAULT, { minutesBefore: [15, 5] }, { minutesBefore: [] }]) assert.doesNotMatch(calendarAlertSummary(c), /—/);
   const html = readFileSync(new URL('../renderer/settings.html', import.meta.url), 'utf8');
-  for (const id of ['h-cal', 'cal-mins', 'cal-custom', 'cal-custom-add', 'cal-off', 'cal-summary', 'cal-err']) assert.match(html, new RegExp(`id="${id}"`));
+  for (const id of ['h-cal', 'cal-mins', 'cal-custom', 'cal-custom-add', 'cal-off', 'cal-custom-help', 'cal-err']) assert.match(html, new RegExp(`id="${id}"`));
+  assert.doesNotMatch(html, /id="cal-summary"/);
+  assert.ok(html.indexOf('id="cal-off"') < html.indexOf('id="cal-mins"'));
   assert.match(html, />일정 알림</);
   assert.match(html, /알림 끄기/);
   const js = readFileSync(new URL('../renderer/settings.js', import.meta.url), 'utf8');

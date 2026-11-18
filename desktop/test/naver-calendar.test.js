@@ -67,7 +67,7 @@ test('켜기/끄기·별칭은 계정과 비밀번호를 지킨다 · 계정 캘
 });
 
 test('결과 글 · 빼기 묻는 글 · 타임트리 안내 · 도움 보내기는 비밀번호를 가린다', () => {
-  assert.match(naverCalConnectedText({ account: 'gildong', calendars: [{}, {}], events: 3 }), /gildong 연결했어요.*캘린더 2개, 오늘·내일 일정 3개/);
+  assert.match(naverCalConnectedText({ account: 'gildong', calendars: [{}, {}], events: 3 }), /gildong 연결했어요.*캘린더 2개, 오늘, 내일 일정 3개/);
   assert.match(naverCalConnectedText({ account: 'gildong', calendars: [{}], updated: true }), /gildong 비밀번호를 바꿨어요/);
   assert.match(naverCalRemoveCopy({ user: 'gildong' }).ask, /gildong 계정을 뺄까요/);
   assert.match(NAVER_CAL.timetree, /타임트리는 내보내기·API·ICS·CalDAV/);
@@ -140,11 +140,11 @@ test('화면: 더 연결하기에 네이버 캘린더 카드(안내·링크·아
   assert.match(acct.text, /gildong/);
   const boxes = acct.all((n) => n.attrs.type === 'checkbox');
   assert.deepEqual(boxes.map((b) => b.checked), [true, false]);
-  assert.match(acct.text, /오늘·내일 일정 2개/);
+  assert.match(acct.text, /오늘, 내일 일정 2개/);
   assert.equal(card().all((n) => n.attrs['aria-label'] === '네이버 아이디').length, 0);
   assert.ok(card().byClass('setup-mail-add')[0].text.includes('다른 네이버 계정 추가'));
   // 구글 카드 요약은 네이버를 세지 않는다
-  assert.match(root.text, /구글 캘린더 · 저장됨 · 캘린더 1개/);
+  assert.match(root.text, /구글 캘린더 · 저장됨, 캘린더 1개/);
   boxes[1].checked = true; boxes[1].fire('change');
   assert.deepEqual(toggled, [[hash(N2), true]]);
   acct.byClass('dc-open')[0].fire('click');

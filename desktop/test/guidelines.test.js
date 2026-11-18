@@ -63,14 +63,14 @@ test('설정 창 「행동 지침」 그리기: 목록·범위·켜기/끄기·�
   const flashes = [];
   const ui = mountGuidelines(doc, cy, (t, err) => flashes.push([t, !!err]));
   // 빈 목록 안내 · 추가 범위 선택지
-  assert.match(doc.ids['gl-list'].text, /아직 없어요/);
+  assert.match(doc.ids['gl-list'].text, /등록한 지침이 없어요/);
   assert.deepEqual(doc.ids['gl-add-scope'].children.map((o) => o.value), SCOPES);
   assert.equal(await ui.load(), true);
   const rows = () => doc.ids['gl-list'].byClass('gl-row');
   assert.deepEqual(rows().map((r) => r.dataset.id), ['gl-a', 'gl-b']);
   assert.ok(rows()[0].className.includes('off'));
   assert.equal(rows()[1].byClass('gl-scope')[0].value, 'chat');
-  assert.equal(rows()[1].byClass('gl-src')[0].textContent, '대화에서');
+  assert.equal(rows()[1].byClass('gl-src')[0].textContent, '대화에서 추가');
   assert.equal(doc.ids['gl-count'].textContent, '1/2개 켜짐');
   // 켜기
   const cb = rows()[0].byClass('gl-active')[0];
@@ -119,7 +119,7 @@ test('설정 창 「행동 지침」 그리기: 목록·범위·켜기/끄기·�
   cy.deleteGuideline = async () => ({ ok: false, status: 404, data: { error: 'no such guideline' } });
   rows()[0].byClass('gl-del')[0].fire('click');
   await tick();
-  assert.deepEqual(flashes.at(-1), ['저장 못 했어요: no such guideline', true]);
+  assert.deepEqual(flashes.at(-1), ['저장하지 못했어요: no such guideline', true]);
   assert.equal(rows().length, 2);
 });
 

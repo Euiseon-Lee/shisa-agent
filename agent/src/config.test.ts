@@ -67,8 +67,8 @@ test("분 간격·포트·everyHours: 유한한 수이고 최솟값 이상만, �
 
 test("repoRoots: 절대경로 글 목록만(글 하나도 받음), 루트(/)·상대경로·글 아닌 값은 빼고 알림", () => {
   const notes: string[] = [];
-  assert.deepEqual(repoRootsOf("/Users/me/code", notes), ["/Users/me/code"]);
-  assert.deepEqual(repoRootsOf(["/", "//", "rel/x", 3, "/a/b/", "/a/b"], notes), ["/a/b"]);
+  assert.deepEqual(repoRootsOf(join(tmpdir(), "code"), notes), [join(tmpdir(), "code")]);
+  assert.deepEqual(repoRootsOf(["/", "//", "rel/x", 3, join(tmpdir(), "a", "b")], notes), [join(tmpdir(), "a", "b")]);
   assert.ok(notes.length >= 4);
   assert.deepEqual(repoRootsOf({ a: 1 }, []), []);
   assert.equal(repoRootsOf(undefined, []), undefined);

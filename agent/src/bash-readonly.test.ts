@@ -1,4 +1,5 @@
 // 읽기만 하는 셸 명령 판정(승인 카드 없이 도는 것) — 애매하면 카드로
+import { resolve } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isReadOnlyBash, splitReadOnly } from "./bash-readonly.ts";
@@ -43,9 +44,9 @@ test("쓰기·실행·애매한 것은 아님(→ 승인 카드)", () => {
 
 test("cd 로 옮긴 위치까지 따라가서 비밀 경로를 본다 · isSecret 주입", () => {
   assert.ok(!isReadOnlyBash("cd /Users/u/.cy-agent && cat config.json", { ...ctx, isSecret: (p) => p === "/Users/u/.cy-agent/config.json" }));
-  assert.ok(!isReadOnlyBash("cat x", { ...ctx, isSecret: (p) => p.endsWith("/x") }));
-  assert.ok(isReadOnlyBash("cd sub && cat x", { ...ctx, isSecret: (p) => p === "/Users/u/code/app/x" }));
-  assert.ok(!isReadOnlyBash("cd sub && cat x", { ...ctx, isSecret: (p) => p === "/Users/u/code/app/sub/x" }));
+  assert.ok(!isReadOnlyBash("cat x", { ...ctx, isSecret: (p) => p.replaceAll("\\", "/").endsWith("/x") }));
+  assert.ok(isReadOnlyBash("cd sub && cat x", { ...ctx, isSecret: (p) => p === resolve(ctx.cwd, "x") }));
+  assert.ok(!isReadOnlyBash("cd sub && cat x", { ...ctx, isSecret: (p) => p === resolve(ctx.cwd, "sub/x") }));
 });
 
 test("Windows: Git Bash 안쪽 경로(/tmp · /usr · /)·//서버 는 어딘지 몰라 읽기 자동 허용 안 함", { skip: process.platform !== "win32" && "Windows 전용" }, () => {

@@ -1,0 +1,28 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {loadPage,fakeCy} from './fake-dom.js';
+import {sidebarPrefs,OPTIONAL_TABS} from '../src/sidebar.js';
+import {localDay} from '../src/todos.js';
+const timer=setInterval;globalThis.setInterval=(...args)=>{const h=timer(...args);h.unref();return h;};
+test('overview stays visible without Today tab; outside header, direct completion, ordered navigation and schedule picker',async()=>{
+ const today=localDay(),task={id:'test-one',title:'UI schedule task',priority:2,source:'user',scheduledDate:today};
+ const raw={generatedAt:new Date().toISOString(),todos:[task],projects:[],today:{date:today,items:[{...task,done:false}]}};
+ const cy=fakeCy({getLang:'ko',getDashboard:()=>({ok:true,data:raw}),getSidebarPrefs:sidebarPrefs({today:false,order:['statistics',...OPTIONAL_TABS.filter(x=>x!=='statistics')]}),todoDone:()=>({ok:true}),getCharacter:'shisa'});
+ const page=await loadPage('panel',{cy});await page.settle();
+ const overview=page.$('.overview-today');assert.ok(overview);
+ assert.equal(overview.querySelector('.overview-today-head').parentNode,overview);
+ assert.ok(overview.querySelector('.overview-today-list'));
+ assert.ok(overview.textContent.includes('잔여 1개 / 전체 1개'));
+ const nav=[...page.$('#nav').children].map(b=>b.dataset.section);assert.ok(nav.indexOf('statistics')>nav.indexOf('overview'));assert.ok(nav.indexOf('statistics')<nav.indexOf('todos'));
+ page.click('#nav button[data-section="todos"]');await page.settle();
+ page.click('.add-date');const dialog=page.$('.todo-date-dialog');assert.ok(dialog);
+ page.click(dialog.querySelector('[data-mode="repeat"]'));
+ assert.equal(dialog.querySelector('.schedule-single').hidden,true);assert.equal(dialog.querySelector('.schedule-none').hidden,true);
+ assert.equal(dialog.querySelectorAll('.schedule-weekdays button[aria-pressed="true"]').length,5);
+ const fields=dialog.querySelectorAll('.schedule-dates input');assert.equal(fields[0].value,today);assert.ok(fields[1].min>today);
+ page.click(dialog.querySelector('[data-mode="once"]'));assert.equal(dialog.querySelector('.schedule-none').hidden,false);
+ page.click([...dialog.querySelectorAll('button')].find(b=>b.textContent==='취소'));
+ const checkbox=page.$('.overview-todo input');checkbox.dispatchEvent(new Event('change'));await page.settle();
+ assert.ok(cy.__calls.some(([name,args])=>name==='todoDone'&&args[0]==='test-one'));
+ assert.equal(page.errors.length,0);
+});

@@ -1,3 +1,4 @@
+import { sidebarPrefs } from './src/sidebar.js';
 // 데스크톱 마스코트 — 메인 프로세스.
 // 데몬 SSE 를 여기서 받고 IPC 로 렌더러에 넘긴다. 렌더러는 네트워크 접근 없음.
 import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, net, powerMonitor, protocol, screen, session, shell } from 'electron';
@@ -64,6 +65,11 @@ import { CALDAV_CARDS, cleanCalDavBody, okCalDavId } from './src/caldav-calendar
 const SQUIRREL = squirrelPlan({ platform: process.platform, argv: process.argv, execPath: process.execPath });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PERSONAL_BUILD = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).personalBuild === true;
+if (PERSONAL_BUILD) {
+  process.env.CY_AGENT_HOME ??= path.join(os.homedir(), '.shisa-personal');
+  process.env.CY_AGENT_PORT ??= '47834';
+}
 const PORT = Number(process.env.CY_AGENT_PORT) || 47823;
 const BASE = `http://127.0.0.1:${PORT}`;
 const SIZE = { width: 420, height: 580 }; // 그림 말풍선(스티커)+넓은 목록 말풍선(380px)이 들어가게. 투명·클릭 투과라 커도 안 보인다
@@ -1218,6 +1224,18 @@ function applyAppIcon() {
 }
 // 윈도우: 나중에 여는 창(패널·세션·설정)도 고른 캐릭터 아이콘으로
 app.on('browser-window-created', (_e, w) => { if (winIcon && process.platform === 'win32') w.setIcon(winIcon); });
+// Local source development: reload UI files even when CY_DEBUG is not enabled.
+app.on('browser-window-created', (_event, window) => {
+  if (app.isPackaged) return;
+  window.webContents.on('before-input-event', (event, input) => {
+    const key = input.key.toLowerCase();
+    if (input.type !== 'keyDown' || !((key === 'r' && (input.control || input.meta)) || key === 'f5')) return;
+    if (!/\/(panel|settings)\.html(?:[?#]|$)/.test(window.webContents.getURL())) return;
+    event.preventDefault();
+    window.webContents.reloadIgnoringCache();
+  });
+});
+
 
 function setupAppActivation() {
   if (process.platform === 'darwin') {
@@ -1434,7 +1452,7 @@ function setupIPC() {
     if (!win) return;
     endDrag(); // 오른쪽 클릭 전에 시작된 드래그가 있으면 끝낸다
     quietActivation(1500); // 메뉴가 앱을 활성화해도 패널을 띄우지 않음
-    Menu.buildFromTemplate(characterMenuTemplate({ showPanel: () => showPanel(null), openSession: openSessionMenu, briefing: triggerBriefing, tour: startTour, quit: () => app.quit() }, { coder: coder(), who: who() })).popup({ window: win });
+    Menu.buildFromTemplate(characterMenuTemplate({ startFocus: async () => { const current = await request('GET','/focus'); if (current?.ok && !current.data?.active) { const result = await post('/focus/start'); if (!result?.ok) showPanel(null); } }, showPanel: () => showPanel(null), openSession: openSessionMenu, briefing: triggerBriefing, tour: startTour, quit: () => app.quit() }, { coder: coder(), who: who(), focusActive: !!lastFocus?.active, connected })).popup({ window: win });
   });
 
   ipcMain.on('open-link', (e, url) => {
@@ -1837,6 +1855,11 @@ function setupIPC() {
     if (!fromOurs(e) || typeof id !== 'string' || !id || id.length > 500) return denied();
     return post(`/todos/${encodeURIComponent(id)}/purge`);
   });
+  ipcMain.handle('sidebar-prefs-get', e => fromOurs(e) ? sidebarPrefs(state.sidebarTabs) : denied());
+  ipcMain.handle('todo-irrelevant-clear', (e, id) => {
+    if (!fromOurs(e) || (id !== undefined && (typeof id !== 'string' || !id || id.length > 500))) return denied();
+    return post('/todos/irrelevant/clear', id === undefined ? {} : { id });
+  });
   ipcMain.handle('todo-trash-empty', (e) => {
     if (!fromOurs(e)) return denied();
     return post('/todos/trash/empty');
@@ -1855,6 +1878,11 @@ function setupIPC() {
     return request('GET', `/todos/${encodeURIComponent(id)}/detail`, undefined, 60_000);
   });
   // 끌어서 순서·우선순위
+  ipcMain.handle('todo-schedule-order', (e,id,date,beforeId) => {
+    if (!fromOurs(e) || typeof id !== 'string' || !id || id.length > 500 || (date !== null && (typeof date !== 'string' || !DAY_RE.test(date)))) return denied();
+    if (beforeId != null && (typeof beforeId !== 'string' || !beforeId || beforeId.length > 500)) return denied();
+    return post('/todos/schedule-order',{id,date,beforeId});
+  });
   ipcMain.handle('todo-reorder', (e, id, priority, beforeId) => {
     if (!fromOurs(e) || typeof id !== 'string' || !id || id.length > 500 || ![1, 2, 3, 4].includes(priority)) return denied();
     if (beforeId != null && (typeof beforeId !== 'string' || !beforeId || beforeId.length > 500)) return denied();
@@ -2234,6 +2262,7 @@ const isCheckout = () => !app.isPackaged || launchdPlist(); // 터미널 설치(
 const isPortableWin = () => process.platform === 'win32' && app.isPackaged && !fs.existsSync(path.join(path.dirname(process.execPath), '..', 'Update.exe'));
 
 async function checkForUpdate() {
+  if (PERSONAL_BUILD) return; // Personal builds must not offer an upstream replacement.
   const now = Date.now();
   if (!checkDue({ enabled: state.updateCheck !== false, lastCheck: state.updateCheckedAt, now })) return;
   state.updateCheckedAt = now;
@@ -2261,7 +2290,7 @@ const appPrefs = {
     if (p.manage) {
       try { on = app.getLoginItemSettings(loginTarget()).openAtLogin === true; } catch { on = state.openAtLogin === true; }
     }
-    return { ok: true, version: app.getVersion(), openAtLogin: { available: p.manage, on, hint: loginItemHint(p.reason) }, updateCheck: state.updateCheck !== false, panelOverlay: state.panelOverlay !== false, clickSwap: state.clickSwap === true, appIcon: state.appIcon !== false };
+    return { ok: true, version: app.getVersion(), openAtLogin: { available: p.manage, on, hint: loginItemHint(p.reason) }, updateCheck: state.updateCheck !== false, panelOverlay: state.panelOverlay !== false, clickSwap: state.clickSwap === true, appIcon: state.appIcon !== false, sidebarTabs: sidebarPrefs(state.sidebarTabs) };
   },
   set(patch) {
     if ('openAtLogin' in patch) {
@@ -2291,6 +2320,11 @@ const appPrefs = {
       state.appIcon = patch.appIcon;
       saveState();
       applyAppIcon();
+    }
+    if ('sidebarTabs' in patch) {
+      state.sidebarTabs = sidebarPrefs({ ...sidebarPrefs(state.sidebarTabs), ...patch.sidebarTabs });
+      saveState();
+      if (panel && !panel.isDestroyed()) panel.webContents.send('sidebar-prefs', state.sidebarTabs);
     }
     return appPrefs.get();
   },
@@ -2361,6 +2395,7 @@ if (SQUIRREL) {
     setTimeout(checkForUpdate, 30_000);
     setInterval(checkForUpdate, 60 * 60 * 1000);
     refreshCaps(true);
+    if (!app.isPackaged && (process.env.CY_DEV_PANEL === 'todos' || process.argv.includes('--dev-todos'))) setTimeout(() => showPanel('todos'), 1200);
     if (openSetupAtLaunch({ firstRun, env: process.env })) setTimeout(() => showPanel('setup'), 400);
 
     // 화면 구성 바뀜·절전/잠금 뒤 캐릭터를 다시 맨 위로(윈도우)

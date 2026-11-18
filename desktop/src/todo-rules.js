@@ -16,11 +16,10 @@ export function shapeRules(list) {
     .sort((a, b) => b.created.localeCompare(a.created));
 }
 
-// 칩 글자: "규칙 2" (꺼진 건 안 셈). 꺼진 것만 있으면 "규칙 0/1"
+// 저장된 규칙 수. 꺼진 규칙도 목록에 있으므로 개수에 포함한다.
 export function rulesChip(rules) {
   const all = arr(rules);
-  const on = all.filter((r) => r.enabled).length;
-  return on === all.length ? tr('panel.rules_chip', { n: on }) : tr('panel.rules_chip_of', { n: on, all: all.length });
+  return all.length ? tr('panel.rules_chip', { n: all.length }) : tr('panel.no_rules');
 }
 
 // 응답 오기 전 바꾼 것 겹치기: pending = Map(id → { enabled } | 'delete')

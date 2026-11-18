@@ -169,7 +169,7 @@ test("실행 중 메시지 주입 → 다음 사용자 턴으로 들어가고 �
   assert.equal(o.hooks.PreToolUse[0].hooks.length, 2);
   assert.equal(o.forwardSubagentText, true);
   assert.equal(o.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, "1");
-  assert.ok(o.env.PATH);
+  assert.ok(o.env.PATH || o.env.Path);
 });
 
 test("메시지가 턴에 붙었는지 모르면(uuid 미표시) 잠깐 기다렸다 끝낸다", async () => {
@@ -217,7 +217,7 @@ test("진행 중인 턴에 접혀 들어간 메시지(도구 경계 뒤 응답) 
   const r = await p;
   assert.equal(r.ok, true, r.summary);
   assert.equal(folded, injectedPrompt("README 에도 한 줄"));
-  assert.ok(Date.now() - t0 < 10_000, "60초 대기 없이 끝나야 함");
+  assert.ok(Date.now() - t0 < (process.platform === "win32" ? 45_000 : 10_000), "60초 대기 없이 끝나야 함 (Windows Git 프로세스 비용 포함)");
   assert.match(git(origin, "show", `${r.branch}:README.md`), /접힌 메시지 반영/);
 });
 

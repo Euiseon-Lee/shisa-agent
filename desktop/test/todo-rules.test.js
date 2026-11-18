@@ -14,12 +14,12 @@ const RULES = [
   { id: '', text: '깨진 것' }, null, { id: 'rule:c' },
 ];
 
-test('shapeRules·rulesChip·overlayRules: 최근 것 먼저, 깨진 건 빼고, 꺼진 건 칩 수에서 뺀다', () => {
+test('shapeRules·rulesChip·overlayRules: 최근 것 먼저, 깨진 건 빼고, 꺼진 규칙도 저장된 개수에 포함한다', () => {
   const rs = shapeRules(RULES);
   assert.deepEqual(rs.map((r) => r.id), ['rule:b', 'rule:a']);
-  assert.equal(rulesChip(rs), '규칙 1/2');
-  assert.equal(rulesChip(rs.filter((r) => r.enabled)), '규칙 1');
-  assert.equal(rulesChip([]), '규칙 0');
+  assert.equal(rulesChip(rs), '규칙 2개');
+  assert.equal(rulesChip(rs.filter((r) => r.enabled)), '규칙 1개');
+  assert.equal(rulesChip([]), '규칙 없음');
   assert.deepEqual(shapeRules(null), []);
   const pend = new Map([['rule:a', 'delete'], ['rule:b', { enabled: true }]]);
   assert.deepEqual(overlayRules(rs, pend).map((r) => [r.id, r.enabled]), [['rule:b', true]]);
@@ -52,7 +52,7 @@ test('P4 묶음 모델: 네 번째 묶음 "백로그", 열린 수·P1 수에서 
     ],
     todoRules: RULES,
   });
-  assert.deepEqual(vm.todoGroups.map((g) => [g.priority, g.label, g.items.length]), [[1, '오늘 꼭', 1], [3, '천천히', 1], [4, '언젠가', 2], [9, '기타', 1]]);
+  assert.deepEqual(vm.todoGroups.map((g) => [g.priority, g.label, g.items.length]), [[1, '오늘 반드시', 1], [3, '천천히', 1], [4, '언젠가', 2], [9, '기타', 1]]);
   assert.equal(vm.stats.openTodos, 3);
   assert.equal(vm.stats.p1Todos, 1);
   assert.equal(vm.stats.backlogTodos, 2);

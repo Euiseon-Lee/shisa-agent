@@ -1,3 +1,4 @@
+import { parseSchedule, type TodoSchedule } from "./todo-schedule.ts";
 // 할 일 편집 입력 검증(버스·채팅·Slack 공용). 순수 함수만.
 import type { TodoPatch } from "./store.ts";
 import { t } from "./i18n.ts";
@@ -8,7 +9,7 @@ export type TodoOp = {
   description?: string; source_ref?: string; // add 전용: 설명·원본 참조(원문은 데몬이 찾는다)
   project?: string | null; // add·edit: 묶을 직접 만든 프로젝트(id 나 이름 — 데몬이 찾는다). null 은 프로젝트에서 빼기
 };
-export type NewTodo = { title: string; priority?: number; link?: string | null; note?: string | null; today?: boolean | string; projectId?: string };
+export type NewTodo = { schedule?: TodoSchedule | null; scheduledDate?: string | null; title: string; priority?: number; link?: string | null; note?: string | null; today?: boolean | string; projectId?: string };
 
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -45,7 +46,18 @@ function cleanPriority(v: unknown): Result<number> {
 // POST /todos/:id 본문. 모르는 키는 400
 export function parsePatch(body: Record<string, unknown>): Result<TodoPatch> {
   const out: TodoPatch = {};
-  for (const k of Object.keys(body)) if (!["title", "priority", "link", "note", "status", "description", "doing", "today", "projectId"].includes(k)) return fail(`unknown field: ${k}`);
+  if(body.schedule !== undefined) {try {out.schedule=parseSchedule(body.schedule);}catch(e){return fail((e as Error).message);}}
+  if(body.stopRepeat !== undefined) {if(body.stopRepeat!==true)return fail('stopRepeat must be true');out.stopRepeat=true;}
+  if (body.scheduledDate !== undefined) {
+    const d = body.scheduledDate;
+    if (d !== null && (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d) || !Number.isFinite(Date.parse(d)) || new Date(d).toISOString().slice(0,10) !== d)) return fail('scheduledDate must be a valid YYYY-MM-DD or null');
+    out.scheduledDate = d as string | null;
+  }
+  if (body.irrelevant !== undefined) {
+    if (typeof body.irrelevant !== 'boolean' || Object.keys(body).length !== 1) return fail('irrelevant must be a standalone boolean patch');
+    out.irrelevant = body.irrelevant;
+  }
+  for (const k of Object.keys(body)) if (!["title", "priority", "link", "note", "status", "description", "doing", "today", "projectId", "scheduledDate", "schedule", "stopRepeat", "irrelevant"].includes(k)) return fail(`unknown field: ${k}`);
   if (body.title !== undefined) { const r = cleanTitle(body.title); if (!r.ok) return r; out.title = r.value; }
   if (body.priority !== undefined) { const r = cleanPriority(body.priority); if (!r.ok) return r; out.priority = r.value; }
   if (body.link !== undefined) { const r = cleanLink(body.link); if (!r.ok) return r; out.link = r.value; }
@@ -61,7 +73,7 @@ export function parsePatch(body: Record<string, unknown>): Result<TodoPatch> {
     out.doing = body.doing as boolean | null;
   }
   if (body.today !== undefined) {
-    // 오늘 할 일에 넣기(true = 우선순위 1 오늘 꼭)·빼기(false·null = P1 이면 2 이번 주로). store.editTodo 가 우선순위로 바꾼다
+    // 오늘 할 일에 넣기(true = 우선순위 1 오늘 반드시)·빼기(false·null = P1 이면 2 이번 주로). store.editTodo 가 우선순위로 바꾼다
     if (body.today !== null && typeof body.today !== "boolean") return fail("today must be boolean or null");
     out.today = body.today === true;
   }
@@ -79,10 +91,10 @@ export function parsePatch(body: Record<string, unknown>): Result<TodoPatch> {
 
 // POST /todos 본문
 export function parseNew(body: Record<string, unknown>): Result<NewTodo> {
-  for (const k of Object.keys(body)) if (!["title", "priority", "link", "note", "today", "projectId"].includes(k)) return fail(`unknown field: ${k}`);
+  for (const k of Object.keys(body)) if (!["title", "priority", "link", "note", "today", "projectId", "scheduledDate", "schedule"].includes(k)) return fail(`unknown field: ${k}`);
   const p = parsePatch({ ...body, title: body.title ?? "" });
   if (!p.ok) return p;
-  return { ok: true, value: { title: p.value.title!, priority: p.value.priority ?? 2, link: p.value.link ?? null, note: p.value.note ?? null, ...(p.value.today ? { today: true } : {}), ...(p.value.projectId ? { projectId: p.value.projectId } : {}) } };
+  return { ok: true, value: { title: p.value.title!, ...(p.value.schedule !== undefined ? {schedule:p.value.schedule}: {}), ...(p.value.scheduledDate !== undefined ? { scheduledDate: p.value.scheduledDate } : {}), priority: p.value.priority ?? 2, link: p.value.link ?? null, note: p.value.note ?? null, ...(p.value.today ? { today: true } : {}), ...(p.value.projectId ? { projectId: p.value.projectId } : {}) } };
 }
 
 // 모델이 낸 op 한 개 → 패치. 모델은 안 쓰는 필드를 ""로 채우기도 하니 ""는 '안 바꿈', null만 '지우기'
@@ -95,7 +107,7 @@ export function opPatch(op: TodoOp): Result<TodoPatch> {
 }
 
 // 우선순위 뜻(스키마·프롬프트 공용). 4 = 언젠가·백로그: 기한이 딱히 없고 별로 안 중요한 것
-export const PRIORITY_DESC = "1=오늘 꼭(= 오늘 할 일 탭. 오늘 안에 해야 하는 것만), 2=이번 주, 3=참고, 4=언젠가·백로그(기한 없고 별로 안 중요함)";
+export const PRIORITY_DESC = "1=오늘 반드시(= 오늘 할 일 탭. 오늘 안에 해야 하는 것만), 2=이번 주, 3=참고, 4=언젠가·백로그(기한 없고 별로 안 중요함)";
 export const PRIORITIES = [1, 2, 3, 4] as const;
 
 // 채팅·DM 구조화 출력의 todo_ops 스키마

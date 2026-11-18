@@ -982,6 +982,11 @@ ${meetingsContext(this.store)}`,
   }
 
   editTodo(id: string, patch: TodoPatch): Todo | undefined {
+    if (patch.irrelevant !== undefined) {
+      const result = this.store.setIrrelevant(id, patch.irrelevant);
+      if (result) this.changed();
+      return result;
+    }
     const before = this.store.getTodo(id);
     if (!before) return undefined;
     const after = this.store.editTodo(id, patch)!;
@@ -1013,6 +1018,11 @@ ${meetingsContext(this.store)}`,
     if (!this.store.purgeTodo(id)) return false;
     this.changed();
     return true;
+  }
+  clearIrrelevant(id?: string): number {
+    const n = this.store.clearIrrelevant(id);
+    if (n) this.changed();
+    return n;
   }
   emptyTrash(): number {
     const n = this.store.emptyTrash();
@@ -1216,6 +1226,12 @@ ${meetingsContext(this.store)}`,
   }
 
   // 드래그 순서 바꾸기(패널). 우선순위가 바뀌면 학습 신호도
+  reorderScheduledTodo(id: string, date: string | null, beforeId?: string) {
+    const result = this.store.reorderScheduledTodo(id,date,beforeId);
+    if (!result) return 'missing';
+    if (result !== 'bad_before') this.changed();
+    return result;
+  }
   reorderTodo(id: string, priority: number, beforeId?: string): Todo | "missing" | "bad_before" {
     const before = this.store.getTodo(id);
     if (!before) return "missing";

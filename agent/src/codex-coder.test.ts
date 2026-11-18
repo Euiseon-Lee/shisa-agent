@@ -70,7 +70,7 @@ test('Codex 파일 변경은 작업 폴더 안에서만, 심링크·이동·폴�
     assert.equal(await check(join(cwd, 'a.txt')), true);
     assert.equal(await check(join(cwd, '..', 'outside.txt')), false);
     assert.equal(await check(join(cwd, 'a.txt'), { grantRoot: cwd }), false);
-    symlinkSync(tmpdir(), join(cwd, 'outside'));
+    symlinkSync(tmpdir(), join(cwd, 'outside'), process.platform === 'win32' ? 'junction' : 'dir');
     assert.equal(await check(join(cwd, 'outside', 'test.txt')), false);
     assert.equal(await approveCodexRequest('item/fileChange/requestApproval', {}, { changes: [{ path: join(cwd, 'a'), kind: { type: 'update', move_path: '/outside' } }] }, options), false);
   } finally { rmSync(cwd, { recursive: true, force: true }); }

@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Store } from "./store.ts";
@@ -20,9 +21,10 @@ test("dashboard: 계약 모양, 세션·커밋 병합, 7일 밖 제외, 최신�
   session(store, "s2", "/code/app/agent", ago(2)); // 레포 하위 폴더 → app으로 묶임
   session(store, "s3", "/code/notes", ago(1));
   session(store, "old", "/code/stale", ago(24 * 9));
-  session(store, "tmp", "/private/tmp", ago(1)); // 임시 폴더는 프로젝트 아님
+  session(store, "tmp", tmpdir(), ago(1)); // 임시 폴더는 프로젝트 아님
   session(store, "root", "/", ago(1));
   store.upsertTodo({ id: "mail:1", title: "답장", source: "mail", priority: 1, link: "https://x" });
+  store.db.prepare("UPDATE todos SET scheduled_date = ? WHERE id = ?").run("2026-10-08", "mail:1");
   store.upsertTodo({ id: "jira:2", title: "이슈", source: "jira", priority: 2 });
   store.editTodo("jira:2", { note: "금요일까지" });
   store.addProposal({ id: "p1", repo: "/code/app", title: "버튼", plan: "색" });
@@ -36,7 +38,7 @@ test("dashboard: 계약 모양, 세션·커밋 병합, 7일 밖 제외, 최신�
   ];
   const d = await buildDashboard(loadConfig(), store, { now, git: async () => repos });
 
-  assert.deepEqual(Object.keys(d).sort(), ["briefing", "commitsToday", "generatedAt", "manualProjects", "projects", "proposals", "recentDone", "today", "todoRules", "todos", "trash", "trashCount"]);
+  assert.deepEqual(Object.keys(d).sort(), ["briefing", "commitsToday", "completionStats", "generatedAt", "irrelevant", "manualProjects", "projects", "proposals", "recentDone", "today", "todoRules", "todos", "trash", "trashCount"]);
   assert.equal(d.generatedAt, now.toISOString());
   assert.deepEqual(d.briefing, { at: ago(1), bubble: "할 일 둘", replyMd: "## 오늘" });
   assert.equal(d.commitsToday, 3);
@@ -50,11 +52,11 @@ test("dashboard: 계약 모양, 세션·커밋 병합, 7일 밖 제외, 최신�
   assert.deepEqual(d.projects[1].recentCommits, []);
   assert.equal(d.projects[2].lastTitle, null);
   assert.deepEqual(d.todos, [
-    { id: "mail:1", title: "답장", source: "mail", link: "https://x", priority: 1, userEdited: false },
+    { id: "mail:1", title: "답장", source: "mail", link: "https://x", priority: 1, scheduledDate: store.getTodo("mail:1")!.scheduledDate, userEdited: false },
     { id: "jira:2", title: "이슈", source: "jira", priority: 2, note: "금요일까지", userEdited: true },
   ]);
   assert.deepEqual(d.proposals, [{ id: "p1", title: "버튼", repo: "/code/app", status: "pending" }]);
-  assert.deepEqual(d.today.items.map((x) => x.id), ["mail:1"], "오늘 할 일 = P1(오늘 꼭)");
+  assert.deepEqual(d.today.items.map((x) => x.id), ["mail:1"], "오늘 할 일 = 대시보드 기준일과 예정일이 같은 항목");
   assert.match(dashboardSummary(d), /오늘 내 커밋: 3개/);
 });
 

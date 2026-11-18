@@ -3,6 +3,12 @@
 // 입력창·칩·집중 단추처럼 예전부터 있던 캐릭터 창 글은 src/lang.js UI 표(ui())에 그대로 있다
 export default {
   ko: {
+    notification_previous: '이전 알림',
+    notification_next: '다음 알림',
+    notification_ack: '확인',
+    notification_title: '알림',
+    notification_save_error: '알림을 저장하지 못했어요. 앱을 종료하면 유지되지 않을 수 있어요.',
+    notification_resolved: '이 알림의 요청이 종료됐어요.',
     tour_stop: '그만 볼래요',
     tour_end: '끝',
     tour_next: '다음 ({step}/{total})',
@@ -197,6 +203,12 @@ export default {
     focus_wd: ['월', '화', '수', '목', '금', '토', '일'],
   },
   ja: {
+    notification_previous: '前の通知',
+    notification_next: '次の通知',
+    notification_ack: '確認',
+    notification_title: '通知',
+    notification_save_error: '通知を保存できませんでした。終了すると保持されない場合があります。',
+    notification_resolved: 'この通知のリクエストは終了しました。',
     tour_stop: 'もう見ない',
     tour_end: 'おわり',
     tour_next: '次へ ({step}/{total})',

@@ -182,7 +182,7 @@ test('새 버전 알림은 ✕ 로 닫을 수 있다(closable), 2분 뒤 사라�
   assert.equal(b.ttlMs, 120000);
   assert.equal(normalizeBubble({ id: 'x', text: 'y' }).closable, undefined);
   const src = (await import('node:fs')).readFileSync(new URL('../renderer/renderer.js', import.meta.url), 'utf8');
-  assert.match(src, /b\.closable[\s\S]{0,200}button\('✕', 'close', \(\) => dismiss\(b\.id\)\)/);
+  assert.match(src, /notificationStore\.acknowledge/, '확인한 알림을 영구 제거');
 });
 
 // ---- 0.4.0 부터 릴리스 태그는 shisa-<버전> · shisa-<버전>-windows: 이미 깔린 0.3.x 앱은 이 릴리스를 못 읽어 알림이 안 간다 ----

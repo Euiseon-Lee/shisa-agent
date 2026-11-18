@@ -1,6 +1,6 @@
 // 가짜 데몬용 할 일 규칙(agent/src/todo-rules.ts 흉내, 간단히). 키워드만, 규칙 저장·미리보기·적용·새 할 일 적용.
 const norm = (s) => String(s ?? '').normalize('NFKC').toLowerCase();
-const PRIO_KO = { 1: 'P1 오늘 꼭', 2: 'P2 이번 주', 3: 'P3 참고', 4: '언젠가·백로그(P4)' };
+const PRIO_KO = { 1: 'P1 오늘 반드시', 2: 'P2 이번 주', 3: 'P3 참고', 4: '언젠가·백로그(P4)' };
 
 export function createFakeRules(seed = []) {
   let rules = seed.map((r, i) => ({ id: `rule:seed${i}`, enabled: true, created: new Date(Date.now() - (seed.length - i) * 864e5).toISOString(), hits: 0, ...r }));

@@ -57,7 +57,7 @@ test('연결 카드: imap 메일은 주소·서비스·가져온 메일 수 · �
   assert.equal(mailStatusText(m), 'Gmail · me@gmail.com · 최근 메일 4통 읽음');
   assert.match(mailStatusText(mailConnected(shapeConnectors([{ cap: 'mail', mode: 'imap', ready: true, account: 'me@gmail.com', preset: 'gmail', sync: { phase: 'failed', reason: '앱 비밀번호가 틀렸어요' } }]))), /못 가져왔어요: 앱 비밀번호가 틀렸어요/);
   assert.equal(mailConnected(shapeConnectors([{ cap: 'mail', mode: 'mcp', ready: true, server: 'gmail' }])), null);
-  assert.match(connectorDisconnectCopy('mail').note, /메일 비밀번호와 가져온 메일을 시사에서 지워요/);
+  assert.match(connectorDisconnectCopy('mail').note, /모든 메일 계정의 비밀번호와 수집한 메일을 삭제해요/);
 });
 
 test('도움 보내기: password 칸은 가리고, 연결 요약엔 imap 모드만', () => {
@@ -133,10 +133,10 @@ test('화면: 더 연결하기에 메일 카드(서비스 고르기·주소·가
   assert.ok(!on.text.includes('secret-pw'));
   const full = on.byClass('dc-open').at(-1);
   full.fire('click');
-  assert.match(on.text, /메일 연결을 끊을까요\?/);
+  assert.match(on.text, /메일 연결을 해제할까요\?/);
   on.byClass('dc-yes').at(-1).fire('click');
   await tick();
-  assert.match(on.text, /메일 연결을 끊었어요/);
+  assert.match(on.text, /메일 연결을 해제했어요/);
   delete globalThis.document;
 });
 

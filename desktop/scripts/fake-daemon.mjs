@@ -164,7 +164,7 @@ const proposals = D.proposals ?? [
   { id: 'p0', title: '버튼 대비 올리기', repo: 'ui-kit', status: 'done', result: 'https://github.com/example/ui-kit/pull/42' },
 ];
 
-// 오늘 할 일 = 우선순위 1(오늘 꼭). 데몬 daily-plan.ts 처럼 열린 P1 + 끝낸 P1 을 모아 내려준다
+// 오늘 할 일 = 우선순위 1(오늘 반드시). 데몬 daily-plan.ts 처럼 열린 P1 + 끝낸 P1 을 모아 내려준다
 // FAKE_CARRY=1: 아침 질문 「어제 남은 N개」(열린 P1 전부)가 고르기 전 상태
 let carryIds = process.env.FAKE_CARRY ? null : [];
 const todayPlan = () => {

@@ -15,7 +15,7 @@ import { mergeDetail, mergeQuestion, type MergeInfo } from "./merge-request.ts";
 import { t } from "./i18n.ts";
 
 export type ReactionBus = { bubble(b: Bubble): string; clear(id: string): void };
-export type TodoLike = { id: string; title: string; source?: string; priority?: number; status?: string; created?: string; updated?: string; description?: string };
+export type TodoLike = { id: string; title: string; source?: string; priority?: number; status?: string; created?: string; updated?: string; description?: string; scheduledDate?: string; schedule?: { mode: string; start: string; end: string } };
 
 export type MergeState = "asking" | "merging" | "merged" | "declined";
 export type MergeRec = {
@@ -70,12 +70,18 @@ const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…`
 
 // 말풍선용 할 일 목록(마크다운 — 오버레이가 글머리표·표로 그린다). 1–3개는 한 줄에 하나
 // `- **[P1]** 제목 · 출처` (+ 설명은 다음 줄), 4개 넘으면 짧은 표. max 넘으면 "…외 N개"
-export function todoListMd(items: TodoLike[], via: string, max = 6): string {
+function todoDateLabel(todo: TodoLike): string {
+  const short = (date: string) => date.slice(5, 10).replace("-", "/");
+  if (todo.schedule?.mode === "range") return short(todo.schedule.start) + " - " + short(todo.schedule.end);
+  return todo.scheduledDate ? `:date[${todo.scheduledDate}]` : t("say.list_no_date");
+}
+
+export function todoListMd(items: TodoLike[], via: string, max = 6, forceTable = false): string {
   const cell = (s: string) => s.replace(/\s+/g, " ").replace(/\|/g, "/").trim();
   const shown = items.slice(0, max);
   const more = items.length > max ? t("say.list_more", { n: items.length - max }) : "";
-  if (shown.length >= 4) {
-    const rows = shown.map((t) => `| ${t.priority ? `**${prioLabel(t.priority) ?? t.priority}**` : "—"} | ${cell(clip(t.title, 34))} | ${cell(t.source ?? via)} |`);
+  if (shown.length >= 4 || (forceTable && shown.length > 0)) {
+    const rows = shown.map((t) => `| ${cell(todoDateLabel(t))} | ${cell(t.title)} | ${cell(t.source ?? via)} |`);
     return [t("say.list_head"), "|---|---|---|", ...rows].join("\n") + more;
   }
   return shown.map((t) => {
@@ -170,7 +176,7 @@ export class Reactions {
     const show = (text: string) => {
       if (ended || text === lastText) return;
       shown = true; last = this.now().getTime(); lastText = text; pending = null;
-      this.bus.bubble({ id, text, kind: "info", ttlMs: 120e3 });
+      this.bus.bubble({ id, text, kind: "info", ttlMs: 120e3, transient: true });
     };
     const flushLater = (wait: number) => {
       if (timer) return;

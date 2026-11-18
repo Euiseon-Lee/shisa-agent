@@ -1,3 +1,6 @@
+import { isTransientNotification } from '../src/notification-retention.js';
+import { notificationSource } from '../src/notification-source.js';
+import { NotificationStore } from '../src/notification-store.js';
 // 렌더러 — 말풍선 그리기, 캐릭터 상태, 클릭 투과 토글, 드래그, 호버 채팅.
 import { BubbleQueue, normalizeBubble, assetUrl, sequence, stickerTtl, clickTarget, cleanMergeQuestion, linkLabel, looksMarkdown, bubbleMd, isListBubble, keepClasses, BUBBLE_PURIFY, isWaitingApproval, approvalButtons, tourButtons, carryButtons } from '../src/bubbles.js';
 import { quickBubble, chipsOf, chipAction, answerBubble, dblclickAction, clickAction, isFocusChip, QUICK_ID } from '../src/quick-ask.js';
@@ -238,7 +241,9 @@ wrap.dataset.view = 'idle';
 
 // ---- 말풍선 ----
 // 한 항목 = (그림 말풍선) + 글 말풍선. 그림이 먼저 뜨고 글은 SEQUENCE_GAP 뒤에.
-const queue = new BubbleQueue();
+const queue = new BubbleQueue({ paged: true });
+const notificationStore = new NotificationStore(window.localStorage);
+notificationStore.restore(queue);
 const els = new Map(); // id → .item
 const current = (id) => queue.items.find((x) => x.id === id);
 
@@ -249,7 +254,7 @@ let expiryTimer = null;
 
 function schedule(b) {
   if (!b) return;
-  expiry.set(b.id, b.ttlMs);
+  expiry.set(b.id, isTransientNotification(b) ? 8000 : null); // Only progress notices expire automatically.
   armExpiry();
 }
 
@@ -290,6 +295,7 @@ function catchUp() {
 }
 
 function dismiss(id) {
+  notificationStore.acknowledge(current(id));
   expiry.delete(id);
   armExpiry();
   if (queue.remove(id)) render();
@@ -315,7 +321,7 @@ function buildEl(b) {
     const now = current(b.id) ?? b;
     const t = clickTarget(now);
     if (t.type === 'open') cy.openItem(t.section, t.id ?? null);
-    if (!isWaitingApproval(now)) dismiss(b.id); // 승인 말풍선은 결정될 때까지 남긴다
+    // Opening content does not acknowledge the notification.
   });
   item.append(bubble);
   // 그림 → 글 순서: 처음 뜰 때만
@@ -347,7 +353,7 @@ function setSticker(item, b) {
       if (!current(item.dataset.id)?.text) dismiss(item.dataset.id);
       requestAnimationFrame(recheckHit);
     });
-    st.addEventListener('click', () => dismiss(item.dataset.id));
+    st.addEventListener('click', () => { item.classList.add('sticker-gone'); recheckHit(); });
     st.addEventListener('load', () => requestAnimationFrame(recheckHit));
     item.prepend(st);
   } else {
@@ -374,7 +380,10 @@ function fillEl(item, b) {
   const wide = isListBubble(b);
   bubble.classList.toggle('wide', wide);
   setRich(bubble.querySelector('.text'), b.text);
-  setRich(bubble.querySelector('.detail'), b.detail ?? '');
+  const detailNode = bubble.querySelector('.detail');
+  const detailScroll = detailNode.scrollTop;
+  setRich(detailNode, b.detail ?? '');
+  detailNode.scrollTop = detailScroll;
   const meta = bubble.querySelector('.meta');
   meta.replaceChildren();
   meta.classList.remove('tour-bar', 'quick-bar');
@@ -409,7 +418,7 @@ function fillEl(item, b) {
   } else if (carryButtons(b).length) {
     // 아침 질문 「어제 남은 N개, 오늘도 할까요?」: 그대로 둘게요 · 이번 주로 내려요(데몬에 보낸다) · 하나씩 볼게요(패널 오늘 할 일 탭)
     for (const c of carryButtons(b)) {
-      const btn = button(ui(`carry_${c.cmd}`), c.primary ? 'primary' : '', () => (c.cmd === 'open' ? (cy.openItem('today', null), dismiss(b.id)) : carryDecide(b, c.cmd)));
+      const btn = button(ui(`carry_${c.cmd}`), c.primary ? 'primary' : '', () => (c.cmd === 'open' ? (cy.openItem('today', null)) : carryDecide(b, c.cmd)));
       btn.title = ui(`carry_${c.cmd}_title`);
       btn.disabled = !!b.pending;
       meta.append(btn);
@@ -434,14 +443,34 @@ function fillEl(item, b) {
   // ✕ 닫기(closable): 다시 그릴 때 겹치지 않게 하나만
   const bub = meta.parentElement;
   bub?.querySelector(':scope > button.close')?.remove();
-  if (b.closable && bub) {
-    const x = button('✕', 'close', () => dismiss(b.id));
-    x.setAttribute('aria-label', ui('close'));
-    x.title = ui('close');
-    bub.append(x);
+
+  if (b.open && !carryButtons(b).length) meta.append(button(b.openLabel ?? ui('open_panel'), 'link', () => { cy.openItem(b.open.section, b.open.id ?? null);  }));
+  else if (b.panelSection) meta.append(button(ui('open_panel'), 'link', () => { cy.openPanel(b.panelSection); }));
+  bubble.querySelector('.notification-footer')?.remove();
+  const footer = document.createElement('div');
+  footer.className = 'notification-footer';
+  const { index, total } = queue.page();
+  const prev = button('‹', '', () => { queue.move(-1); render(); });
+  prev.disabled = index === 0;
+  prev.setAttribute('aria-label', t('overlay.notification_previous'));
+  const counter = document.createElement('span');
+  counter.className = 'notification-count';
+  counter.textContent = (index + 1) + '/' + total;
+  counter.setAttribute('aria-live', 'polite');
+  const next = button('›', '', () => { queue.move(1); render(); });
+  next.disabled = index + 1 >= total;
+  next.setAttribute('aria-label', t('overlay.notification_next'));
+  footer.append(prev, counter, next);
+  if (!b.tour && !isTransientNotification(b) && !isWaitingApproval(b) && !(b.kind === 'proposal' && b.proposalId && !b.decided) && !carryButtons(b).length) {
+    footer.append(button(t('overlay.notification_ack'), 'primary notification-ack', () => dismiss(b.id)));
   }
-  if (b.open && !carryButtons(b).length) meta.append(button(b.openLabel ?? ui('open_panel'), 'link', () => { cy.openItem(b.open.section, b.open.id ?? null); if (!isWaitingApproval(current(b.id) ?? b)) dismiss(b.id); }));
-  else if (b.panelSection) meta.append(button(ui('open_panel'), 'link', () => { cy.openPanel(b.panelSection); dismiss(b.id); }));
+  if (notificationStore.error) {
+    const warning = document.createElement('span');
+    warning.className = 'notification-save-error';
+    warning.textContent = t('overlay.notification_save_error');
+    footer.append(warning);
+  }
+  bubble.append(footer);
   // 추가질문 입력줄은 머지 말풍선에서만
   if (!(b.actions === 'merge' && !b.decided)) closeMergeAsk(b.id, false);
   // 넓은 목록 말풍선이 10줄을 넘으면 흐리게 자르고, 열 곳이 없으면 "패널에서 보기"(개요)
@@ -450,7 +479,7 @@ function fillEl(item, b) {
     const over = d.scrollHeight > d.clientHeight + 2;
     bubble.classList.toggle('overflow', over);
     if (over && !b.open && !b.panelSection && !meta.querySelector('.more')) {
-      const more = button(ui('open_panel'), 'link more', () => { cy.openPanel('overview'); dismiss(b.id); });
+      const more = button(ui('open_panel'), 'link more', () => { cy.openPanel('overview'); });
       meta.append(more);
       recheckHit();
     }
@@ -467,6 +496,15 @@ function setRich(el, src) {
   }
   el.classList.add('md');
   el.innerHTML = DOMPurify.sanitize(toHtml(bubbleMd(src)), BUBBLE_PURIFY);
+  for (const table of el.querySelectorAll('table')) {
+    const headers = [...table.querySelectorAll('thead th')];
+    const column = headers.findIndex((h) => ['출처', '出どころ'].includes(h.textContent.trim()));
+    if (column < 0) continue;
+    for (const row of table.querySelectorAll('tbody tr')) {
+      const cell = row.children[column];
+      if (cell) cell.textContent = notificationSource(cell.textContent, document.documentElement.lang);
+    }
+  }
   for (const x of el.querySelectorAll('[class]')) {
     const c = keepClasses(x.getAttribute('class'));
     if (c) x.setAttribute('class', c); else x.removeAttribute('class');
@@ -637,6 +675,7 @@ async function sendMergeAsk(id, q) {
 }
 
 function render() {
+  notificationStore.save(queue);
   dropExpired();
   expiry.keep(new Set(queue.items.map((x) => x.id))); // 큐에서 밀려난 것은 잊는다
   const vis = queue.visible();
@@ -674,12 +713,23 @@ cy.onBubble((raw) => showBubble(raw));
 function showBubble(raw) {
   const b = normalizeBubble(raw);
   if (!b) return;
+  if (!b.text) b.text = t('overlay.notification_title');
+  if (!notificationStore.accepts(b)) return;
   queue.add(b);
   schedule(b);
   render(); // 밀려난 것의 만료 시각 정리 · 그새 지난 것도 같이 치운다
 }
 
-cy.onClear((p) => { if (p && typeof p.id === 'string') dismiss(p.id); });
+cy.onClear((p) => {
+  if (!p || typeof p.id !== 'string') return;
+  const b = current(p.id);
+  if (!b) return;
+  if (b.quick || b.tour || isTransientNotification(b)) { dismiss(p.id); return; }
+  if (isWaitingApproval(b) || b.kind === 'proposal') {
+    queue.update(p.id, { decided: true, pending: false, kind: 'info', note: t('overlay.notification_resolved') });
+    render();
+  }
+});
 
 // 카드가 다른 곳(패널·팝오버·Slack)에서 결정·만료되면 캐릭터의 승인 말풍선도 결과로 — 다음 카드가 뜬다
 cy.onAction?.((p) => {
@@ -870,6 +920,7 @@ function showReply(r) {
   // 캐릭터 대화방(스레드)의 답 — "패널에서 보기"는 그 대화를 연다
   if (r.threadId) b.open = { section: 'chat', id: r.threadId };
   else if (truncated) b.panelSection = 'chat';
+  if (!notificationStore.accepts(b)) return;
   queue.add(b);
   schedule(b);
   render();
@@ -1164,7 +1215,7 @@ async function quickChip(id) {
   if (isFocusChip(a.id) && r?.ok) await loadFocus(); // 시작·멈춤을 바로 그린다(SSE focus 도 곧 온다) — 다시 뜨는 칩도 바뀐 쪽으로
   if (seq !== chipSeq) return;
   if (acting && !r?.ok && !act.localDance) ownSay = localDance(8000, a.id); // 붙어 있다고 봤는데 답이 없으면 앱이 춘다
-  for (const x of queue.items.filter((x) => x.id.startsWith('local-ask-'))) dismiss(x.id); // 앞선 답은 내린다
+  // Keep earlier quick-question answers until acknowledged. // 앞선 답은 내린다
   // 앱이 혼자 춘 영상에 한마디가 있으면 그 말(데몬 답이 없을 때)
   showBubble(!r?.ok && ownSay ? answerBubble(a.id, { ok: true, data: { answer: { id: a.id, kind: 'done', text: ownSay } } }) : answerBubble(a.id, r));
   setTimeout(() => { if (seq === chipSeq && gen === quickGen) showBubble(quickBubble(brain, charA.id, !!focus?.active)); }, CHIPS_AGAIN_MS);
@@ -1263,3 +1314,10 @@ function rerenderLang() {
   syncChat();
 }
 bindLanguage(cy, rerenderLang, { whoName: () => who() });
+
+render();
+let notificationDay = new Date().toDateString();
+setInterval(() => {
+  const day = new Date().toDateString();
+  if (day !== notificationDay) { notificationDay = day; render(); }
+}, 60000);

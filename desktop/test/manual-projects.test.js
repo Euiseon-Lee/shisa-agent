@@ -28,7 +28,7 @@ test('카드 모양: 기한 글·톤, 일정에서 표시, 묶인 열린 할 일
   assert.equal(dayLabel('2027-01-02', NOW), '2027년 1월 2일(토)');
   assert.equal(todoCountText({ todos: 0, openTodos: 0 }), '할 일 없음');
   assert.equal(todoCountText({ todos: 3, openTodos: 0 }), '할 일 다 끝냄 (3개)');
-  assert.equal(todoCountText({ todos: 3, openTodos: 2 }), '할 일 2개 남음 · 모두 3개');
+  assert.equal(todoCountText({ todos: 3, openTodos: 2 }), '할 일 잔여 2개 / 전체 3개');
   // 대시보드 vm: manualProjects, 할 일의 projectId
   const vm = shapeDashboard({ manualProjects: [{ id: 'proj:a', name: 'A', status: 'open' }], todos: [{ id: 't1', title: 'x', priority: 1, projectId: 'proj:a' }] }, NOW);
   assert.equal(vm.manualProjects[0].linked[0].id, 't1');
@@ -194,7 +194,7 @@ test('화면: 카드 — 위계(이름 → 기한 배지·날짜·📅 칩 → �
   const order = card.kids.filter((k) => typeof k === 'object' && !k.cls.includes('mp-card-grip')).map((k) => k.cls.find((c) => ['head', 'mp-meta', 'ui-progress', 'mp-note', 'mp-todos', 'mp-foot'].includes(c)));
   assert.deepEqual(order, ['head', 'mp-meta', 'ui-progress', 'mp-note', 'mp-todos', 'mp-foot'], '정보 위계 순서(＋ 할 일은 맨 아래 줄)');
   const t = d.text(sec);
-  for (const want of ['가을 행사', 'D-13', '10월 30일(금)까지', '📅 일정에서 · 회사', '1개 남음 · 모두 2개', '장소 섭외', '현수막']) assert.ok(t.includes(want), want);
+  for (const want of ['가을 행사', 'D-13', '10월 30일(금)까지', '📅 일정에서 · 회사', '잔여 1개 / 전체 2개', '장소 섭외', '현수막']) assert.ok(t.includes(want), want);
   const badge = d.find(sec, (e) => e.cls?.includes('mp-due'));
   assert.ok(badge.cls.includes('ui-badge') && !badge.cls.includes('warn') && !badge.cls.includes('err'), 'D-13 은 보통 배지');
   assert.equal(d.find(sec, (e) => e.props.role === 'progressbar').props['aria-valuenow'], '1');

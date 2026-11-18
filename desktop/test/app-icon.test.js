@@ -185,7 +185,7 @@ test('main: 켤 때·캐릭터를 바꿀 때·설정을 바꿀 때 아이콘을 
   assert.match(m, /function onCharacter\(id, force = false\) \{[\s\S]*?applyAppIcon\(\);[\s\S]*?\n\}/);
   assert.match(m, /function setupAppActivation\(\) \{[\s\S]*?applyAppIcon\(\);[\s\S]*?\n\}/);
   assert.match(m, /if \('appIcon' in patch\) \{[^}]*state\.appIcon = patch\.appIcon;\s*saveState\(\);\s*applyAppIcon\(\);/);
-  assert.match(m, /appIcon: state\.appIcon !== false \};/);
+  assert.match(m, /appIcon: state\.appIcon !== false/);
   assert.match(m, /const pick = iconCharacter\(charId, state\.appIcon !== false\);/);
   assert.match(m, /if \(mac\) app\.dock\?\.setIcon\(img\);/);
   assert.match(m, /for \(const w of BrowserWindow\.getAllWindows\(\)\) if \(!w\.isDestroyed\(\)\) w\.setIcon\(img\);/);

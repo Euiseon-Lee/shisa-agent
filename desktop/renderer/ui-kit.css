@@ -91,3 +91,12 @@ button.text-menu[aria-expanded="true"] { background: var(--code); color: var(--f
 /* 빈 상태를 담은 카드(안쪽 여백은 빈 상태가 가진다) */
 .card.empty-card, .card.off-note { padding: 0; }
 .loading-line { padding: 14px 16px; }
+
+.ui-menu-image { display: block; width: 18px; height: 18px; object-fit: contain; }
+.ui-menu-ico:has(.ui-menu-image) { width: 18px; display: flex; align-items: center; justify-content: center; }
+@media (prefers-color-scheme: dark) { .ui-menu-item:not(.danger) .ui-menu-image { filter: invert(1); } }
+
+/* Normalize visible artwork, accounting for transparent margins in supplied PNGs. */
+.ui-menu-ico:has(.ui-menu-image) { height: 18px; }
+.ui-menu-image[src$="todo-menu/calendar.png"] { transform: scale(1.1); }
+.ui-menu-image[src$="todo-menu/delete.png"] { transform: scale(1.65); }

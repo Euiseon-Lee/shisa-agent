@@ -126,21 +126,21 @@ test('손잡이 키: ↑↓(Alt 도) 한 칸, Alt+1~4 우선순위, 나머지·�
 
 // ---- 패널에 띄워서 ----
 const TODOS = [
-  { id: 'p1a', title: 'Alpha', priority: 1, source: 'user' },
-  { id: 'p1b', title: 'Bravo', priority: 1, source: 'user' },
-  { id: 'p2a', title: 'Charlie', priority: 2, source: 'user' },
-  { id: 'p2b', title: 'Delta', priority: 2, source: 'user' },
-  { id: 'p2c', title: 'Echo', priority: 2, source: 'user' },
+  { id: 'p1a', title: 'Alpha', priority: 1, source: 'user', scheduledDate:'2026-10-19' },
+  { id: 'p1b', title: 'Bravo', priority: 1, source: 'user', scheduledDate:'2026-10-19' },
+  { id: 'p2a', title: 'Charlie', priority: 2, source: 'user', scheduledDate:'2026-10-20' },
+  { id: 'p2b', title: 'Delta', priority: 2, source: 'user', scheduledDate:'2026-10-20' },
+  { id: 'p2c', title: 'Echo', priority: 2, source: 'user', scheduledDate:'2026-10-20' },
   { id: 'p3a', title: 'Foxtrot', priority: 3, source: 'user' },
 ];
 
 // 가짜 자리: 보이는 탭의 묶음을 위에서부터 쌓는다(머리 30, 줄 40, 묶음 사이 10). 끄는 유령 줄은 셈에서 뺀다
 function layout(doc) {
-  const sec = [doc.querySelector('#sec-todos'), doc.querySelector('#sec-today')].find((s) => s && !s.hidden && s.querySelector('.group[data-priority]'));
+  const sec = [doc.querySelector('#sec-todos'), doc.querySelector('#sec-today')].find((s) => s && !s.hidden && s.querySelector('.schedule-group'));
   const rects = new Map();
   if (!sec) return rects;
   let y = 100;
-  for (const g of sec.querySelectorAll('.group[data-priority]')) {
+  for (const g of sec.querySelectorAll('.schedule-group')) {
     const top = y;
     y += 30;
     const card = g.querySelector('.card.todos');
@@ -158,10 +158,10 @@ function layout(doc) {
 async function openPanel(section = 'todos') {
   const reorders = [];
   const cy = fakeCy({
-    getLang: 'ko',
+    getSidebarPrefs: { today: true }, getLang: 'ko',
     getCharacter: 'shisa',
     getDashboard: { ok: true, data: { generatedAt: new Date().toISOString(), projects: [], todos: TODOS, today: { date: '2026-10-19', items: [] }, connectors: [] } },
-    todoReorder: (id, priority, beforeId) => { reorders.push([id, priority, beforeId]); return Promise.resolve({ ok: true, data: { ok: true } }); },
+    todoScheduleOrder: (id, priority, beforeId) => { reorders.push([id, priority, beforeId]); return Promise.resolve({ ok: true, data: { ok: true } }); },
     caps: { claude: true, codex: false },
     brain: { ready: true, known: true, coder: true, connected: ['claude'] },
     focusGet: { ok: true, data: { active: null, today: { seconds: 0 } } },
@@ -183,7 +183,7 @@ async function openPanel(section = 'todos') {
   await page.settle(10);
   return { page, doc, reorders, cy };
 }
-const ids = (doc, sel = '#sec-todos') => doc.querySelector(sel).querySelectorAll('.group[data-priority]').map((g) => [Number(g.dataset.priority), g.querySelectorAll('.todo.row').map((r) => r.dataset.id)]);
+const ids = (doc, sel = '#sec-todos') => doc.querySelector(sel).querySelectorAll('.schedule-group').map((g) => [g.classList.contains('bucket-today')?1:g.classList.contains('bucket-week')?2:3, g.querySelectorAll('.todo.row').map((r) => r.dataset.id)]);
 const grip = (doc, id, sel = '#sec-todos') => doc.querySelector(sel).querySelector(`.todo.row[data-id="${id}"] .todo-grip`);
 const ev = (doc, type, x, y, more = {}) => { const E = doc.defaultView.PointerEvent; return new E(type, { bubbles: true, pointerId: 1, button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x, clientY: y, ...more }); };
 // 줄 가운데 y(가짜 자리 기준)
@@ -211,7 +211,7 @@ test('패널 할 일 탭: 줄마다 ⋮⋮ 손잡이(이름·차례 aria), 끌�
     assert.ok(doc.querySelector('.drop-line') && !doc.querySelector('.drop-line').hidden, '놓을 자리 선');
     doc.dispatchEvent(ev(doc, 'pointerup', 30, yTo));
     await page.settle(6);
-    assert.deepEqual(reorders, [['p2c', 2, 'p2a']]);
+    assert.deepEqual(reorders, [['p2c', '2026-10-20', 'p2a']]);
     assert.ok(!doc.querySelector('.drag-ghost'));
     assert.deepEqual(ids(doc)[1], [2, ['p2c', 'p2a', 'p2b']], '바로 보이는 순서');
     assert.ok(!doc.querySelector('#sec-todos .todo-wrap'), '끌기 뒤 클릭이 펼치기로 새지 않음');
@@ -226,7 +226,7 @@ test('패널 할 일 탭: 줄마다 ⋮⋮ 손잡이(이름·차례 aria), 끌�
   } finally { page.restore(); }
 });
 
-test('패널 할 일 탭: 다른 묶음에 놓으면 그 우선순위로 · Esc 면 취소', async () => {
+test('패널 할 일 탭: 다른 날짜로 이동하지 않음, Esc 취소', async () => {
   const { page, doc, reorders } = await openPanel('todos');
   try {
     // Alpha(P1) → Foxtrot(P3) 아래(맨 끝)
@@ -238,8 +238,8 @@ test('패널 할 일 탭: 다른 묶음에 놓으면 그 우선순위로 · Esc 
     doc.dispatchEvent(ev(doc, 'pointermove', 30, yTo));
     doc.dispatchEvent(ev(doc, 'pointerup', 30, yTo));
     await page.settle(6);
-    assert.deepEqual(reorders, [['p1a', 3, null]]);
-    assert.deepEqual(ids(doc).find((x) => x[0] === 3), [3, ['p3a', 'p1a']]);
+    assert.deepEqual(reorders, [], '다른 예정일로 끌어도 일정과 우선순위는 바꾸지 않음');
+    assert.deepEqual(ids(doc).find((x) => x[0] === 3), [3, ['p3a']]);
     // Esc 취소
     const y1 = midY(doc, 'p2b');
     grip(doc, 'p2b').dispatchEvent(ev(doc, 'pointerdown', 30, y1));
@@ -249,12 +249,12 @@ test('패널 할 일 탭: 다른 묶음에 놓으면 그 우선순위로 · Esc 
     doc.dispatchEvent(esc);
     doc.dispatchEvent(ev(doc, 'pointerup', 30, y1 - 60));
     await page.settle(6);
-    assert.equal(reorders.length, 1, 'Esc 뒤엔 저장 안 함');
+    assert.equal(reorders.length, 0, 'Esc 뒤엔 저장 안 함');
     assert.ok(!doc.querySelector('.drag-ghost'));
   } finally { page.restore(); }
 });
 
-test('패널 할 일 탭: 손잡이에서 ↑↓ 한 칸, Alt+2 다른 우선순위, 포커스는 손잡이에 남는다', async () => {
+test('패널 할 일 탭: 손잡이에서 ↑↓ 한 칸, Alt+2로 우선순위 변경 없음, 포커스는 손잡이에 남는다', async () => {
   const { page, doc, reorders } = await openPanel('todos');
   try {
     const key = (el, k, more = {}) => el.dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', { key: k, bubbles: true, ...more }));
@@ -262,7 +262,7 @@ test('패널 할 일 탭: 손잡이에서 ↑↓ 한 칸, Alt+2 다른 우선순
     g.focus();
     key(g, 'ArrowUp');
     await page.settle(6);
-    assert.deepEqual(reorders.at(-1), ['p2b', 2, 'p2a']);
+    assert.deepEqual(reorders.at(-1), ['p2b', '2026-10-20', 'p2a']);
     assert.deepEqual(ids(doc)[1], [2, ['p2b', 'p2a', 'p2c']]);
     assert.equal(doc.activeElement, grip(doc, 'p2b'), '옮긴 줄 손잡이에 포커스');
     key(grip(doc, 'p2b'), 'ArrowUp'); // 맨 위: 아무것도 안 함
@@ -271,10 +271,10 @@ test('패널 할 일 탭: 손잡이에서 ↑↓ 한 칸, Alt+2 다른 우선순
     g = grip(doc, 'p2a');
     key(g, 'ArrowDown', { altKey: true });
     await page.settle(6);
-    assert.deepEqual(reorders.at(-1), ['p2a', 2, null], '맨 아래로(Echo 다음)');
+    assert.deepEqual(reorders.at(-1), ['p2a', '2026-10-20', null], '맨 아래로(Echo 다음)');
     key(grip(doc, 'p1b'), '™', { altKey: true, code: 'Digit2' });
     await page.settle(6);
-    assert.deepEqual(reorders.at(-1), ['p1b', 2, null], 'Alt+2 → 이번 주 맨 아래');
+    assert.equal(reorders.length, 2, 'Alt+2로 날짜나 우선순위를 바꾸지 않음');
     // 줄에서 Alt+↑ 도 그대로
     const row = doc.querySelector('#sec-todos .todo.row[data-id="p2c"]');
     row.focus();
@@ -284,7 +284,7 @@ test('패널 할 일 탭: 손잡이에서 ↑↓ 한 칸, Alt+2 다른 우선순
   } finally { page.restore(); }
 });
 
-test('패널 오늘 할 일 탭: 같은 손잡이로 「오늘 꼭」 안 순서 바꾸기', async () => {
+test('패널 오늘 할 일 탭: 같은 손잡이로 「오늘 반드시」 안 순서 바꾸기', async () => {
   const { page, doc, reorders } = await openPanel('today');
   try {
     const sel = '#sec-today';
@@ -295,12 +295,12 @@ test('패널 오늘 할 일 탭: 같은 손잡이로 「오늘 꼭」 안 순서
     doc.dispatchEvent(ev(doc, 'pointermove', 30, yTo));
     doc.dispatchEvent(ev(doc, 'pointerup', 30, yTo));
     await page.settle(6);
-    assert.deepEqual(reorders, [['p1b', 1, 'p1a']]);
+    assert.deepEqual(reorders, [['p1b', '2026-10-19', 'p1a']]);
     assert.deepEqual(ids(doc, sel), [[1, ['p1b', 'p1a']]]);
     grip(doc, 'p1a', sel).focus();
     grip(doc, 'p1a', sel).dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
     await page.settle(6);
-    assert.deepEqual(reorders.at(-1), ['p1a', 1, 'p1b']);
+    assert.deepEqual(reorders.at(-1), ['p1a', '2026-10-19', 'p1b']);
   } finally { page.restore(); }
 });
 
@@ -317,7 +317,7 @@ test('패널 할 일 탭: 줄을 꾹 눌러 끌기도 같은 포인터 처리로
     doc.dispatchEvent(ev(doc, 'pointermove', 200, yTo));
     doc.dispatchEvent(ev(doc, 'pointerup', 200, yTo));
     await page.settle(6);
-    assert.deepEqual(reorders, [['p2a', 2, null]]);
+    assert.deepEqual(reorders, [['p2a', '2026-10-20', null]]);
     assert.deepEqual(ids(doc)[1], [2, ['p2b', 'p2c', 'p2a']]);
   } finally { page.restore(); }
 });

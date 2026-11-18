@@ -27,7 +27,7 @@ export const LINES = {
   leave: "{mins}분 뒤면 퇴근이에요. 오늘도 고생 많으셨어요, 안녕히 가세요.",
   afternoon: "좋은 오후예요.",
   evening: "좋은 저녁이에요.",
-  remind: "오늘 꼭 할 일을 다시 일깨워 드려요.",
+  remind: "오늘 반드시 할 일을 다시 일깨워 드려요.",
   praise: "최근에 끝낸 일을 칭찬드려요.",
   empty: "우선순위 1·3 열린 할 일은 비어 있어요.",
 } as const;
@@ -155,7 +155,7 @@ export type QuickAnswer = { id: QuickAskId; text: string; detail?: string; kind:
 
 export const QUICK_LINES = {
   todayEmpty: "오늘 할 일이 아직 비어 있어요. 오늘 할 일 탭에 적어 주시면 같이 챙길게요.",
-  todayPick: "오늘 꼭 할 일은 아직 없어요. 할 일 {n}개가 기다리고 있어요.",
+  todayPick: "오늘 반드시 할 일은 아직 없어요. 할 일 {n}개가 기다리고 있어요.",
   todayAll: "오늘 할 일 {total}개 다 끝냈어요! 정말 잘하셨어요.",
   todayNone: "오늘 할 일 {total}개 중 아직 끝낸 건 없어요. 하나만 먼저 해 봐요.",
   todaySome: "오늘 할 일 {total}개 중 {done}개 끝냈어요. 남은 건 {rest}예요.",
@@ -183,7 +183,7 @@ export const QUICK_LINES = {
 } as const;
 
 // 화면에 보이는 우선순위 이름(데스크톱 todos.js PRIORITIES 와 같다)
-export const PRIO_LABEL: Record<number, string> = { 1: "오늘 꼭", 2: "이번 주", 3: "천천히", 4: "언젠가" };
+export const PRIO_LABEL: Record<number, string> = { 1: "오늘 반드시", 2: "이번 주", 3: "천천히", 4: "언젠가" };
 // 정해진 답 안에 코드가 끼우는 조각(언어마다). 대사 파일이 아니라 숫자·시각을 잇는 글
 const FRAGS = {
   ko: {

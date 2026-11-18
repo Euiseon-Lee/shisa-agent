@@ -199,7 +199,7 @@ export function buildContext(store: Store, now = new Date(), opts: { selfId?: st
   lines.push("", "## 현재 열린 할 일");
   if (!todos.length) lines.push("(없음)");
   lines.push(...todos.map(todoLine));
-  if (backlog.length) lines.push("", "## 언젠가·백로그 (P4 — 기한 없고 중요도 낮음. 급하지 않으니 브리핑 강조 대상 아님)", ...backlog.slice(0, 40).map(todoLine));
+  if (backlog.length) lines.push("", "## 낮은 중요도의 열린 할 일 (P4, 예정일과는 독립적)", ...backlog.slice(0, 40).map(todoLine));
   const done = store.doneTodos(5);
   if (done.length) lines.push("", "## 최근 끝낸 할 일", ...done.map((t) => `- id=${t.id} ${t.title}`));
   const memory = ledgerContext(store, now); // 할 일 일지: 사용자가 지운 일 — 다른 key 로 되살리지 않게
@@ -212,9 +212,9 @@ export function buildContext(store: Store, now = new Date(), opts: { selfId?: st
 function todayPlan(store: Store): string {
   try {
     const plan = new DailyPlanService(store).state();
-    const lines = ["## 오늘 할 일 (패널 '오늘 할 일' 탭 · 우선순위 1 오늘 꼭인 할 일 · 오늘 끝낸 것 포함 · 로컬)"];
+    const lines = ["## 오늘 할 일 (예정일이 오늘 또는 오늘을 포함한 기간, 오늘 완료한 항목 포함)"];
     if (!plan.items.length) {
-      lines.push("(비어 있음. 오늘 회의·할 일을 보고 plan_ops add 로 적거나, 있는 할 일을 add(id)로 오늘 할 일(P1)에 넣을 수 있다)");
+      lines.push("(비어 있음. 오늘 회의·할 일을 보고 plan_ops add 로 적거나, 있는 할 일을 add(id)로 오늘 날짜에 넣을 수 있다)");
       return lines.join("\n");
     }
     for (const r of plan.items) lines.push(`- id=${r.id} ${r.done ? "[x]" : "[ ]"} ${r.title}`);
@@ -605,7 +605,7 @@ export function stepName(name: string, input: unknown): string {
     return `cy.${name.slice(`mcp__${CTX_SERVER}__`.length)}${what ? ` ${String(what).slice(0, 60)}` : ""}`;
   }
   if ((CODE_TOOLS as readonly string[]).includes(name)) {
-    const target = typeof i.file_path === "string" ? i.file_path.split("/").pop() : typeof i.pattern === "string" ? i.pattern : "";
+    const target = typeof i.file_path === "string" ? i.file_path.split(/[\\/]/).pop() : typeof i.pattern === "string" ? i.pattern : "";
     return `code.${name}${target ? ` ${String(target).slice(0, 60)}` : ""}`;
   }
   const m = /^mcp__(.+?)__(.+)$/.exec(name);

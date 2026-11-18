@@ -63,6 +63,7 @@ export function dockTemplate(a, s) {
 // 캐릭터 우클릭. a: { showPanel, openSession, briefing, tour, quit } · s: { coder, who }
 export function characterMenuTemplate(a, s) {
   return [
+    ...(!s.focusActive && a.startFocus ? [{ label: t('main.menu_focus_start'), enabled: s.connected !== false, click: a.startFocus }] : []),
     { label: t('main.menu_open_panel'), click: a.showPanel },
     ...(s.coder ? [{ label: t('main.menu_open_session'), click: a.openSession }] : []),
     { label: t('main.menu_briefing_now'), click: a.briefing },

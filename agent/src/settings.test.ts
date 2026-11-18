@@ -135,7 +135,7 @@ test("excludeBriefingSources: 뺀 출처는 줄을 빼고 못 박는다 · 안 �
   assert.match(t, /1\) 캘린더: .*\n2\) 메일: 최근 24시간 받은 메일/);
   assert.match(t, /4\) 위 최근 세션 맥락/); // 번호를 다시 매긴다
   assert.match(t, /^정기 브리핑\./);
-  assert.match(t, /우선순위: 1=오늘 꼭/); // 꼬리는 그대로
+  assert.match(t, /우선순위와 예정일은 독립적/); // 꼬리는 그대로
   const m = excludeBriefingSources(task, ["mail", "slack"]);
   assert.match(m, /1\) 캘린더: .*\n2\) 이슈:/);
   assert.doesNotMatch(m, /받은 메일/);

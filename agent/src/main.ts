@@ -23,7 +23,7 @@ import { learnFrom } from "./profile.ts";
 import { runAfterSlackIngest } from "./todo-auto.ts";
 import { checkProgress } from "./todo-progress.ts";
 import { McpHealth, connectorServerUrls, healthNote } from "./mcp-health.ts";
-import { Reactions, realMergeAsk } from "./reactions.ts";
+import { Reactions, realMergeAsk, todoListMd } from "./reactions.ts";
 import { HOME_DIR } from "./config.ts";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
@@ -149,6 +149,7 @@ function remindToday(opened = false) {
   bus.bubble({
     id: `today:${r.plan.date}`,
     text: r.text,
+    detail: todoListMd(r.plan.items.filter(item => !item.done), "user", r.plan.items.length, true),
     kind: "todo",
     ttlMs: r.carry ? 10 * 60e3 : 60e3, // 어제 남은 것 물음은 고를 때까지 조금 더 오래
     open: { section: "today" },
@@ -321,9 +322,11 @@ await bus.listen(cfg.port, {
   todoRestore: (id) => agent.restoreTodo(id),
   todoPurge: (id) => agent.purgeTodo(id),
   todoTrashEmpty: () => agent.emptyTrash(),
+  todoIrrelevantClear: (id) => agent.clearIrrelevant(id),
   todoRevert: (id) => agent.revertAutoTodo(id),
   todoDetail: (id) => agent.todoDetail(id),
   todoLastAsk: (id) => agent.lastAsk(id),
+  todoScheduleOrder: (id, date, beforeId) => agent.reorderScheduledTodo(id, date, beforeId),
   todoReorder: (id, priority, beforeId) => agent.reorderTodo(id, priority, beforeId),
   projectHide: (id) => agent.hideProject(id),
   projectUnhide: (id) => agent.unhideProject(id),
@@ -575,7 +578,7 @@ const slackTick = asRoutine(safe("slack-ingest", async () => {
 let refreshing: Promise<void> | undefined;
 const refreshAll = () => (refreshing ??= (async () => {
   if (!modelWorkAllowed(cfg)) { bus.bubble({ id: "refresh", text: WAIT_SETUP, kind: "info", ttlMs: 10e3 }); return; }
-  bus.bubble({ id: "refresh", text: phrase("refresh_prog"), kind: "info", ttlMs: 60e3 });
+  bus.bubble({ id: "refresh", text: phrase("refresh_prog"), kind: "info", ttlMs: 60e3, transient: true });
   const before = new Set(store.openTodos().map((t) => t.id));
   await slackTick();
   await agent.runBriefing();
@@ -620,7 +623,7 @@ await purgeTrash();
 setInterval(purgeTrash, 24 * 60 * 60e3).unref();
 
 await ingest();
-bus.bubble({ text: phraseVoice("hello", {}, `hello:${new Date().toISOString().slice(0, 10)}`, { mood: "excited" }), kind: "info", ttlMs: 8e3 });
+bus.bubble({ id: "startup:greeting", transient: true, text: phraseVoice("hello", {}, `hello:${new Date().toISOString().slice(0, 10)}`, { mood: "excited" }), kind: "info", ttlMs: 8e3 });
 setInterval(ingest, cfg.ingestIntervalMin * 60e3);
 await health.check().catch(() => {}); // 첫 Slack 수집 전에 연결 상태부터
 slackTick();

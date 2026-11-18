@@ -306,7 +306,7 @@ export const RULE_SCHEMA = {
           type: "object",
           additionalProperties: false,
           properties: {
-            priority: { type: "integer", minimum: 1, maximum: 4, description: "1=오늘 꼭, 2=이번 주, 3=참고, 4=언젠가·백로그" },
+            priority: { type: "integer", minimum: 1, maximum: 4, description: "1=오늘 반드시, 2=이번 주, 3=참고, 4=언젠가·백로그" },
             backlog: { type: "boolean", description: "기한 없고 안 중요함 → 백로그(P4). '매우 낮음'·'신경 안 써도 됨'" },
             skip: { type: "boolean", description: "아예 할 일로 만들지 말라('앞으로 X는 올리지 마')" },
             note: { type: "string", description: "새 할 일에 붙일 짧은 메모(선택)" },

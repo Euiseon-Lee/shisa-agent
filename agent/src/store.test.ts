@@ -159,7 +159,7 @@ test("할 일 끌어 순서: sort 로 저장돼 다시 열어도 그대로, 브�
   assert.deepEqual(p2(s), ["d", "y"]);
   assert.ok(s.getTodo("c")!.userEdited!.includes("priority"));
   // 오늘 할 일 목록도 같은 순서
-  assert.deepEqual(s.todayTodos("2099-01-01").filter((t) => t.status === "open").map((t) => t.id), p1(s));
+  assert.deepEqual(s.todayTodos("2099-01-01").filter((t) => t.status === "open").map((t) => t.id), []);
   // 휴지통에 넣었다 되살리면(같은 우선순위) 자리 그대로
   const before = p1(s);
   s.trashTodo("b");

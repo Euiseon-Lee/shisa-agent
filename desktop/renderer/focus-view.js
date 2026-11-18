@@ -232,5 +232,11 @@ export function createFocusView({ h, cy }) {
   load();
   // 언어가 바뀜(패널이 부른다): 보던 주·달 그대로 집중 줄·기록 카드를 지금 언어로
   function relang() { err = ''; redraw(); redrawStats(); }
-  return { bar, foot, load, relang, isOpen: () => open };
+  function statistics() {
+    open = true;
+    queueMicrotask(() => loadStats());
+    return h('div.focus-overview', null,
+      h('div.card.stats-today-focus', null, h('span', { text: t('views.focus_today') }), h('b', { dataset: { focusToday: '' }, text: fmtDuration(todayLive(focus)) })), statsCard());
+  }
+  return { bar, foot, statistics, load, relang, isOpen: () => open };
 }

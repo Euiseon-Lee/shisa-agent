@@ -297,7 +297,7 @@ test("읽기: 깨진 파일·모르는 폴더·심볼릭 링크 폴더는 건너
   const real = join(cdir, id);
   const moved = join(dir, "moved");
   renameSync(real, moved);
-  symlinkSync(moved, real);
+  symlinkSync(moved, real, process.platform === 'win32' ? 'junction' : 'dir');
   assert.equal(store.remove(id).status, 200);
   assert.ok(existsSync(join(moved, "character.json")), "링크 대상 폴더는 그대로");
 });

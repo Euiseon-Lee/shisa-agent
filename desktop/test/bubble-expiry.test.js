@@ -86,7 +86,7 @@ test('렌더러 흐름: 늦게 깬 타이머 한 번에 큐의 만료 말풍선�
 test('렌더러는 만료 시각으로 치우고, 이벤트 때도 따라잡는다 · 오버레이 배경 타이머 억제 끔', () => {
   const r = fs.readFileSync(new URL('../renderer/renderer.js', import.meta.url), 'utf8');
   assert.match(r, /new BubbleExpiry\(\)/);
-  assert.match(r, /function render\(\) \{\n  dropExpired\(\);/);
+  assert.match(r, /function render\(\) \{[\s\S]{0,100}dropExpired\(\);/);
   assert.match(r, /document\.addEventListener\('visibilitychange', catchUp\)/);
   assert.match(r, /document\.addEventListener\('mousemove', \(e\) => \{\n  catchUp\(\);/);
   assert.doesNotMatch(r, /timers\.set\(/); // 말풍선마다 setTimeout(ttl) 하던 예전 방식 없음

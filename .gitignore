@@ -23,3 +23,8 @@ logs/
 
 # desktop: 생성되는 아이콘
 desktop/assets/icon.*
+
+# Personal development state and local-only helpers
+.local-dev/
+.local-tools/
+start-local.ps1

@@ -72,11 +72,11 @@ test('설정 창 연결된 AI 줄: 앱 저장 + 데몬 키 + 데몬이 쓰는 CL
 
 test('확인 문구: CLI 로그인은 남는다, 지금 쓰는 AI 면 AI 없이 쓰기로, 줄표 없음', () => {
   const cli = brainDisconnectCopy('claudecode', true);
-  assert.equal(cli.ask, 'Claude Code 연결을 끊을까요?');
-  assert.match(cli.note, /로그인은 이 맥에 그대로 남아요/);
-  assert.match(cli.note, /「AI 없이 쓰기」로 바뀌어요/);
+  assert.equal(cli.ask, 'Claude Code 연결을 해제할까요?');
+  assert.match(cli.note, /로그인 상태는 유지돼요/);
+  assert.match(cli.note, /AI 연결 없이 사용하게 돼요/);
   const key = brainDisconnectCopy('gemini', false);
-  assert.match(key.note, /키를 시사에서 지워요/);
+  assert.match(key.note, /API 키를 삭제해요/);
   assert.doesNotMatch(key.note, /AI 없이/);
   const src = readFileSync(new URL('../src/disconnect.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /—/);
@@ -93,12 +93,12 @@ test('커넥터 연결 해제: config 값·마법사 표시·안내 문구', () 
   assert.deepEqual(withoutHubDone({ gcal: true, outlook: true, slack: true, claude: true }, 'calendar'), { slack: true, claude: true });
   assert.deepEqual(withoutHubDone(undefined, 'issues'), {});
   const mcp = connectorDisconnectCopy('issues', 'atlassian');
-  assert.equal(mcp.ask, '이슈 연결을 끊을까요?');
+  assert.equal(mcp.ask, '이슈 연결을 해제할까요?');
   assert.equal(mcp.cmd, 'claude mcp remove atlassian');
-  assert.match(mcp.note, /MCP 서버 「atlassian」는 그대로 남아요/);
+  assert.match(mcp.note, /MCP 서버 「atlassian」는 유지돼요/);
   const cal = connectorDisconnectCopy('calendar');
   assert.equal(cal.cmd, '');
-  assert.match(cal.note, /구글·Outlook 모두/);
+  assert.match(cal.note, /구글과 Outlook 등 등록한 캘린더 전체/);
   assert.equal(mcpRemoveCommand('evil; rm -rf ~'), '');
   assert.ok(okCap('mail'));
   assert.equal(okCap('github'), false);
@@ -136,7 +136,7 @@ test('[연결 해제] 단추: 누르면 그 자리에서 묻고, 취소·실패�
   assert.equal(btn('dc-open').textContent, '연결 해제');
   assert.equal(box.byClass('dc-ask').length, 0, '처음엔 단추만');
   btn('dc-open').fire('click');
-  assert.match(box.text, /이슈 연결을 끊을까요\?/);
+  assert.match(box.text, /이슈 연결을 해제할까요\?/);
   assert.match(box.text, /claude mcp remove atlassian/);
   btn('dc-copy').fire('click');
   await tick();
@@ -156,7 +156,7 @@ test('[연결 해제] 단추: 누르면 그 자리에서 묻고, 취소·실패�
   answer = { ok: true, note: '바로 적용돼요.' };
   btn('dc-yes').fire('click');
   await tick();
-  assert.equal(box.byClass('dc-done')[0].textContent, '이슈 연결을 끊었어요. 바로 적용돼요.');
+  assert.equal(box.byClass('dc-done')[0].textContent, '이슈 연결을 해제했어요. 바로 적용돼요.');
   assert.deepEqual(calls, [['confirm'], ['confirm']]);
   assert.deepEqual(events, ['open', 'close', 'open', 'open', 'close']);
   // open: 다시 그려도 확인이 열린 채로
@@ -194,14 +194,14 @@ test('모델 탭: 연결된 AI 마다 [연결 해제] → 확인 → sisaDisconn
   assert.ok(card('gemini').byClass('dc-open')[0], 'Gemini 카드에 연결 해제');
   assert.ok(card('claudecode').byClass('dc-open')[0], 'Claude Code 카드에 연결 해제');
   card('claudecode').byClass('dc-open')[0].fire('click');
-  assert.match(card('claudecode').text, /로그인은 이 맥에 그대로 남아요/);
+  assert.match(card('claudecode').text, /로그인 상태는 유지돼요/);
   card('gemini').byClass('dc-open')[0].fire('click');
-  assert.match(card('gemini').text, /지금 쓰는 AI라서/);
+  assert.match(card('gemini').text, /현재 사용 중인 AI예요/);
   card('gemini').byClass('dc-yes')[0].fire('click');
   await tick();
   assert.deepEqual(asked, ['gemini']);
   assert.equal(card('gemini'), undefined, '끊은 AI 카드는 사라진다');
-  assert.match(section.text, /Gemini 연결을 끊었어요\. 이제 「AI 없이 쓰기」예요\./);
+  assert.match(section.text, /Gemini 연결을 해제했어요\. 이제 「AI 없이 쓰기」예요\./);
 });
 
 test('설정 창 IPC: 연결 해제는 이 창에서만, 아는 id·cap 만 main 으로', async () => {

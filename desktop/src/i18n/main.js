@@ -5,6 +5,7 @@ export default {
   ko: {
     offline: '연결되지 않았어요',
     // 메뉴
+    menu_focus_start: '집중 시작',
     menu_open_panel: '패널 열기',
     menu_open_session: '작업 세션 열기',
     menu_briefing_now: '지금 브리핑',
@@ -64,7 +65,7 @@ export default {
     upd_download: '받으러 가기',
     // 로그인할 때 켜기(bundle.js loginItemHint)
     login_launchd: '터미널로 설치한 시사는 launchd 가 로그인할 때 켜 줘요. 여기서는 바꾸지 않아요.',
-    login_dev: '레포에서 띄운 개발용 실행이라 여기서는 바꾸지 않아요.',
+    login_dev: '개발 버전에서는 컴퓨터 로그인 시 앱을 자동으로 실행하는 설정을 변경할 수 없어요.',
     login_test: '시험용 실행(다른 데이터 폴더·포트)이라 여기서는 바꾸지 않아요.',
     login_platform: '이 컴퓨터에서는 지원하지 않아요.',
     // 터미널 여는 줄(os-hint.js)
@@ -139,6 +140,7 @@ export default {
   },
   ja: {
     offline: '接続されていません',
+    menu_focus_start: '集中を開始',
     menu_open_panel: 'パネルを開く',
     menu_open_session: '作業セッションを開く',
     menu_briefing_now: '今すぐブリーフィング',

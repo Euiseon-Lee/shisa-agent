@@ -18,7 +18,7 @@ function fixture() {
   writeFileSync(join(root, "app", "README.md"), "# app");
   writeFileSync(join(root, "app", ".env"), "TOKEN=x");
   writeFileSync(join(outside, "secret.txt"), "x");
-  symlinkSync(outside, join(root, "app", "escape"));
+  symlinkSync(outside, join(root, 'app', 'escape'), process.platform === 'win32' ? 'junction' : 'dir');
   return { base, root, outside, roots: [root], repos: ["app", "cy-agent", "app-web"].map((r) => join(root, r)) };
 }
 
