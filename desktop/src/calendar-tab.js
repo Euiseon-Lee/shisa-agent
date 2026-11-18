@@ -27,6 +27,10 @@ export const CALTAB_TEXT = {
   get chipOff() { return tv('chip_off'); },
   chipOffTitle: (name) => tv('chip_off_title', { name }),
   colorMenu: (name) => tv('color_menu', { name }),
+  get colorCustom() { return tv('color_custom'); },
+  get colorHex() { return tv('color_hex'); },
+  get colorApply() { return tv('color_apply'); },
+  get colorInvalid() { return tv('color_invalid'); },
   get colorAuto() { return tv('color_auto'); },
   get colorNames() { return Object.fromEntries(['blue', 'green', 'orange', 'purple', 'red', 'teal', 'pink', 'brown'].map((c) => [c, tv(`color_${c}`)])); },
   get colorSaved() { return tv('color_saved'); },
@@ -63,7 +67,18 @@ export const cardFolded = (n, open) => (typeof open === 'boolean' ? !open : n >=
 
 // 팔레트(데몬 calendar-view.ts CAL_COLORS 와 같은 이름). 색 값은 calendar.css 의 --cal-<이름>(라이트·다크)
 export const CAL_COLORS = ['blue', 'green', 'orange', 'purple', 'red', 'teal', 'pink', 'brown'];
-export const okCalendarColor = (v) => typeof v === 'string' && CAL_COLORS.includes(v);
+export const okCalendarColor = (v) => typeof v === 'string' && (CAL_COLORS.includes(v) || /^#[0-9a-f]{6}$/i.test(v));
+
+export const calendarColorClass = color => CAL_COLORS.includes(color) ? color : 'custom';
+export function paintCalendarColor(el, color) {
+  if (typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)) {
+    el.style.setProperty('--c', color);
+    const rgb = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16) / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const luminance = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+    el.style.setProperty('--cal-bar-fg', luminance > 0.179 ? '#000000' : '#ffffff');
+  }
+  return el;
+}
 
 export const VIEWS = ['week', 'month', 'day'];
 export const okView = (v) => VIEWS.includes(v);
@@ -146,8 +161,7 @@ export function periodTitle(p) {
   if (p.view === 'month') { const mid = p.anchor; return tv('title_month', { y: y(mid), m: Number(mid.slice(5, 7)) }); }
   if (p.view === 'day') return tv('title_day', { y: y(a), md: md(a), w: wd(a) });
   if (a.slice(0, 4) !== b.slice(0, 4)) return tv('title_years', { y1: y(a), md1: md(a), y2: y(b), md2: md(b) });
-  if (a.slice(0, 7) !== b.slice(0, 7)) return tv('title_months', { y: y(a), md1: md(a), md2: md(b) });
-  return tv('title_days', { y: y(a), md1: md(a), d2: Number(b.slice(8, 10)) });
+  return tv('title_months', { y: y(a), md1: md(a), md2: md(b) });
 }
 
 // ---- 데몬 응답 다듬기 ----

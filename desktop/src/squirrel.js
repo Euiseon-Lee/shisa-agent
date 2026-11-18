@@ -11,7 +11,7 @@ const W = path.win32;
 export const updateExe = (execPath) => W.resolve(W.dirname(execPath), '..', 'Update.exe');
 
 // 앱 ID: Squirrel 바로 가기와 같은 com.squirrel.<id>.<exe 이름>. 알림·작업 표시줄 묶음 + 로그인 항목(Run 값) 이름
-export const appUserModelId = (execPath) => `com.squirrel.Shisa.${W.basename(execPath, '.exe')}`;
+export const appUserModelId = (execPath) => `com.squirrel.${W.basename(execPath, '.exe')}.${W.basename(execPath, '.exe')}`;
 
 // → null(평소 실행) | { event, run: [file, args] | null, removeLoginItem }
 export function squirrelPlan({ platform, argv = [], execPath }) {

@@ -56,6 +56,7 @@ import { denied } from './src/denied.js';
 import { okCalendarColor, okEventsQuery } from './src/calendar-tab.js';
 import { withCalendarColor, withCalendarRemoved, withCalendarRenamed, withCalendarEnabled, withCalendarResults, calendarRows, calendarUrlById, calendarUrls, calendarKind, cardOfKind, hubDoneFor, calendarReloadNote, okCalendarId, okCalendarName, okCalendarUrl, CALENDAR_DUP, CAL_TEXT } from './src/calendars.js';
 import { squirrelPlan, loginItemTarget, appUserModelId } from './src/squirrel.js';
+import { syncWindowsIcon } from './src/windows-icon.js';
 import { closeAction, offlineResult } from './src/quit.js';
 import { panelOnActivation } from './src/panel-activation.js';
 import { cleanMailBody, okMailId } from './src/mail-connect.js';
@@ -1160,12 +1161,13 @@ const loadCharacters = rerunLatest(async () => {
 // 그림 고르는 순서는 오버레이와 같다: 이 캐릭터에 사용자가 넣은 그림 > 0.3.x 가 남긴 예전 그림(local) > 기본 그림.
 // 그림이 없거나 못 읽으면, 또 설정을 끄면 기본 그림 아이콘(앱 번들 icns·ico 와 같은 그림, defaultIconRGBA).
 // 맥: Dock 아이콘(app.dock.setIcon). Cmd+Tab·스테이지 매니저도 이 그림을 따른다.
-// 윈도우: 창마다 작업 표시줄 단추 아이콘(win.setIcon) + 알림 영역(트레이) 그림. 작업 표시줄에 고정한 아이콘·시작 메뉴·바로 가기는 exe(Shisa.ico) 그대로.
+// 윈도우: 창마다 작업 표시줄 단추 아이콘(win.setIcon) + 알림 영역(트레이) 그림. 고정 아이콘·시작 메뉴·바로 가기도 사용자 폴더의 캐릭터 ICO로 갱신한다.
 // 이름은 못 바꾼다: Dock 툴팁·메뉴 막대 굵은 이름·Cmd+Tab·스테이지 매니저 이름은 앱 번들 Info.plist(CFBundleName 「시사」)를 macOS 가 읽는다.
 // app.setName(appTitle) 은 앱 안 글(메뉴 항목 「○○ 비서 정보·종료」·창 제목·트레이 툴팁)만 바꾼다
 const ICON_SIZE = { mac: 512, win: 256 };
 const DEFAULT_ICON_KEY = 'default';
 let appIconKey = null; // 지금 넣은 아이콘(캐릭터|파일|고친 시각 또는 DEFAULT_ICON_KEY). null = 아직 안 넣음
+let winAppDetails = null;
 let winIcon = null; // 윈도우: 새 창에도 넣을 그림(null = exe 아이콘 = 기본 그림)
 let defaultIconImg = null; // 기본 그림 아이콘(한 번만 그린다)
 
@@ -1217,13 +1219,17 @@ function applyAppIcon() {
       winIcon = still ? img : null;
       for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.setIcon(img);
       tray?.setImage(trayImage());
+      if (app.isPackaged) {
+        winAppDetails = syncWindowsIcon({ image: img, userData: app.getPath('userData'), appData: app.getPath('appData'), desktop: app.getPath('desktop'), execPath: process.execPath, shell, title: appTitle() });
+        for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.setAppDetails(winAppDetails);
+      }
     }
   } catch (e) {
     console.error('[app-icon]', e?.message ?? e);
   }
 }
 // 윈도우: 나중에 여는 창(패널·세션·설정)도 고른 캐릭터 아이콘으로
-app.on('browser-window-created', (_e, w) => { if (winIcon && process.platform === 'win32') w.setIcon(winIcon); });
+app.on('browser-window-created', (_e, w) => { if (process.platform !== 'win32') return; if (winIcon) w.setIcon(winIcon); if (winAppDetails) w.setAppDetails(winAppDetails); });
 // Local source development: reload UI files even when CY_DEBUG is not enabled.
 app.on('browser-window-created', (_event, window) => {
   if (app.isPackaged) return;

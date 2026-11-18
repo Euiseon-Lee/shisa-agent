@@ -4,7 +4,7 @@
 // 일정을 누르면 작은 카드(제목·때·캘린더·장소·회의 참여·설명 앞부분 + 프로젝트로 만들기 · 할 일로 만들기).
 // 데이터는 GET /calendar/events(메인 IPC calendarEvents), 계산은 src/calendar-tab.js, 글은 그 파일 CALTAB_TEXT.
 import {
-  CALTAB_TEXT as T, CAL_COLORS, NARROW_PX, VIEWS, periodOf, shiftAnchor, periodTitle, shapeEvents, visibleEvents, toggleHidden,
+  CALTAB_TEXT as T, CAL_COLORS, calendarColorClass, paintCalendarColor, NARROW_PX, VIEWS, periodOf, shiftAnchor, periodTitle, shapeEvents, visibleEvents, toggleHidden,
   readHidden, writeHidden, readView, writeView, layoutDay, layoutBars, monthCells, fitItems, nowLine, agendaDays, zoned, hhmm, dayLabel,
   eventWhen, responseTag, descHead, todoFromEvent, pickOf, isBar, weekday,
 } from '../src/calendar-tab.js';
@@ -110,7 +110,7 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
       const shown = !off && !hidden.has(c.id);
       let pressTimer = null, pressed = false;
       const openMenu = (target) => { menu = { calId: c.id, rect: target.getBoundingClientRect?.() ?? null }; pop = null; draw(); };
-      const chip = h(`button.cal-chip.c-${c.color}${shown ? '.on' : ''}${off ? '.off' : ''}`, {
+      const chip = h(`button.cal-chip.c-${calendarColorClass(c.color)}${shown ? '.on' : ''}${off ? '.off' : ''}`, {
         type: 'button',
         dataset: { cal: c.id },
         'aria-pressed': off ? null : String(shown),
@@ -128,6 +128,7 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
         onpointerup: () => clearTimeout(pressTimer),
         onpointerleave: () => clearTimeout(pressTimer),
       }, h('span.cal-dot', { 'aria-hidden': 'true' }), h('span.cal-chip-name', { text: c.name }), off ? h('span.cal-chip-off', { text: T.chipOff }) : null);
+      paintCalendarColor(chip, c.color);
       const wrap = h('span.cal-chip-wrap', null, chip,
         data.mode === 'mcp' ? null : btn('.ghost.cal-chip-more', '⋯', (e) => openMenu(e?.currentTarget ?? chip), { 'aria-label': T.colorMenu(c.name), title: T.colorMenu(c.name), 'aria-haspopup': 'true' }));
       box.append(wrap);
@@ -151,11 +152,26 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
   function colorMenu() {
     const c = menu && calOf(menu.calId);
     if (!c) return null;
-    const box = h('div.cal-menu', { role: 'menu', 'aria-label': T.colorMenu(c.name) },
+    const initial = /^#[0-9a-f]{6}$/i.test(c.color) ? c.color :
+      (globalThis.getComputedStyle?.(el)?.getPropertyValue('--cal-' + c.color)?.trim() || '#2f6fe4');
+    const picker = h('input.cal-color-picker', { type: 'color', value: initial, 'aria-label': T.colorCustom });
+    const hex = h('input.cal-color-hex', { type: 'text', value: initial, placeholder: '#AABBCC', maxlength: 7, spellcheck: 'false', 'aria-label': T.colorHex });
+    const error = h('span.cal-color-error', { role: 'alert' });
+    const preview = h('span.cal-color-preview', { 'aria-hidden': 'true' });
+    preview.style.setProperty('background-color', initial);
+    const normalized = () => { const v = String(hex.value ?? '').trim(); return /^#?[0-9a-f]{6}$/i.test(v) ? '#' + v.replace(/^#/, '').toLowerCase() : null; };
+    const apply = () => { const color = normalized(); if (!color) { error.textContent = T.colorInvalid; hex.setAttribute('aria-invalid', 'true'); return; } setColor(c.id, color); };
+    picker.addEventListener('input', () => { hex.value = picker.value; preview.style.setProperty('background-color', picker.value); error.textContent = ''; hex.setAttribute('aria-invalid', 'false'); });
+    hex.addEventListener('input', () => { const color = normalized(); if (color) { picker.value = color; preview.style.setProperty('background-color', color); } error.textContent = ''; hex.setAttribute('aria-invalid', 'false'); });
+    hex.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+    const box = h('div.cal-menu', { role: 'dialog', 'aria-label': T.colorMenu(c.name) },
       h('div.cal-menu-title', { text: T.colorMenu(c.name) }),
       h('div.cal-swatches', null, CAL_COLORS.map((x) => btn(`.cal-swatch.c-${x}${c.colorSet && c.color === x ? '.on' : ''}`, '', () => setColor(c.id, x), { role: 'menuitemradio', 'aria-checked': String(c.colorSet && c.color === x), 'aria-label': T.colorNames[x], title: T.colorNames[x], dataset: { color: x } }))),
+      h('div.cal-custom-color', null, h('div.cal-menu-title', { text: T.colorCustom }),
+        h('div.cal-custom-row', null, picker, hex, preview), error,
+        btn('.cal-color-apply', T.colorApply, apply)),
       btn(`.ghost.small.cal-auto${c.colorSet ? '' : '.on'}`, T.colorAuto, () => setColor(c.id, null), { role: 'menuitemradio', 'aria-checked': String(!c.colorSet) }));
-    place(box, menu.rect, 220);
+    place(box, menu.rect, 260);
     return box;
   }
 
@@ -179,11 +195,11 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
   function evButton(cls, e, kids) {
     const c = calOf(e.calId);
     const tag = responseTag(e);
-    const b = h(`button.cal-ev.${cls}.c-${c?.color ?? CAL_COLORS[0]}${e.response === 'declined' ? '.declined' : ''}${e.response === 'tentativelyaccepted' || e.free ? '.soft' : ''}${pop?.id === e.id ? '.sel' : ''}`, {
+    const b = h(`button.cal-ev.${cls}.c-${calendarColorClass(c?.color ?? CAL_COLORS[0])}${e.response === 'declined' ? '.declined' : ''}${e.response === 'tentativelyaccepted' || e.free ? '.soft' : ''}${pop?.id === e.id ? '.sel' : ''}`, {
       type: 'button', dataset: { ev: e.id }, 'aria-label': tag ? `${evLabel(e)}, ${tag}` : evLabel(e), title: evLabel(e),
       onclick: (ev) => { ev?.stopPropagation?.(); openPop(e, b); },
     }, kids);
-    return b;
+    return paintCalendarColor(b, c?.color);
   }
 
   function popCard() {
@@ -192,7 +208,7 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
     const c = calOf(e.calId);
     const tag = responseTag(e);
     const close = () => { pop = null; draw(); };
-    const box = h(`div.cal-pop.c-${c?.color ?? CAL_COLORS[0]}`, { role: 'dialog', 'aria-label': e.title, onmousedown: (x) => x?.stopPropagation?.() },
+    const box = h(`div.cal-pop.c-${calendarColorClass(c?.color ?? CAL_COLORS[0])}`, { role: 'dialog', 'aria-label': e.title, onmousedown: (x) => x?.stopPropagation?.() },
       h('div.cal-pop-head', null, h('span.cal-dot', { 'aria-hidden': 'true' }), h('h3.cal-pop-title', { text: e.title }), btn('.ghost.cal-pop-x', '✕', close, { 'aria-label': T.close, title: T.close })),
       h('div.cal-pop-row.cal-pop-when', { text: eventWhen(e, tz) }),
       c ? h('div.cal-pop-row.muted', null, h('span', { text: c.name }), tag ? h('span.cal-pop-tag', { text: tag }) : null) : null,
@@ -204,6 +220,7 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
       h('div.cal-pop-foot', null,
         btn('.small.cal-mk-project', T.makeProject, () => { pop = null; draw(); openProject(pickOf(e)); }),
         btn('.small.cal-mk-todo', T.makeTodo, () => makeTodo(e))));
+    paintCalendarColor(box, c?.color);
     place(box, pop.rect, 290);
     return box;
   }

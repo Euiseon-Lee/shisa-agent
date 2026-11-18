@@ -36,7 +36,7 @@ test("색: 저장한 색 먼저, 나머지는 id 로 정한 칸에서 겹치지 
   const a = calendarColors([{ id: "aaaa" }, { id: "bbbb" }, { id: "cccc" }]);
   assert.deepEqual(calendarColors([{ id: "aaaa" }, { id: "bbbb" }, { id: "cccc" }]), a, "같은 목록이면 같은 색");
   assert.equal(new Set(a.values()).size, 3, "세 캘린더가 서로 다른 색");
-  for (const c of a.values()) assert.ok(CAL_COLORS.includes(c));
+  for (const c of a.values()) assert.ok((CAL_COLORS as readonly string[]).includes(c));
   const saved = calendarColors([{ id: "aaaa" }, { id: "bbbb", color: a.get("aaaa") }]);
   assert.equal(saved.get("bbbb"), a.get("aaaa"), "저장한 색은 그대로");
   assert.notEqual(saved.get("aaaa"), a.get("aaaa"), "저장한 색과 겹치면 다음 색");
@@ -44,7 +44,7 @@ test("색: 저장한 색 먼저, 나머지는 id 로 정한 칸에서 겹치지 
   assert.equal(many.size, 10, "팔레트보다 많아도 모두 색이 있다");
   assert.equal(new Set([...many.values()].slice(0, 8)).size, 8);
   assert.ok(okCalColor("blue"));
-  assert.ok(!okCalColor("#ff0000") && !okCalColor(""));
+  assert.ok(okCalColor("#ff0000") && !okCalColor(""));
   assert.equal(calendarColors([{ id: "x", color: "#123" }]).get("x") !== undefined, true, "모르는 저장값은 자동 색");
 });
 
@@ -172,4 +172,11 @@ test("GET /calendar/events: 기간이 틀리면 400, 맞으면 처리기 결과,
   try {
     assert.equal((await fetch(`http://127.0.0.1:${(bare.server!.address() as any).port}/calendar/events?from=2026-10-19T00:00:00Z&to=2026-10-26T00:00:00Z`)).status, 503);
   } finally { bare.close(); }
+});
+
+
+test('custom calendar colors survive backend mapping; invalid CSS is rejected', () => {
+  assert.equal(calendarColors([{id:'a',color:'#AABBCC'}]).get('a'),'#AABBCC');
+  for(const c of ['#ffffff','#000000','#aBcD01']) assert.ok(okCalColor(c));
+  for(const c of ['#fff','#12345678','red;display:none','url(x)','']) assert.ok(!okCalColor(c));
 });

@@ -189,7 +189,7 @@ test('main: 켤 때·캐릭터를 바꿀 때·설정을 바꿀 때 아이콘을 
   assert.match(m, /const pick = iconCharacter\(charId, state\.appIcon !== false\);/);
   assert.match(m, /if \(mac\) app\.dock\?\.setIcon\(img\);/);
   assert.match(m, /for \(const w of BrowserWindow\.getAllWindows\(\)\) if \(!w\.isDestroyed\(\)\) w\.setIcon\(img\);/);
-  assert.match(m, /app\.on\('browser-window-created', \(_e, w\) => \{ if \(winIcon && process\.platform === 'win32'\) w\.setIcon\(winIcon\); \}\);/);
+  assert.match(m, /if \(winAppDetails\) w\.setAppDetails\(winAppDetails\)/);
   assert.match(m, /tray\?\.setImage\(trayImage\(\)\);/);
   // 끔·그림 없음은 기본 그림 아이콘(그림 파일 없이 그린다)
   assert.match(m, /const img = still \? iconFromStill\(still, style, size\) : defaultIcon\(style, size\);/);

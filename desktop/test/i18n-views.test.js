@@ -69,7 +69,7 @@ const clickAll = (doc, sel) => { const n = doc.querySelector(sel); assert.ok(n, 
 test('캘린더 탭 ja: 주·월·일·목록 보기, 일정 카드, 색 메뉴, 부분 실패 안내가 한글 0', async () => {
   ja();
   const { doc, el, v } = await mountCal();
-  assert.equal(el.querySelector('.cal-period').textContent, '2026年10月19日～25日');
+  assert.equal(el.querySelector('.cal-period').textContent, '2026年10月19日～10月25日');
   assert.deepEqual(left(doc), [], '주 보기');
   clickAll(doc, '.cal-ev.blk'); // 일정 카드
   assert.ok(doc.querySelector('.cal-pop'));

@@ -37,7 +37,7 @@ test('‹ › 와 기간 제목', () => {
   assert.equal(shiftAnchor('day', '2026-10-31', 1), '2026-11-01');
   assert.equal(shiftAnchor('month', '2026-12-15', 1), '2027-01-01');
   assert.equal(shiftAnchor('month', '2026-01-31', -1), '2025-12-01');
-  assert.equal(periodTitle(periodOf('week', '2026-10-21', TZ)), '2026년 10월 19일 ~ 25일');
+  assert.equal(periodTitle(periodOf('week', '2026-10-21', TZ)), '2026년 10월 19일 ~ 10월 25일');
   assert.equal(periodTitle(periodOf('week', '2026-10-28', TZ)), '2026년 10월 26일 ~ 11월 1일');
   assert.equal(periodTitle(periodOf('week', '2026-12-30', TZ)), '2026년 12월 28일 ~ 2027년 1월 3일');
   assert.equal(periodTitle(periodOf('month', '2026-10-18', TZ)), '2026년 10월');
@@ -269,7 +269,7 @@ async function mount(reply = { ok: true, status: 200, data: DATA }) {
 test('렌더: 주 보기(요일 머리·종일 막대·겹친 일정 나란히·지금 선·8시 스크롤) · 칩 숨기기 · 꺼 둔 칩', async () => {
   const { v, el, calls, s } = await mount();
   assert.deepEqual(calls[0], ['events', { from: '2026-10-18T15:00:00.000Z', to: '2026-10-25T15:00:00.000Z', fresh: false }]);
-  assert.equal(el.byClass('cal-period')[0].text, '2026년 10월 19일 ~ 25일');
+  assert.equal(el.byClass('cal-period')[0].text, '2026년 10월 19일 ~ 10월 25일');
   assert.equal(el.byClass('cal-dayhead').length, 7);
   assert.ok(el.byClass('cal-dayhead')[2].className.includes('today'));
   const blocks = el.byClass('blk');
@@ -397,4 +397,35 @@ test('개요 연결 카드: 캘린더마다 줄(색·켜짐·결과), 누른 값
   assert.match(panel, /calendarCardRows\(c\.calendars\)/);
   assert.match(panel, /cy\.calendarToggle\(r\.id, !on\)/);
   assert.match(panel, /role: 'switch'/);
+});
+
+
+test('custom HEX color: save, render, invalid input, picker and auto reset', async () => {
+  const hash = () => 'aaaaaaaaaaaaaaaa';
+  const cfg = {connectors:{calendar:{mode:'api',calendars:[{id:'aaaaaaaaaaaaaaaa',url:'https://x/a.ics',name:'A'}]}}};
+  const saved = withCalendarColor(cfg, 'aaaaaaaaaaaaaaaa', '#AABBCC', hash);
+  assert.equal(calendarEntries(saved)[0].color, '#AABBCC');
+  assert.equal(withCalendarColor(saved,'aaaaaaaaaaaaaaaa','url(x)',hash), saved);
+  const payload = structuredClone(DATA); payload.calendars[0].color='#112233';payload.calendars[0].colorSet=true;
+  const {el,calls}=await mount({ok:true,status:200,data:payload});
+  assert.equal(el.byClass('cal-chip')[0].styles['--c'],'#112233');
+  assert.equal(el.byClass('cal-ev').find(n=>n.dataset.ev==='w:1').styles['--c'],'#112233');
+  el.byClass('cal-chip-more')[0].fire('click');
+  const hex=el.byClass('cal-color-hex')[0];
+  hex.value='wrong'; el.byClass('cal-color-apply')[0].fire('click');
+  assert.equal(hex.getAttribute('aria-invalid'),'true');assert.equal(calls.filter(c=>c[0]==='color').length,0);
+  hex.value='AABBCC';hex.fire('input');
+  assert.equal(el.byClass('cal-color-picker')[0].value,'#aabbcc');
+  hex.fire('keydown',{key:'Enter'});await tick();
+  assert.deepEqual(calls.filter(c=>c[0]==='color').at(-1),['color','w','#aabbcc']);
+  el.byClass('cal-chip-more')[0].fire('click');
+  const picker=el.byClass('cal-color-picker')[0];picker.value='#fedcba';picker.fire('input');
+  assert.equal(el.byClass('cal-color-hex')[0].value,'#fedcba');
+  el.byClass('cal-auto')[0].fire('click');await tick();
+  assert.deepEqual(calls.filter(c=>c[0]==='color').at(-1),['color','w',null]);
+});
+
+test('period title includes both months and both years across year boundary', () => {
+  assert.equal(periodTitle(periodOf('week','2026-11-18',TZ)),'2026년 11월 16일 ~ 11월 22일');
+  assert.equal(periodTitle({view:'week',days:['2026-12-26','2027-01-02']}),'2026년 12월 26일 ~ 2027년 1월 2일');
 });

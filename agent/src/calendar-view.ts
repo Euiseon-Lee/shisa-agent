@@ -14,8 +14,8 @@ import { t } from "./i18n.ts";
 
 // 팔레트(화면이 이름마다 라이트·다크 색을 정한다). 저장값은 이 이름 중 하나
 export const CAL_COLORS = ["blue", "green", "orange", "purple", "red", "teal", "pink", "brown"] as const;
-export type CalColor = (typeof CAL_COLORS)[number];
-export const okCalColor = (v: unknown): v is CalColor => typeof v === "string" && (CAL_COLORS as readonly string[]).includes(v);
+export type CalColor = (typeof CAL_COLORS)[number] | `#${string}`;
+export const okCalColor = (v: unknown): v is CalColor => typeof v === "string" && ((CAL_COLORS as readonly string[]).includes(v) || /^#[0-9a-f]{6}$/i.test(v));
 
 // 문자열 → 팔레트 칸(늘 같은 값)
 function hashIndex(s: string): number {

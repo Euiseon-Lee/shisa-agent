@@ -18,7 +18,7 @@ import { createFocusView } from './focus-view.js';
 import { groupScheduledTodos, dateDistance, scheduleGroup, effectiveDate, scheduleOrder, reorderScheduleLocal, scheduleKeyMove } from '../src/schedule-groups.js';
 import { createProjectsView } from './projects-view.js';
 import { createCalendarView } from './calendar-view.js';
-import { CALTAB_TEXT, cardRowOn, cardFolded } from '../src/calendar-tab.js';
+import { CALTAB_TEXT, cardRowOn, cardFolded, calendarColorClass, paintCalendarColor } from '../src/calendar-tab.js';
 import { calendarRowState } from '../src/calendars.js';
 import { connectorAction, connectorDisconnectCopy, disconnectControl } from '../src/disconnect.js';
 import { CANNED, cannedReply, connectSteps, hubItem, slotOk, EXTRAS } from '../src/ai-onboard.js';
@@ -574,7 +574,7 @@ function calendarCardRows(rows) {
     folded ? null : h('ul.conn-cal-list', null, rows.map((r) => {
       const on = cardRowOn(r, cardWant);
       const st = calendarRowState({ ...r, enabled: on, phase: on && !r.enabled ? 'pending' : r.phase });
-      return h(`li.conn-cal${on ? '' : '.off'}${st.tone === 'fail' ? '.fail' : ''}.c-${r.color}`, { dataset: { cal: r.id } },
+      const row = h(`li.conn-cal${on ? '' : '.off'}${st.tone === 'fail' ? '.fail' : ''}.c-${calendarColorClass(r.color)}`, { dataset: { cal: r.id } },
         h('span.cal-dot', { 'aria-hidden': 'true' }),
         h('span.conn-cal-name', { text: r.name }),
         h('span.conn-cal-state.small', { text: st.text, title: st.text }),
@@ -592,6 +592,7 @@ function calendarCardRows(rows) {
             loadSoon();
           },
         }, h('span.knob', { 'aria-hidden': 'true' })));
+      return paintCalendarColor(row, r.color);
     })),
     cardNote ? h('div.small.conn-sync-fail', { role: 'status', text: cardNote }) : null);
 }
