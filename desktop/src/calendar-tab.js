@@ -176,7 +176,7 @@ export function shapeEvents(r) {
   const calendars = (Array.isArray(d.calendars) ? d.calendars : [])
     .filter((c) => c && str(c.id))
     .map((c) => ({ id: c.id, name: str(c.name).trim() || tv('fallback_name'), color: okCalendarColor(c.color) ? c.color : CAL_COLORS[0], colorSet: c.colorSet === true, enabled: c.enabled !== false, phase: str(c.phase), reason: str(c.reason) }));
-  const known = new Set(calendars.map((c) => c.id));
+  const known = new Set(calendars.filter(c => c.enabled).map((c) => c.id));
   const events = (Array.isArray(d.events) ? d.events : [])
     .filter((e) => e && str(e.id) && known.has(e.calId) && !Number.isNaN(Date.parse(e.start)))
     .map((e) => {

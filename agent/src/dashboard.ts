@@ -1,4 +1,5 @@
 // 데스크톱 패널용 스냅샷(GET /dashboard). 지식그래프 프로젝트 + git 커밋 + 할 일·제안·브리핑·오늘 할 일 표.
+import { sourceMetadata } from "./todo-source-meta.ts";
 import { homedir, tmpdir } from "node:os";
 import { sep } from "node:path";
 import { HOME_DIR } from "./config.ts";
@@ -25,6 +26,7 @@ export type Dashboard = {
   projects: DashProject[];
   manualProjects: ManualProjectView[]; // 직접 만든 프로젝트(진행 중 먼저) — 패널 프로젝트 탭 위쪽
   todos: DashTodo[];
+  recurring: ReturnType<Store["recurringTodos"]>;
   irrelevant: DashTodo[];
   recentDone: (DashTodo & { doneAt: string })[]; // 최근 7일 안에 끝난 것(완료 시각 최신순, 최대 100) — 패널 "최근 완료"
   proposals: { id: string; title: string; repo: string; status: ProposalStatus; result?: string; base?: string }[];
@@ -66,6 +68,10 @@ export function isNoisePath(path: string): boolean {
 
 export async function buildDashboard(cfg: Config, store: Store, deps: DashboardDeps = {}): Promise<Dashboard> {
   const now = deps.now ?? new Date();
+  const metadata = sourceMetadata(store,cfg);
+  const displayTodo = (t:Todo) => ({...dashTodo(t),...metadata(t)});
+  const today = new DailyPlanService(store, { now: () => now }).state();
+  today.items = today.items.map(t => ({...t,...metadata(store.getTodo(t.id) ?? t)}));
   // git 커밋은 사용자가 고른 레포 폴더에서만, 작업 기록(세션)은 켰을 때만(onboarding.ts)
   const repos = gitAllowed(cfg) ? await (deps.git ?? ((c) => gitActivity(c)))(cfg).catch(() => [] as RepoActivity[]) : [];
   return {
@@ -75,13 +81,14 @@ export async function buildDashboard(cfg: Config, store: Store, deps: DashboardD
     commitsToday: repos.reduce((n, r) => n + r.commitsToday.length, 0),
     projects: projects(store, repos, now, sessionsAllowed(cfg)),
     manualProjects: new ManualProjects(store).views(),
-    todos: store.openTodos().map(dashTodo),
-    irrelevant: store.irrelevantTodos().map(dashTodo),
+    todos: store.openTodos().map(displayTodo),
+    recurring: store.recurringTodos(today.date),
+    irrelevant: store.irrelevantTodos().map(displayTodo),
     recentDone: store.recentlyDone(new Date(now.getTime() - 7 * DAY).toISOString(), 100)
-      .map((t) => ({ ...dashTodo(t), doneAt: t.doneAt! })),
+      .map((t) => ({ ...displayTodo(t), doneAt: t.doneAt! })),
     proposals: store.recentProposals(new Date(now.getTime() - 7 * DAY).toISOString())
       .map((p) => ({ id: p.id, title: p.title, repo: p.repo, status: p.status, ...(p.result ? { result: p.result } : {}), ...(p.base ? { base: p.base } : {}) })),
-    today: new DailyPlanService(store, { now: () => now }).state(),
+    today,
     trash: store.trashedTodos(50).map((t) => ({ id: t.id, title: t.title, priority: t.priority, source: t.source, trashedAt: t.trashedAt })),
     trashCount: store.trashCount(),
     todoRules: listRules(store).map((r) => ({ id: r.id, text: r.text, summary: ruleSummary(r), enabled: r.enabled, hits: r.hits, created: r.created })),

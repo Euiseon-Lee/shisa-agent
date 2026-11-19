@@ -118,6 +118,6 @@ test('detailView: 종류별 원본 줄, 링크는 안전한 것만, 링크 없�
 
 test('직접 추가한 할 일의 원본 칸엔 안쪽 id 를 보이지 않는다', () => {
   const v = detailView({ source: { kind: 'user', ref: 'user:eb08ba75-1111-2222-3333-444455556666', at: new Date().toISOString() } });
-  assert.equal(v.source.kindLabel, '직접 추가');
+  assert.equal(v.source.kindLabel, '직접 입력');
   assert.ok(!v.source.meta.join(' ').includes('eb08ba75'), v.source.meta.join(' '));
 });

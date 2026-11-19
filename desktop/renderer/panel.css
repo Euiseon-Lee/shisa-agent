@@ -1846,3 +1846,45 @@ th, th[class], .md th, .briefing-tasks th { text-align: center !important; }
 
 /* Keep hours and minutes intact on separate lines in statistics cards. */
 #sec-statistics .stat-duration-part { display: block; white-space: nowrap; }
+
+/* Recent completion history must not grow the whole task page indefinitely. */
+.recent-completed-list.is-scrollable { max-height:440px; overflow-y:auto; scrollbar-gutter:stable; overscroll-behavior-y:contain; }
+.recent-completed-list.is-scrollable:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+/* Recurring templates are managed separately from checkable occurrences. */
+:root { --repeat-mint:#67C9B2; }
+.group.bucket-repeat h2::before { background:var(--repeat-mint); }
+.group.bucket-repeat .schedule-head .chip { color:#287E6C; }
+.group.done h2::before { background:#9AA7B8; }
+.date-tag.repeating::before { background:var(--repeat-mint); }
+.recurring-row { display:flex; align-items:center; gap:10px; padding:12px 10px; }
+.recurring-row + .recurring-row { border-top:1px solid var(--line); }
+.recurring-icon { width:16px; height:16px; flex:none; background:var(--repeat-mint); mask:url('assets/todo-menu/repeat.svg') center / contain no-repeat; }
+.recurring-content { display:flex; flex:1; min-width:0; flex-direction:column; gap:4px; }
+.recurring-title { overflow-wrap:anywhere; }
+.recurring-summary { font-size:12px; color:var(--muted); }
+@media (prefers-color-scheme:dark) { .group.bucket-repeat .schedule-head .chip { color:var(--repeat-mint); } }
+
+/* The add form represents the recurrence being created, not an individual due date. */
+.todo-add button.add-date.date-tag.repeating { background:#E2F5EE; color:#287E6C; }
+.todo-add button.add-date.date-tag.repeating::before { background:currentColor; }
+@media (prefers-color-scheme:dark) {
+ .todo-add button.add-date.date-tag.repeating { background:#203F37; color:#8EDBC5; }
+}
+.recurring-list.is-scrollable { max-height:340px; overflow-y:auto; scrollbar-gutter:stable; overscroll-behavior-y:contain; }
+.recurring-list.is-scrollable:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+.undated-list.is-scrollable { max-height:440px; overflow-y:auto; scrollbar-gutter:stable; overscroll-behavior-y:contain; }
+.undated-list.is-scrollable:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+/* Only AM/PM detail cards use a compact single-line, right-aligned value. */
+.activity-halves :is(.focus-am-card,.focus-pm-card) { flex-direction:row; align-items:center; justify-content:space-between; gap:12px; }
+.activity-halves :is(.focus-am-card,.focus-pm-card) > .muted { white-space:nowrap; }
+.activity-halves :is(.focus-am-card,.focus-pm-card) > strong { margin-left:auto; text-align:right; white-space:nowrap; }
+
+/* Recent completion history shares the neutral disclosure used by exclusions/trash. */
+.group.done h2.schedule-head { color:var(--muted); }
+.group.done h2.schedule-head::before { display:none; }
+.group.done h2.schedule-head:hover { color:var(--fg); }
+.group.done .schedule-head .caret { width:8px; height:8px; flex:0 0 8px; background:var(--muted); clip-path:polygon(15% 0,100% 50%,15% 100%); }
+.group.done .schedule-head[aria-expanded="true"] .caret { transform:rotate(90deg); }

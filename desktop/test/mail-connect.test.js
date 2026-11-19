@@ -126,7 +126,9 @@ test('화면: 더 연결하기에 메일 카드(서비스 고르기·주소·가
   renderSetup(root, { ...state, mail: { ...mail, mail: connected, result: { ok: true, text: '**연결했어요.** 최근 메일 3통을 읽었어요.' } } });
   const on = root.byClass('setup-mail')[0];
   assert.match(on.text, /메일\(앱 비밀번호\) · 1개 계정/);
-  assert.match(on.text, /네이버 메일gildong@naver\.com최근 메일 3통 읽음/);
+  assert.match(on.text, /네이버 메일gildong@naver\.com/);
+  assert.match(on.text, /최근 메일 3통 읽음/);
+  assert.match(on.text, /용도 미지정업무용개인용/);
   assert.match(on.text, /AI를 연결하면 메일에서 할 일을 뽑아요/);
   assert.match(on.text, /＋ 다른 메일 계정 추가/);
   assert.equal(on.all((n) => n.attrs['aria-label'] === '메일 주소').length, 0, '계정이 있으면 폼은 접어 둔다');

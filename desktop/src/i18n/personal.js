@@ -1,6 +1,7 @@
 // Personal scheduling and navigation copy. Korean source strings are stable message identifiers.
 export default {
   "ko": {
+    "메일 용도를 저장했어요.": "메일 용도를 저장했어요.",
     "오늘": "오늘",
     "오늘 할 일": "오늘 할 일",
     "목록 보기": "목록 보기",
@@ -58,6 +59,7 @@ export default {
     "주기마다 할 일이 생성되고, 완료 처리하면 해당 할 일만 완료됩니다.": "주기마다 할 일이 생성되고, 완료 처리하면 해당 할 일만 완료됩니다."
   },
   "ja": {
+    "메일 용도를 저장했어요.": "メールの用途を保存しました。",
     "오늘": "今日",
     "오늘 할 일": "今日やること",
     "목록 보기": "一覧を見る",

@@ -21,8 +21,8 @@ const DESKTOP = path.join(REPO, 'desktop');
 const PERSONAL = process.argv.includes('--personal');
 const APP_NAME = PERSONAL ? '시사 개인용' : '시사'; // 바로 가기·작업 관리자·「앱」 목록에 보이는 이름(FileDescription·ProductName)
 const EXE_NAME = PERSONAL ? 'ShisaPersonal' : 'Shisa'; // 실행 파일·Squirrel id 는 영문(설치 폴더 %LOCALAPPDATA%\Shisa, 파일 이름이 한글이면 GitHub 릴리스가 못 받는다)
-const AUTHORS = 'cheo0y';
-const RELEASE_REPO = process.env.SHISA_RELEASE_REPO || 'cheo0y/shisa-agent';
+const AUTHORS = process.env.SHISA_AUTHORS || (PERSONAL ? 'Euiseon-Lee' : 'cheo0y');
+const RELEASE_REPO = process.env.SHISA_RELEASE_REPO || (PERSONAL ? 'Euiseon-Lee/shisa-agent' : 'cheo0y/shisa-agent');
 const pkg = JSON.parse(fs.readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'));
 const VERSION = pkg.version;
 

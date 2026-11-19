@@ -105,6 +105,7 @@ export function keyMove(todos, id, key) {
 
 // ---- 상세(펼침) ----
 const str = (v) => (typeof v === 'string' ? v : '');
+import { todoSourceLabel } from './todo-source-label.js';
 const KIND_LABEL = { slack: 'Slack', get commit() { return tr('panel.src_commit'); }, get mail() { return tr('panel.cap_mail'); }, get session() { return tr('panel.src_session'); }, get calendar() { return tr('panel.src_calendar'); }, jira: 'Jira', get user() { return tr('panel.src_user'); }, get other() { return tr('panel.other'); } };
 
 const KST = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', year:'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -132,7 +133,7 @@ export function detailView(d, now = Date.now()) {
     else if (s.kind === 'user') meta.push(when(s.at, now)); // 직접 추가: 안쪽 id 는 보이지 않게
     else meta.push(str(s.title) || str(s.ref).replace(/^[a-z]+:/, ''), when(s.at, now));
     const permalink = str(s.permalink) && isSafeLink(s.permalink) ? s.permalink : null;
-    source = { kind, kindLabel: KIND_LABEL[kind], meta: meta.filter(Boolean), excerpt: str(s.excerpt), quote: kind === 'slack' || kind === 'session', permalink };
+    source = { kind, kindLabel: todoSourceLabel(s), meta: meta.filter(Boolean), excerpt: str(s.excerpt), quote: kind === 'slack' || kind === 'session', permalink };
   }
   return { description: str(r.description), link: link ?? source?.permalink ?? null, source };
 }

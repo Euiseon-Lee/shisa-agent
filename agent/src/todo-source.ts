@@ -6,6 +6,8 @@ import type { Config } from "./config.ts";
 import type { Store, Todo, TodoSource } from "./store.ts";
 import { ask } from "./brain.ts";
 import { permalinkOf } from "./ingest/slack.ts";
+import { readMailItems } from "./mail-sync.ts";
+import { mailRef } from "./mail-pick.ts";
 import { isAbsPath } from "./plat.ts";
 
 export type GitShow = (repo: string, sha: string) => { sha: string; author: string; at: string; subject: string } | undefined;
@@ -66,6 +68,7 @@ export function resolveOrigin(store: Store, ref: string | undefined, opts: { lin
     const node = store.node(r);
     return {
       kind: "session", ref: r,
+      ...(node?.props.tool === "claude" || node?.props.tool === "codex" ? {tool:node.props.tool} : {}),
       ...(node ? { title: node.label, at: node.updated } : {}),
       ...(node?.props.lastPrompt ? { excerpt: clip(node.props.lastPrompt, 400) } : {}),
       ...(node?.props.cwd ? { repo: String(node.props.cwd) } : {}),
@@ -74,7 +77,7 @@ export function resolveOrigin(store: Store, ref: string | undefined, opts: { lin
   m = /^(mail|jira|calendar|cal|user):(.+)$/.exec(r);
   if (m) {
     const kind = m[1] === "cal" ? "calendar" : (m[1] as TodoSource["kind"]);
-    return { kind, ref: r, ...(link ? { permalink: link } : {}) };
+    return { kind, ref: r, ...(kind === "mail" ? (() => { const accounts=[...new Set(readMailItems(store).filter(m=>mailRef(m)===r).map(m=>m.account?.toLowerCase()).filter(Boolean))]; return accounts.length===1 ? {account:accounts[0]} : {}; })() : {}), ...(link ? { permalink: link } : {}) };
   }
   if (link) return { kind: /slack/i.test(link) ? "slack" : "other", ref: r || link, permalink: link };
   return r ? { kind: "other", ref: r } : undefined;

@@ -16,6 +16,7 @@ import { CALDAV_CARDS } from '../src/caldav-calendar.js';
 import { mailConnected, mailConnectedText, withMailAccount, withoutMailAccount } from '../src/mail-connect.js';
 import { mountModels } from './models-view.js';
 import { createFocusView } from './focus-view.js';
+import { recurrenceSummary } from '../src/recurring-todos.js';
 import { groupScheduledTodos, dateDistance, scheduleGroup, effectiveDate, scheduleOrder, reorderScheduleLocal, scheduleKeyMove } from '../src/schedule-groups.js';
 import { createProjectsView } from './projects-view.js';
 import { createCalendarView } from './calendar-view.js';
@@ -50,6 +51,8 @@ import { t as tr, bindLanguage } from '../src/i18n.js';
 import { createPointerDrag, gripKey } from '../src/todo-drag.js';
 import { normWorktrees, worktreeCard, openTarget, placeWorktrees, worktreesSig, worktreesPlaceSig } from '../src/worktrees.js';
 
+import { observeCompletedList } from '../src/completed-scroll.js';
+import { todoSourceLabel } from '../src/todo-source-label.js';
 const cy = window.cy;
 const $ = (id) => document.getElementById(id);
 
@@ -879,8 +882,8 @@ function renderSetupView(resetScroll) {
         try { r = await cy.mailConnect(body); } catch { r = { ok: false, error: tr('panel.mail_connect_failed_later') }; }
         if (r?.ok) {
           clearMailDraft();
-          setupMail = { busy: false, result: { ok: true, text: mailConnectedText(r) } };
-          vm = { ...vm, connectors: withMailAccount(vm.connectors, r) }; // 목록에 바로 붙인다(폼은 비움)
+          setupMail = { busy: false, result: { ok: true, text: r.purposeOnly ? pt("personal.메일 용도를 저장했어요.") : mailConnectedText(r) } };
+          vm = { ...vm, connectors: r.purposeOnly ? vm.connectors.map(c=>c.cap==='mail' ? {...c,accounts:c.accounts?.map(a=>a.id===r.id?{...a,purpose:r.purpose}:a)}:c) : withMailAccount(vm.connectors, r) }; // 목록에 바로 붙인다(폼은 비움)
           loadSoon();
         } else setupMail = { busy: false, result: { ok: false, text: r?.error || tr('panel.mail_connect_failed') } };
         redraw(false);
@@ -1590,9 +1593,12 @@ function irrelevantGroup() {
         irrelevantConfirm === '*' ? irrelevantConfirmBox() : h('button.ghost.danger-text', { type: 'button', text: pt("personal.관련없음 비우기"), onclick: () => { irrelevantConfirm = '*'; renderTodos(); } }))) : null);
 }
 
-function scheduledGroups(groups) { return groupScheduledTodos(groups, vm.today?.date || localDay()); }
-const foldedSchedule = new Set(['later']);
+function scheduledGroups(groups) { return groupScheduledTodos(groups, vm.today?.date || localDay(), vm.recurring); }
+const foldedSchedule = new Set(['later','completed']);
 function scheduledGroup(g) {
+  const listClass = g.bucket==='repeat' ? 'recurring-list' : g.bucket==='undated' ? 'undated-list' : '';
+  const listLimit = g.bucket==='repeat' ? 5 : 10;
+  const scrollable = !!listClass && g.items.length>listLimit;
   const collapsible = g.bucket !== 'overdue';
   const closed = collapsible && foldedSchedule.has(g.bucket);
   const toggle = () => { if (!collapsible) return; closed ? foldedSchedule.delete(g.bucket) : foldedSchedule.add(g.bucket); renderTodos(); };
@@ -1600,7 +1606,21 @@ function scheduledGroup(g) {
     h('h2.schedule-head', collapsible ? { role: 'button', tabindex: '0', 'aria-expanded': String(!closed),
       onclick: toggle, onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } } } : null,
       h('span', { text: g.label }), h('span.chip', { text: String(g.items.length) })),
-    closed ? null : h('div.card.todos', null, g.items.map((t,i) => todoRow(t,i,g.items.length))));
+    closed ? null : h('div.card.todos' + (listClass ? '.'+listClass+(scrollable?'.is-scrollable':'') : ''), listClass ? {role:'region','aria-label':g.label,...(scrollable?{tabindex:'0'}:{})} : null, g.items.map((t,i) => g.bucket === 'repeat' ? recurringRow(t) : todoRow(t,i,g.items.length))));
+}
+
+function recurringRow(t) {
+  const menu = ui.menuButton('row-more', {label:'반복 일정 메뉴',size:'s',items:()=>[
+    ...(t.canEdit ? [{label:'일정 변경',onSelect:()=>openDatePicker(t,null)}] : []),
+    ...(t.canStop ? [{label:'반복 종료',onSelect:()=>{
+      if(!confirm('앞으로의 반복 생성을 종료할까요? 이미 생성된 할 일과 완료 기록은 유지됩니다.'))return;
+      mutate({kind:'edit',id:t.id,patch:{stopRepeat:true}},()=>cy.todoEdit(t.id,{stopRepeat:true}),'반복을 종료하지 못했어요',()=>loadSoon());
+    }}] : [])
+  ]});
+  return h('div.recurring-row',null,h('span.recurring-icon',{'aria-hidden':'true'}),
+    h('div.recurring-content',null,h('span.recurring-title',{text:t.title}),
+      h('span.recurring-summary',{text:recurrenceSummary(t,vm.today?.date || localDay())})),
+    t.canEdit || t.canStop ? menu : null);
 }
 
 function trashButton(t) {
@@ -1703,6 +1723,17 @@ function todoInputFocused() {
   return composing || !ADD_INPUTS.includes(a.id);
 }
 
+let disconnectCompletedList = () => {};
+let disconnectRecurringList = () => {};
+let disconnectUndatedList = () => {};
+let undatedScrollPosition = 0;
+let recurringScrollPosition = 0;
+let completedScrollPosition = 0;
+function toggleCompleted() {
+  foldedSchedule.has('completed') ? foldedSchedule.delete('completed') : foldedSchedule.add('completed');
+  renderTodos();
+  todosSec.querySelector('.group.done .schedule-head')?.focus();
+}
 function renderTodos() {
   if (todoInputFocused() || drag) { todosStale = true; return; }
   todosStale = false;
@@ -1713,7 +1744,20 @@ function renderTodos() {
   refocusId = null;
   refocusGrip = false;
   if (confirmState?.kind === 'trash' && !findTodo(confirmState.id)) confirmState = null; // 지워졌거나 끝난 줄
+  const completedBox = todosSec.querySelector('.recent-completed-list');
+  if(completedBox)completedScrollPosition = completedBox.scrollTop;
+  const completedScrollTop = completedScrollPosition;
+  const recurringBox = todosSec.querySelector('.recurring-list');
+  if(recurringBox)recurringScrollPosition=recurringBox.scrollTop;
+  const undatedBox = todosSec.querySelector('.undated-list');
+  if(undatedBox)undatedScrollPosition=undatedBox.scrollTop;
+  disconnectUndatedList();
+  disconnectRecurringList();
+  disconnectCompletedList();
   todosSec.replaceChildren(...todoListKids());
+  disconnectCompletedList = observeCompletedList(todosSec.querySelector('.recent-completed-list'),completedScrollTop);
+  disconnectRecurringList = observeCompletedList(todosSec.querySelector('.recurring-list'),recurringScrollPosition,5);
+  disconnectUndatedList = observeCompletedList(todosSec.querySelector('.undated-list'),undatedScrollPosition,10);
   todaySec.replaceChildren(...todayListKids());
   const yes = (focusConfirm || sec.contains(document.activeElement) || document.activeElement === document.body) && confirmState ? sec.querySelector('.inline-confirm .yes') : null;
   focusConfirm = false;
@@ -1736,8 +1780,12 @@ function todoListKids() {
   const done = mergeRecentDone(recentDone, vm.recentDone, [...reverting]);
   if (done.length) {
     kids.push(h('div.group.done', null,
-      h('h2', null, h('span', { text: pt("personal.최근 7일 완료") })),
-      h('div.card.todos', null, done.map(doneRow))));
+      h('h2.schedule-head', {
+        role:'button', tabindex:'0', 'aria-expanded':String(!foldedSchedule.has('completed')),
+        onclick:toggleCompleted,
+        onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleCompleted();}}
+      }, h('span.caret', {'aria-hidden':'true'}), h('span', { text: pt("personal.최근 7일 완료") }),h('span.chip',{text:String(done.length)})),
+      foldedSchedule.has('completed') ? null : h('div.card.todos.recent-completed-list' + (done.length > 10 ? '.is-scrollable' : ''), { role: 'region', 'aria-label': pt("personal.최근 7일 완료"), ...(done.length > 10 ? {tabindex:'0'} : {}) }, done.map(doneRow))));
   }
   const excluded = irrelevantGroup();
   if (excluded) kids.push(excluded);
@@ -1954,7 +2002,7 @@ function todoRow(t, i = 0, n = 1) {
   h('input.check', { type: 'checkbox', 'aria-label': tr('panel.done_aria', { title: t.title }), title: tr('panel.done'), disabled: t.pending, onchange: () => completeTodo(t) }),
   // (진행중): 사용자가 ▶ 로 켠 것, 아니면 작업 세션을 보니 하는 중(todo-progress.ts 가 진척을 남김) → 제목 앞
   h('span.t', null, isDoing(t) ? h('span.doing', { text: tr('panel.doing_prefix'), title: t.progress ? tr('panel.progress_title', { text: t.progress }) : tr('panel.doing_manual') }) : null, t.title),
-  t.source && t.source !== 'user' ? h(['calendar', 'session'].includes(t.source) ? 'span.todo-source.muted.small' : 'span.chip', { text: t.source }) : null, // 직접 추가한 건(대부분) 칩 없이: 줄이 가볍게. 원본 칸엔 그대로
+  t.source && t.source !== 'user' ? h('span.todo-source.muted.small', { text: todoSourceLabel(t) }) : null, // 직접 추가한 건(대부분) 칩 없이: 줄이 가볍게. 원본 칸엔 그대로
   projectChip(t),
   confirming ? null : todayButton(t),
   confirming ? null : doingButton(t),

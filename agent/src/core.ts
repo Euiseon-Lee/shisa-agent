@@ -1,4 +1,5 @@
 // 오케스트레이터: 수집·브리핑·제안·승인·실행을 묶고 말풍선(Bus)과 Slack으로 알린다.
+import { sourceMetadata } from "./todo-source-meta.ts";
 import { randomUUID } from "node:crypto";
 import { HOME_DIR, type Config } from "./config.ts";
 import type { Bus } from "./bus.ts";
@@ -1222,6 +1223,8 @@ ${meetingsContext(this.store)}`,
       description = await job;
     }
     const link = t.link && /^(https?|slack):\/\/\S+$/i.test(t.link) ? t.link : origin?.permalink ?? null;
+    const meta=sourceMetadata(this.store,this.cfg)(t);
+    if(origin) origin={...origin,...(meta.sourceTool ? {tool:meta.sourceTool} : {}),...(meta.mailPurpose ? {purpose:meta.mailPurpose} : {})};
     return { description, source: origin, link };
   }
 

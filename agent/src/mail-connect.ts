@@ -13,16 +13,16 @@ import { addLogSecret } from "./log.ts";
 import { stripBom, writeFileAtomic } from "./fs-atomic.ts";
 import { t as tr } from "./i18n.ts";
 
-export type MailConnectBody = { preset?: string; user?: string; password?: string; host?: string; port?: number; secure?: boolean; sinceHours?: number };
+export type MailConnectBody = { purpose?: "work" | "personal" | ""; preset?: string; user?: string; password?: string; host?: string; port?: number; secure?: boolean; sinceHours?: number };
 // updated: 이미 있던 주소라 그 계정을 바꿨다(새로 붙이지 않음). accounts: 저장한 뒤 계정 수
 export type MailConnectResult =
-  | { ok: true; id: string; account: string; preset: string; count: number; filtered: boolean; updated: boolean; accounts: number }
+  | { ok: true; id: string; account: string; preset: string; count: number; filtered: boolean; updated: boolean; accounts: number; purpose?: "work" | "personal"; purposeOnly?: boolean }
   | { ok: false; status: 400 | 500; error: string; code?: string };
 export type MailRemoveResult =
   | { ok: true; id: string; account: string; left: number }
   | { ok: false; status: 400 | 404 | 500; error: string };
 
-const KEYS = new Set(["preset", "user", "password", "host", "port", "secure", "sinceHours"]);
+const KEYS = new Set(["purpose", "preset", "user", "password", "host", "port", "secure", "sinceHours"]);
 const obj = (x: unknown) => (x && typeof x === "object" && !Array.isArray(x) ? (x as Record<string, unknown>) : undefined);
 const imapOf = (c: Conn | undefined): MailImapConn | undefined => (c && c.cap === "mail" && c.mode === "imap" ? c : undefined);
 
@@ -71,7 +71,9 @@ export function mailConnectPlan(body: unknown, cur: Conn | undefined, env: NodeJ
   const envFirst = !!env.CY_AGENT_MAIL_PASSWORD && (!now || now.accounts[0] === same); // 환경변수 비밀번호는 첫 계정 것
   if (!password.trim()) password = same?.password ?? "";
   if (!password.trim() && !envFirst) return { error: preset === "gmail" ? tr("status.mail_need_app16") : tr("status.mail_need_pw") };
-  const account: Record<string, unknown> = { id: same?.id ?? mailAccountId(user), preset, user };
+  if (b.purpose !== undefined && !['','work','personal'].includes(String(b.purpose))) return {error:'invalid mail purpose'};
+  const purpose = b.purpose === undefined ? same?.purpose : b.purpose;
+  const account: Record<string, unknown> = { id: same?.id ?? mailAccountId(user), preset, user, ...(purpose ? {purpose} : {}) };
   if (preset === "custom") {
     if (typeof b.host !== "string" || !b.host.trim()) return { error: tr("status.mail_need_host2") };
     account.host = b.host.trim();
@@ -95,10 +97,26 @@ export function mailConnectPlan(body: unknown, cur: Conn | undefined, env: NodeJ
 // 계정 추가(같은 주소면 바꾸기): 시험 로그인 → 저장. apply: 새 연결과 그 계정의 결과를 동기화에 넘긴다(한 번 더 로그인하지 않게)
 export async function connectMail(body: unknown, deps: {
   path: string; current: () => Conn | undefined; env?: NodeJS.ProcessEnv;
+  applyPurpose?: (conn: MailImapConn) => void;
   fetch?: (c: MailTarget, o?: MailFetchOpts) => Promise<MailFetchResult>;
   apply: (conn: MailImapConn, id: string, r: MailFetchResult & { ok: true }) => void;
 }): Promise<MailConnectResult> {
   const env = deps.env ?? process.env;
+  const purposeBody = obj(body);
+  if (purposeBody && 'id' in purposeBody) {
+    if (Object.keys(purposeBody).some(k=>!['id','purpose'].includes(k)) || typeof purposeBody.id!=='string' || !/^[\w-]{1,64}$/.test(purposeBody.id) || !['','work','personal'].includes(purposeBody.purpose as string)) return {ok:false,status:400,error:'invalid mail purpose'};
+    if(!deps.applyPurpose) return {ok:false,status:500,error:'mail purpose unavailable'};
+    try {
+      const v=rawMailValue(readConfigObject(deps.path)), account=v.accounts.find(a=>a.id===purposeBody.id);
+      if(!account) return {ok:false,status:400,error:'mail account not found'};
+      if(purposeBody.purpose) account.purpose=purposeBody.purpose; else delete account.purpose;
+      const value=mailValue(v), conn=mailImapConn(value,env);
+      if(conn.mode!=='imap') return {ok:false,status:400,error:'invalid mail configuration'};
+      writeMailConnector(deps.path,value); deps.applyPurpose(conn);
+      const a=conn.accounts.find(a=>a.id===purposeBody.id)!;
+      return {ok:true,id:a.id,account:a.user,preset:a.preset,count:0,filtered:false,updated:true,accounts:conn.accounts.length,purpose:a.purpose,purposeOnly:true};
+    } catch(e:any) {return {ok:false,status:500,error:String(e?.message??e)};}
+  }
   const plan = mailConnectPlan(body, deps.current(), env);
   if ("error" in plan) return { ok: false, status: 400, error: plan.error };
   const fetchMail = deps.fetch ?? fetchRecentMail;
@@ -135,7 +153,7 @@ export async function connectMail(body: unknown, deps: {
   } catch (e: any) { return { ok: false, status: 500, error: String(e?.message ?? e) }; }
   const id = conn.accounts.find((a) => a.user.toLowerCase() === plan.target.user.toLowerCase())?.id ?? plan.target.id;
   deps.apply(conn, id, r);
-  return { ok: true, id, account: plan.target.user, preset: plan.target.preset, count: r.items.length, filtered: r.filtered, updated: plan.updated, accounts: conn.accounts.length };
+  return { ok: true, id, account: plan.target.user, preset: plan.target.preset, count: r.items.length, filtered: r.filtered, updated: plan.updated, accounts: conn.accounts.length, ...(plan.target.purpose ? {purpose:plan.target.purpose} : {}) };
 }
 
 // 계정 하나 빼기: 그 계정(비밀번호까지)을 config.json 에서 지운다. 마지막 계정이면 메일 연결이 꺼진다({ mode: "off" }).

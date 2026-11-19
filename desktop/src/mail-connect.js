@@ -133,7 +133,7 @@ export function mailFormCheck(f = {}) {
 // 데몬(POST /connectors/mail)으로 보낼 본문. 모르는 칸은 넣지 않는다
 export function mailConnectBody(f = {}) {
   const svc = mailService(f.service);
-  const body = { preset: svc.id, user: String(f.user ?? '').trim(), password: String(f.password ?? '') };
+  const body = { preset: svc.id, user: String(f.user ?? '').trim(), password: String(f.password ?? ''), ...(['work','personal'].includes(f.purpose) ? {purpose:f.purpose} : {}) };
   if (svc.id === 'custom') {
     body.host = String(f.host ?? '').trim();
     const port = Number(f.port);
@@ -145,10 +145,12 @@ export function mailConnectBody(f = {}) {
 // 메인이 렌더러에서 받은 값을 그대로 넘기지 않게: 모양만 맞는 것만 남긴다(null = 거절)
 export function cleanMailBody(x) {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  if ('id' in x) return typeof x.id==='string' && /^[\w-]{1,64}$/.test(x.id) && ['','work','personal'].includes(x.purpose) ? {id:x.id,purpose:x.purpose} : null;
+  if (x.purpose !== undefined && !['','work','personal'].includes(x.purpose)) return null;
   const ids = MAIL_SERVICES.map((s) => s.id);
   if (!ids.includes(x.preset)) return null;
   if (typeof x.user !== 'string' || x.user.length > 320 || typeof x.password !== 'string' || x.password.length > 512) return null;
-  const out = { preset: x.preset, user: x.user, password: x.password };
+  const out = { preset: x.preset, user: x.user, password: x.password, ...(x.purpose !== undefined ? {purpose:x.purpose} : {}) };
   if (x.preset === 'custom') {
     if (typeof x.host !== 'string' || x.host.length > 253) return null;
     out.host = x.host;
@@ -168,7 +170,7 @@ export function mailConnected(connectors) {
   const accounts = list.map((a) => {
     const r = results.find((x) => x.id === a.id) ?? (list.length === 1 && !results.length && sync ? { phase: sync.phase, count: sync.count, reason: sync.reason } : null);
     return {
-      id: a.id || '', user: a.user, preset: a.preset || 'custom', ready: a.ready === true,
+      id: a.id || '', user: a.user, preset: a.preset || 'custom', ready: a.ready === true, ...(a.purpose ? {purpose:a.purpose} : {}),
       ...(r?.phase ? { phase: r.phase } : {}),
       ...(Number.isInteger(r?.count) ? { count: r.count } : {}),
       ...(r?.phase === 'failed' && r.reason ? { reason: r.reason } : {}),
@@ -224,7 +226,7 @@ export function withMailAccount(connectors, r) {
   const cur = list.find((c) => c && c.cap === 'mail' && c.mode === 'imap');
   const m = cur ? mailConnected(list) : null;
   const accounts = [...(m?.accounts ?? [])];
-  const row = { id: r.id || '', user: r.account, preset: r.preset, ready: true };
+  const row = { id: r.id || '', user: r.account, preset: r.preset, ready: true, ...(r.purpose ? {purpose:r.purpose} : {}) };
   const i = accounts.findIndex((a) => a.user.toLowerCase() === String(r.account).toLowerCase() || (r.id && a.id === r.id));
   if (i >= 0) accounts[i] = row; else accounts.push(row); // 같은 주소면 그 자리에서 바꾼다
   const results = (cur?.sync?.accounts ?? []).filter((a) => a.id !== r.id).concat([{ id: r.id || '', phase: 'ok', count: r.count ?? 0 }]);

@@ -452,6 +452,7 @@ await bus.listen(cfg.port, {
   // 메일(앱 비밀번호) 계정 추가·바꾸기: 로그인해 보고 되면 저장 → 메모리도 바로(가져온 메일은 그대로 그 계정의 동기화 결과로)
   mailConnect: (body) => connectMail(body, {
     path: join(HOME_DIR, "config.json"), current: () => cfg.connectors.mail,
+    applyPurpose: (conn) => { cfg.connectors.mail=conn; mailSync.setConnector(conn); pushStatus(); bus.dashboardChanged(); },
     apply: (conn, id, r) => {
       cfg.connectors.mail = conn;
       mailSync.accept(conn, id, r);

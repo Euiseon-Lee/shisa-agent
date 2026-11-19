@@ -11,7 +11,7 @@ export function createStatisticsView({h,cy,root}) {
   const sized=(selector,property,value,...children)=>{const el=h(selector,null,...children);el.style[property]=value;return el;};
   const metric=(title,value,cls='')=>{
     const text=String(value), duration=text.match(/^(\d+시간)\s+(\d+분)$/);
-    const number=duration
+    const number=duration && !['.focus-am-card','.focus-pm-card'].includes(cls)
       ? h('strong.stat-duration',{'aria-label':text},...duration.slice(1).map(part=>h('span.stat-duration-part',{text:part})))
       : h('strong',{text});
     return h('div.card.stat-metric'+cls,null,h('span.muted',{text:title}),number);

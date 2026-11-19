@@ -392,19 +392,22 @@ function calendarBlock(cal, kind) {
 // 메일(앱 비밀번호), 계정 여러 개: 위에 연결된 계정 목록(서비스 · 주소 · 가져온 수 또는 못 가져온 이유 · [빼기]),
 // 그 아래 「계정 추가」 폼(서비스 고르기 · 주소(서비스 짐작) · 비밀번호(가림) · 서비스별 안내·링크 · [연결]). 목록이 있으면 폼은 「＋ 다른 메일 계정 추가」로 접어 둔다.
 // 같은 주소를 다시 넣으면 그 계정 비밀번호를 바꾼다(데몬). 비밀번호는 이 화면 메모리에만 있다가 [연결] 때 데몬으로 간다. 연결되면 폼을 비운다
-const mailDraft = { service: 'gmail', user: '', password: '', host: '', port: '', picked: false };
+import { mailPurposeOptions } from '../src/todo-source-label.js';
+function purposeSelect(value,onChange,disabled=false) { const select=h('select',{'aria-label':mailPurposeOptions()[0][1],disabled}); for(const [id,label] of mailPurposeOptions()) select.append(h('option',{value:id,text:label}));select.value=value||'';select.addEventListener('change',()=>onChange(select.value));return select; }
+const mailDraft = { service: 'gmail', user: '', password: '', host: '', port: '', picked: false, purpose:'' };
 let mailConfirming = false;
 let mailRemoving = '';
 let mailAddOpen = false;
 export function clearMailDraft() {
-  Object.assign(mailDraft, { service: 'gmail', user: '', password: '', host: '', port: '', picked: false });
+  Object.assign(mailDraft, { service: 'gmail', user: '', password: '', host: '', port: '', picked: false, purpose:'' });
   mailAddOpen = false;
 }
-function mailAccountsList(accounts, onRemove) {
+function mailAccountsList(accounts, onRemove, onConnect, busy) {
   const last = accounts.length === 1;
   return h('ul.setup-repos.setup-mail-accounts', null, accounts.map((a) => h(`li${a.phase === 'failed' || !a.ready ? '.fail' : ''}`, { dataset: { id: a.id } },
     h('span.cal-kind', { text: mailService(a.preset).title }),
     h('code', { text: a.user }),
+    purposeSelect(a.purpose,purpose=>onConnect?.({id:a.id,purpose}),busy || !a.id),
     h(`span.setup-mail-acct${a.phase === 'failed' || !a.ready ? '.fail' : ''}`, { text: mailAccountState(a) }),
     onRemove && a.id ? disconnectControl(document, {
       ...mailRemoveCopy(a, last),
@@ -438,6 +441,7 @@ function mailForm({ busy, result, onConnect, onOpen }) {
   pass.addEventListener('input', () => { mailDraft.password = pass.value; });
   const fields = [
     h('label', null, h('span', { text: t('setup.view_fields_text_2') }), select),
+    purposeSelect(mailDraft.purpose,purpose=>{mailDraft.purpose=purpose;},busy),
     h('label', null, h('span', { text: t('setup.view_fields_text') }), user),
     h('label', null, h('span', { text: svc.password }), pass),
   ];
@@ -471,7 +475,7 @@ function mailBlock({ mail, busy, result, noAi, onConnect, onDisconnect, onRemove
   const title = h('span.setup-pick-title', { text: accounts.length ? t('setup.view_title_text', { MAIL_TITLE, length: accounts.length }) : MAIL_TITLE });
   const kids = [title, h('p.setup-blurb', { text: MAIL_BLURB })];
   if (accounts.length) {
-    kids.push(mailAccountsList(accounts, onRemove));
+    kids.push(mailAccountsList(accounts, onRemove, onConnect, busy));
     if (noAi) kids.push(h('p.setup-blurb', { text: MAIL_NO_AI }));
   }
   if (result?.ok) kids.push(h('p.setup-gate.ok', null, ...richNodes(result.text)));

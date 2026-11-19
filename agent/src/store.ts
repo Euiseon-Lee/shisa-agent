@@ -32,7 +32,7 @@ export type Todo = {
 export type TodoSourceKind = "slack" | "commit" | "mail" | "session" | "calendar" | "jira" | "user" | "other";
 export type TodoSource = {
   kind: TodoSourceKind; ref: string; excerpt?: string; author?: string; at?: string; channel?: string;
-  permalink?: string; repo?: string; sha?: string; title?: string;
+  permalink?: string; repo?: string; sha?: string; title?: string; tool?: "claude" | "codex"; account?: string; purpose?: "work" | "personal";
 };
 export type TodoDoneBy = "user" | "auto" | "briefing";
 // 할 일 일지(일별 기록): 누가 무엇을 했나. 브리핑·진행 확인이 "사용자가 지운 일"을 기억하는 근거
@@ -459,6 +459,21 @@ export class Store {
       }
       this.db.exec('RELEASE repeat_materialize');
     } catch(e) {this.db.exec('ROLLBACK TO repeat_materialize; RELEASE repeat_materialize');throw e;}
+  }
+
+  // Series are independent of occurrence completion and the rolling generation window.
+  recurringTodos(day = kstDay(now())) {
+    return (this.db.prepare('SELECT * FROM todo_series WHERE active = 1 ORDER BY rowid').all() as any[]).flatMap(row => {
+      const schedule = JSON.parse(row.schedule) as TodoSchedule;
+      if(schedule.end < day) return [];
+      const template = JSON.parse(row.template);
+      const next = this.db.prepare("SELECT * FROM todos WHERE series_id = ? AND status = 'open' AND scheduled_date >= ? ORDER BY scheduled_date LIMIT 1").get(row.id,day) as any;
+      const upcoming = this.db.prepare("SELECT scheduled_date FROM todos WHERE series_id = ? AND status = 'open' AND scheduled_date > ? ORDER BY scheduled_date LIMIT 1").get(row.id,day) as any;
+      const fallback = next || this.db.prepare("SELECT * FROM todos WHERE series_id = ? ORDER BY scheduled_date DESC LIMIT 1").get(row.id) as any;
+      return [{id: fallback?.id ?? row.id, seriesId:row.id as string, title:template.title as string, schedule,
+        ...(next ? {scheduledDate:next.scheduled_date as string} : {}),
+        ...(upcoming ? {nextDate:upcoming.scheduled_date as string} : {}), canEdit:!!next, canStop:!!fallback}];
+    });
   }
 
   stopRepeating(id: string) {

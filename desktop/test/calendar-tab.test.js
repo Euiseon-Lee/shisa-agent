@@ -283,13 +283,12 @@ test('렌더: 주 보기(요일 머리·종일 막대·겹친 일정 나란히·
   assert.equal(el.byClass('cal-now').length, 1, '오늘 칸에 지금 선');
   assert.equal(el.byClass('cal-scroll')[0].scrollTop, 8 * 44 - 6, '8시쯤에서 시작');
   const chips = el.byClass('cal-chip');
-  assert.deepEqual(chips.map((c) => c.text), ['회사', '개인', '가족꺼 둠']);
-  assert.ok(chips[2].className.includes('off'));
+  assert.deepEqual(chips.map((c) => c.text), ['회사', '개인']);
+  assert.equal(el.byClass('cal-chip-off').length, 0, '꺼 둔 캘린더는 칩 목록에 표시하지 않는다');
   chips[1].fire('click');
   assert.equal(el.byClass('bar').length, 0, '개인 숨김');
   assert.deepEqual(JSON.parse(s.getItem('calendar.hidden')), ['p']);
-  el.byClass('cal-chip')[2].fire('click');
-  assert.deepEqual(v.state().hidden, ['p'], '꺼 둔 칩은 보이기 필터가 아니다');
+  assert.deepEqual(v.state().hidden, ['p'], '연결에서 끈 캘린더와 일시 숨김 필터는 독립적이다');
   el.byClass('cal-chip')[1].fire('click');
   assert.equal(el.byClass('bar').length, 1);
 });

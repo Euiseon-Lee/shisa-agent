@@ -101,8 +101,8 @@ test('화면: 계정 목록(서비스 · 주소 · 가져온 수 / 못 가져온
   assert.match(card().text, /메일\(앱 비밀번호\) · 2개 계정/);
   const rows = card().byClass('setup-mail-accounts')[0].children;
   assert.equal(rows.length, 2);
-  assert.match(rows[0].text, /^Gmailme@gmail\.com최근 메일 5통 읽음/);
-  assert.match(rows[1].text, /^네이버 메일me@naver\.com못 가져왔어요: 메일 주소나 비밀번호가 맞지 않아요\./);
+  assert.match(rows[0].text, /^Gmailme@gmail\.com용도 미지정업무용개인용최근 메일 5통 읽음/);
+  assert.match(rows[1].text, /^네이버 메일me@naver\.com용도 미지정업무용개인용못 가져왔어요: 메일 주소나 비밀번호가 맞지 않아요\./);
   assert.ok(rows[1].className.includes('fail'));
   assert.doesNotMatch(card().text, /—/);
   // 폼은 접혀 있다 → 「＋ 다른 메일 계정 추가」를 누르면 펼친다(자세한 방법·확인하기도 그대로)

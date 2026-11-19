@@ -67,7 +67,7 @@ export function groupTodos(todos) {
     groups.get(p).push({
       id: t.id,
       title: t.title,
-      source: str(t.source),
+      source: str(t.source), ...(t.sourceTool ? {sourceTool:t.sourceTool} : {}), ...(t.mailPurpose ? {mailPurpose:t.mailPurpose} : {}),
       link: str(t.link) && isSafeLink(t.link) ? t.link : null,
       linkRaw: str(t.link), // 편집칸에 보여줄 원래 값
       note: str(t.note),
@@ -96,7 +96,7 @@ export function shapeRecentDone(list, now = Date.now()) {
     .map((t) => ({
       id: t.id,
       title: t.title,
-      source: str(t.source),
+      source: str(t.source), ...(t.sourceTool ? {sourceTool:t.sourceTool} : {}), ...(t.mailPurpose ? {mailPurpose:t.mailPurpose} : {}),
       priority: [1, 2, 3, 4].includes(t.priority) ? t.priority : 2,
       link: str(t.link) && isSafeLink(t.link) ? t.link : null,
       auto: t.doneBy === 'auto',
@@ -201,7 +201,7 @@ function shapeMailAccounts(list) {
   for (const a of arr(list)) {
     if (!a || typeof a !== 'object' || !MAIL_ID.test(str(a.id)) || !MAIL_ADDR.test(str(a.user)) || seen.has(a.id)) continue;
     seen.add(a.id);
-    out.push({ id: a.id, user: a.user, preset: /^(gmail|naver|daum|custom)$/.test(str(a.preset)) ? a.preset : 'custom', ready: a.ready === true });
+    out.push({ id: a.id, user: a.user, preset: /^(gmail|naver|daum|custom)$/.test(str(a.preset)) ? a.preset : 'custom', ready: a.ready === true, ...(['work','personal'].includes(a.purpose) ? {purpose:a.purpose} : {}) });
   }
   return out;
 }
@@ -296,7 +296,7 @@ export function shapeDashboard(raw, now = Date.now()) {
   const openIds = new Set(todayOpen.map((t) => t.id));
   const todayDone = arr(today?.items)
     .filter((it) => it && typeof it === 'object' && str(it.id) && str(it.title) && it.done === true && !openIds.has(it.id))
-    .map((it) => ({ id: it.id, title: it.title, source: str(it.source), priority: [1, 2, 3, 4].includes(it.priority) ? it.priority : 1, auto: false, doneRel: '', scheduledDate:it.scheduledDate, schedule:it.schedule, seriesId:it.seriesId }));
+    .map((it) => ({ id: it.id, title: it.title, source: str(it.source), ...(it.sourceTool ? {sourceTool:it.sourceTool} : {}), ...(it.mailPurpose ? {mailPurpose:it.mailPurpose} : {}), priority: [1, 2, 3, 4].includes(it.priority) ? it.priority : 1, auto: false, doneRel: '', scheduledDate:it.scheduledDate, schedule:it.schedule, seriesId:it.seriesId }));
   const todayItems = [
     ...todayOpen.map((t) => ({ id: t.id, title: t.title, done: false, priority: t.priority })),
     ...todayDone.map((t) => ({ id: t.id, title: t.title, done: true, priority: t.priority })),
@@ -319,6 +319,7 @@ export function shapeDashboard(raw, now = Date.now()) {
     hiddenProjects,
     manualProjects,
     todoGroups,
+    recurring: arr(r.recurring),
     todoRules: shapeRules(r.todoRules),
     recentDone: shapeRecentDone(r.recentDone, now),
     proposals,

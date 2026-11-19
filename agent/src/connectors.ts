@@ -100,7 +100,7 @@ export type CalendarApiConn = { cap: "calendar"; mode: "api"; calendars: Calenda
 // id: 계정마다 고정 이름(설정에 없으면 주소로 만든다 — 예전 한 계정 모양도 같은 id). 같은 주소는 한 번만
 export type MailImapAccount = {
   id: string; preset: MailPresetId | "custom"; host: string; port: number; secure: boolean;
-  user: string; login?: string; password?: string; // login: 서버 로그인 이름(비면 user)
+  user: string; login?: string; password?: string; purpose?: "work" | "personal"; // login: 서버 로그인 이름(비면 user)
 };
 export type MailImapConn = { cap: "mail"; mode: "imap"; accounts: MailImapAccount[]; sinceHours: number; skipPromotions: boolean };
 // 가져오기 하나(계정 하나 + 같이 쓰는 기간·거르기)
@@ -235,6 +235,7 @@ export function mailImapAccount(c: Record<string, any>, envPassword?: string): M
   return {
     id: okAccountId(c?.id) ? c.id : mailAccountId(user),
     preset: presetName as MailImapAccount["preset"], host, port, secure, user,
+      ...(c.purpose === "work" || c.purpose === "personal" ? { purpose: c.purpose } : {}),
     ...(str(c?.login) ? { login: str(c?.login) } : {}), // 로그인 이름이 주소와 다를 때(네이버·다음은 아이디만 받기도 한다)
     ...(password ? { password } : {}),
   };
@@ -307,7 +308,7 @@ export function slackIngestMode(c: Connectors = CONNECTORS): "api" | null {
 
 // server: mcp 모드일 때 Claude Code 에 등록한 서버 이름([연결 해제] 뒤 `claude mcp remove <이름>` 안내에 쓴다)
 // account·preset: imap 메일이면 첫 계정의 주소와 서비스(gmail·naver·daum·custom). accounts: 계정 전부(id·주소·서비스·비밀번호 있나). 비밀번호는 넣지 않는다
-export type MailAccountStatus = { id: string; user: string; preset: string; ready: boolean };
+export type MailAccountStatus = { id: string; user: string; preset: string; ready: boolean; purpose?: "work" | "personal" };
 // calendars: ICS 캘린더면 캘린더마다 id·별칭·켜짐(주소는 넣지 않는다)
 export type CalendarStatusItem = { id: string; name: string; enabled: boolean };
 export type ConnectorStatus = { cap: Capability; label: string; mode: Mode; ready: boolean; detail: string; doc: string; server?: string; account?: string; preset?: string; accounts?: MailAccountStatus[]; calendars?: CalendarStatusItem[] };
@@ -325,7 +326,7 @@ export function connectorStatus(c: Connectors = CONNECTORS, has: (server: string
         const name = (a: MailImapAccount) => (a.preset === "custom" ? a.host : MAIL_PRESETS[a.preset].label);
         const who = {
           account: first.user, preset: first.preset,
-          accounts: x.accounts.map((a) => ({ id: a.id, user: a.user, preset: a.preset, ready: !!a.password })),
+          accounts: x.accounts.map((a) => ({ id: a.id, user: a.user, preset: a.preset, ready: !!a.password, ...(a.purpose ? {purpose:a.purpose} : {}) })),
         };
         if (!ready.length) return { ...base, ...who, ready: false, detail: t("status.mail_no_password") };
         const detail = x.accounts.length === 1 ? t("status.mail_one", { name: name(first), user: first.user }) : t("status.mail_accounts", { n: x.accounts.length });

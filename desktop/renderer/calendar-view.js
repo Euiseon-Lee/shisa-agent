@@ -97,9 +97,10 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
 
   // ---- 캘린더 칩 ----
   function chips() {
-    if (!data?.calendars.length) return null;
+    const enabledCalendars = (data?.calendars || []).filter(c => c.enabled);
+    if (!enabledCalendars.length) return null;
     const box = h('div.cal-chips', { role: 'group', 'aria-label': T.chipsLabel });
-    for (const c of data.calendars) {
+    for (const c of enabledCalendars) {
       const off = !c.enabled;
       const shown = !off && !hidden.has(c.id);
       let pressTimer = null, pressed = false;
