@@ -3,6 +3,7 @@
 // 코딩 도구 안내(caps.js), 받지 않은 요청(denied.js), 도움 보내기 창·기록 머리(debug.html·debug.js·debug-share.js)
 export default {
   ko: {
+    dev_build: '개발용 {version}',
     offline: '연결되지 않았어요',
     // 메뉴
     menu_focus_start: '집중 시작',
@@ -139,6 +140,7 @@ export default {
     qr_count: '오류 {n}줄 (전체는 복사)',
   },
   ja: {
+    dev_build: '開発用 {version}',
     offline: '接続されていません',
     menu_focus_start: '集中を開始',
     menu_open_panel: 'パネルを開く',

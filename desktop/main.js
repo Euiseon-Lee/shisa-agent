@@ -105,7 +105,7 @@ function configLanguage() {
 let wantChar = configCharacter(); // 데몬이 고른 id 그대로(사용자 캐릭터는 목록을 받기 전엔 모른다 — 받으면 다시 맞춘다)
 let charId = okCharacter(wantChar);
 const who = () => characterName(charId);
-const appTitle = () => `${!app.isPackaged && process.env.CY_DEV_LABEL ? `${process.env.CY_DEV_LABEL} · ` : ''}${appName(charId)}`;
+const appTitle = () => (!app.isPackaged ? '[' + t('main.dev_build', { version: app.getVersion() }) + '] ' : '') + appName(charId);
 app.setName(appTitle());
 app.setPath('userData', PORT !== 47823 ? `${userData}-${PORT}` : userData);
 
@@ -660,7 +660,7 @@ function createPanel() {
   panel.webContents.on('will-navigate', (e) => e.preventDefault());
   attachContentsDebug(panel.webContents, 'panel');
 
-  panel.loadFile(path.join(__dirname, 'renderer', 'panel.html'), { query: mac ? { vibrancy: '1' } : {} });
+  panel.loadFile(path.join(__dirname, 'renderer', 'panel.html'), { query: { ...(mac ? { vibrancy: '1' } : {}), ...(!app.isPackaged ? { devVersion: app.getVersion() } : {}) } });
   panel.webContents.on('did-finish-load', () => {
     panelReady = true;
     sendPanel('connection', { connected });

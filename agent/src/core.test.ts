@@ -56,7 +56,7 @@ test("브리핑: 할 일 저장, 허용 레포 제안만 올리고 말풍선", a
   const proposals = s.posts.filter((p) => p.text.startsWith("UI 수정 제안"));
   assert.equal(proposals.length, 1); // /etc 제안은 버려짐
   assert.ok(s.bubbles.some((b) => b.kind === "proposal"));
-  assert.ok(s.bubbles.some((b) => b.text === "메일 하나 답장해야 해" && b.kind === "todo"));
+  assert.ok(s.bubbles.some((b) => b.id === "briefing-summary"));
 });
 
 test("승인 → 실행 → PR → 머지, 중복 승인은 무시", async () => {
@@ -453,7 +453,7 @@ test("새 Slack DM·멘션 → 바로 할 일: 새 것만 한 번 묻고, 말풍
   assert.equal(tasks.length, 1);
 });
 
-test("로컬 뇌 브리핑 시간대 인사: greetOk 가 거절하면(출근 인사가 이미 함) 말풍선 없이, 아니면 local-greet", async () => {
+test("로컬 브리핑도 인사 대신 일정 범위가 제한된 요약 하나를 표시", async () => {
   for (const ok of [false, true]) {
     const store = new Store(":memory:");
     const bus = new Bus();
@@ -467,7 +467,7 @@ test("로컬 뇌 브리핑 시간대 인사: greetOk 가 거절하면(출근 인
       greetOk: (part: string) => { asked.push(part); return ok; },
     } as any);
     await agent.runBriefing();
-    assert.deepEqual(asked, ["morning"]);
-    assert.equal(bubbles.some((b) => b.id === "local-greet"), ok, `greetOk ${ok}`);
+    assert.deepEqual(asked, []);
+    assert.equal(bubbles.filter((b) => b.id === "briefing-summary").length, 1);
   }
 });

@@ -1,6 +1,10 @@
 // 데몬 화면 글: say — t("say.키"). 한국어 원문 그대로가 기본, 일본어는 です・ます 체로 짧게(용어는 desktop/src/i18n/common.js 머리말 통일표)
 export default {
   ko: {
+    briefing_tasks: "이번 주까지 챙길 할 일이 {n}개 있어요.",
+    briefing_overdue: " 날짜가 지난 미완료는 {n}개예요.",
+    briefing_added: " 새 할 일 {n}개를 포함했어요.",
+    briefing_empty: "이번 주까지 예정된 미완료 할 일이 없어요.",
     list_more: "\n\n…외 {n}개",
     list_head: "| 날짜 | 할 일 | 출처 |",
     list_no_date: "날짜 없음",
@@ -496,6 +500,10 @@ export default {
     pg_merge: "머지",
   } as Record<string, string>,
   ja: {
+    briefing_tasks: "今週までに取り組むやることが{n}件あります。",
+    briefing_overdue: " 期限を過ぎた未完了は{n}件です。",
+    briefing_added: " 新しいやること{n}件を含みます。",
+    briefing_empty: "今週までに予定された未完了のやることはありません。",
     list_more: "\n\n…ほか{n}件",
     list_head: "| 日付 | やること | 出どころ |",
     list_no_date: "日付なし",

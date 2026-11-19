@@ -7,8 +7,8 @@ export function calendarToolbar({h,title,today,previous,next,viewLabel,views,vie
       h('h2.cal-period',{text:title,'aria-live':'polite'}),
       button('.ghost.cal-next','›',onNext,{'aria-label':next,title:next,disabled:nextDisabled})),
     loading?h('span.cal-spin',{'aria-hidden':'true'}):null,
-    h('span.spacer'),
+    h('div.cal-controls',null,
     button('.cal-today',today,onToday),
     h('div.cal-seg', {role:'group','aria-label':viewLabel},views.map(({id,label})=>
-      button(`.cal-seg-btn${view===id?'.on':''}`,label,()=>onView(id),{'aria-pressed':String(view===id),dataset:stat?{statPeriod:id}:{view:id}}))));
+      button(`.cal-seg-btn${view===id?'.on':''}`,label,()=>onView(id),{'aria-pressed':String(view===id),dataset:stat?{statPeriod:id}:{view:id}})))));
 }

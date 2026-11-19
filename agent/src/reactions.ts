@@ -13,9 +13,28 @@ import { prioLabel } from "./local-mode.ts";
 import { phrase, phraseVoice, customPhrase } from "./phrases.ts";
 import { mergeDetail, mergeQuestion, type MergeInfo } from "./merge-request.ts";
 import { t } from "./i18n.ts";
+import { validDay, addScheduleDays } from './todo-schedule.ts';
+
+// Character task alerts cover overdue work through this week's Sunday.
+export function notificationTodos<T extends TodoLike>(items:T[], now=new Date()):T[] {
+  const today=kstDate(now), weekday=new Date(today+'T12:00:00Z').getUTCDay();
+  const end=addScheduleDays(today,(7-weekday)%7);
+  const date=(t:T)=>t.schedule?.mode==='range' ? today<t.schedule.start?t.schedule.start:today>t.schedule.end?t.schedule.end:today : t.scheduledDate;
+  return items.filter(t=>(t.status??'open')==='open' && validDay(date(t)) && date(t)! <= end)
+    .sort((a,b)=>date(a)!.localeCompare(date(b)!));
+}
 
 export type ReactionBus = { bubble(b: Bubble): string; clear(id: string): void };
 export type TodoLike = { id: string; title: string; source?: string; priority?: number; status?: string; created?: string; updated?: string; description?: string; scheduledDate?: string; schedule?: { mode: string; start: string; end: string } };
+
+// Build the character's summary from current eligible records, not unrestricted AI prose.
+export function briefingTodoBubble(items:TodoLike[], added=0, now=new Date()):Bubble {
+ const eligible=notificationTodos(items,now),today=kstDate(now);
+ const overdue=eligible.filter(t=>(t.schedule?.mode==='range'?t.schedule.end:t.scheduledDate)!<today).length;
+ const text=eligible.length ? t('say.briefing_tasks',{n:eligible.length})+(overdue?t('say.briefing_overdue',{n:overdue}):'')+(added?t('say.briefing_added',{n:added}):'') : t('say.briefing_empty');
+ return {id:'briefing-summary',text,kind:eligible.length?'todo':'info',ttlMs:30e3,
+  detail:todoListMd(eligible,'user',eligible.length,true),open:{section:'todos'}};
+}
 
 export type MergeState = "asking" | "merging" | "merged" | "declined";
 export type MergeRec = {
@@ -59,7 +78,7 @@ export type ReactionOpts = {
   logPath: string;
   now?: () => Date;
   random?: () => number;
-  lotsThreshold?: number; // 열린 P1+P2가 이 이상이면 "할 거 많다"
+  lotsThreshold?: number; // 이번 주까지의 미완료 일정이 이 이상이면 "할 거 많다"
   dailyMax?: number; // daily 스티커 하루 최대
   dailyChance?: number; // 평범한 브리핑에 붙일 확률
   progressGapMs?: number; // 진행 보고 최소 간격
@@ -226,6 +245,7 @@ export class Reactions {
 
   // ---- 3. 새 할 일: to_do_new 스티커 + 긴 말풍선(목록), 누르면 패널 할 일에서 그 항목을 펼친다 ----
   newTodos(items: TodoLike[], via: string): string | undefined {
+    items = notificationTodos(items,this.now());
     if (!items.length) return undefined;
     const id = `todo-new:${items[0].id}`;
     const text = items.length === 1 ? phraseVoice("todo_new_one", { title: clip(items[0].title, 30) }, id, { mood: "excited" })
@@ -295,7 +315,7 @@ export class Reactions {
     return null;
   }
 
-  // ---- 5. 할 거 많다: 열린 P1+P2 가 문턱 이상이면 반나절에 한 번 ----
+  // ---- 5. 할 거 많다: 이번 주까지의 미완료 일정이 문턱 이상이면 반나절에 한 번 ----
   lotsDue(open: TodoLike[]): boolean {
     return this.urgent(open) >= this.opts.lotsThreshold && !this.fired(`lots:${halfDayKey(this.now())}`);
   }
@@ -308,13 +328,13 @@ export class Reactions {
     this.bus.bubble({
       id, image: "lots", kind: "todo", ttlMs: 25e3,
       text: customPhrase("lots") || customPhrase(tail) ? text : voice(text, id, { mood: "busy" }), // 고친 문구에는 양념을 치지 않는다
-      detail: todoListMd(open.filter((t) => (t.status ?? "open") === "open" && (t.priority ?? 2) <= 2).sort((a, b) => (a.priority ?? 2) - (b.priority ?? 2)), t("say.todo")),
+      detail: todoListMd(notificationTodos(open,this.now()), t("say.todo")),
       open: { section: "todos" },
     });
     return true;
   }
-  private urgent(open: TodoLike[]) { // P1+P2만(P3·백로그 P4 제외)
-    return open.filter((t) => (t.status ?? "open") === "open" && (t.priority ?? 2) <= 2).length;
+  private urgent(open: TodoLike[]) { // 예정일 기준으로 알림 목록과 동일하게 집계
+    return notificationTodos(open,this.now()).length;
   }
 
   // ---- 6. daily: 별일 없는 정기 브리핑에 가끔(하루 최대 dailyMax) daily 스티커 ----

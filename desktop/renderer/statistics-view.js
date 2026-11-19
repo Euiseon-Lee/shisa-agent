@@ -1,3 +1,4 @@
+import { metricLabel } from './metric-label.js';
 import { numericDate, dateRange } from '../src/date-format.js';
 import { calendarToolbar } from './calendar-toolbar.js';
 import { localDay, rangeOf, shiftAnchor, monthGrid, addDays, parseDay, fmtDuration } from '../src/focus.js';
@@ -10,11 +11,8 @@ export function createStatisticsView({h,cy,root}) {
   const button=(text,fn,props={})=>h('button',{type:'button',text,onclick:fn,...props});
   const sized=(selector,property,value,...children)=>{const el=h(selector,null,...children);el.style[property]=value;return el;};
   const metric=(title,value,cls='')=>{
-    const text=String(value), duration=text.match(/^(\d+시간)\s+(\d+분)$/);
-    const number=duration && !['.focus-am-card','.focus-pm-card'].includes(cls)
-      ? h('strong.stat-duration',{'aria-label':text},...duration.slice(1).map(part=>h('span.stat-duration-part',{text:part})))
-      : h('strong',{text});
-    return h('div.card.stat-metric'+cls,null,h('span.muted',{text:title}),number);
+    const number=h('strong',{text:String(value)});
+    return h('div.card.stat-metric'+cls,null,metricLabel(h,title),number);
   };
   async function refresh() {
     const ticket=++seq, r=rangeOf(period,anchor);pending=true;error='';draw();
@@ -61,7 +59,7 @@ export function createStatisticsView({h,cy,root}) {
       line.setAttribute('vector-effect','non-scaling-stroke');svg.append(line);
       return h('section.card.activity-chart',{'aria-label':'할 일 완료 기록'},
         h('div.activity-chart-heading',null,h('h3',{text:'할 일 완료 기록'}),h('span.muted.small',{text:data?'총 완료 '+total+'개':''})),
-        h('div.completion-plot',null,svg,h('div.activity-grid.week.completion-grid',null,points.map(p=>{
+        h('div.activity-scroll',{role:'region','aria-label':'할 일 완료 날짜별 기록',tabindex:'0'},h('div.completion-plot',null,svg,h('div.activity-grid.week.completion-grid',null,points.map(p=>{
           const marker=h('span.completion-marker',null,h('span.completion-node-value',{text:p.count+'개'}),h('span.completion-dot'));
           marker.style.top=(y(p)/150*100)+'%';
           return h('button.activity-day.completion-day'+(p.date===picked?'.selected':'')+(p.date>now?'.future':''),{
@@ -69,18 +67,18 @@ export function createStatisticsView({h,cy,root}) {
             'aria-pressed':String(p.date===picked),'aria-label':label(p.date)+(p.visible?' 완료 '+p.count+'개':''),
             title:p.visible?'완료 '+p.count+'개':label(p.date),onclick:()=>{picked=p.date;draw();}
           },h('span.completion-node-area',null,p.visible?marker:null),h('span.activity-date',{text:label(p.date)}));
-        }))));
+        })))));
     }
     function chart(kind,title) {
       return h('section.card.activity-chart',{'aria-label':title},h('div.activity-chart-heading',null,h('h3',{text:title}),h('span.muted.small',{text:'하루 8시간 기준 / 오전: 연보라 / 오후: 보라'})),
-        h('div.activity-grid.'+period,null,cells.map(date=>{
+        h('div.activity-scroll',{role:'region','aria-label':title+' 날짜별 기록',tabindex:'0'},h('div.activity-grid.focus-grid.'+period,null,cells.map(date=>{
           if(!date)return h('div.activity-placeholder',{'aria-hidden':'true'});
           const d=byDay.get(date), future=date>now, value=(d?.amSeconds||0)+(d?.pmSeconds||0);
           const valueText=future||!data?'':fmtDuration(value);
           return h('button.activity-day'+(date===picked?'.selected':'')+(future?'.future':''),{type:'button',disabled:future||!data,'data-stat-date':date,'data-chart':kind,'aria-pressed':String(date===picked),'aria-label':label(date)+(future?'':` ${valueText}`)+(!future&&data?` 8시간 기준 ${Math.round(value/focusMax*1000)/10}%`:'')+(period==='month'&&!future&&data?` 완료 ${d?.completed.length||0}개`:''),onclick:()=>{picked=date;draw();}},
             donut(d,future||!data),h('span.activity-value',{text:valueText}),
             period==='month'?h('span.activity-month-focus',{text:future||!data?'':`완료 ${d?.completed.length||0}개`}):null,h('span.activity-date',{text:label(date)}));
-        })));
+        }))));
     }
     const d=byDay.get(picked), completed=days.reduce((n,d)=>n+d.completed.length,0), focus=days.reduce((n,d)=>n+d.amSeconds+d.pmSeconds,0);
     const list=(title,items,empty)=>h('section.activity-task-list',null,h('h4',{text:`${title} ${items.length}개`}),items.length?h('ul',null,items.map(t=>h('li',null,h('span',{text:t.title}),t.doneAt?h('time.muted.small',{text:new Date(t.doneAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})}):null))):h('p.muted.small',{text:empty}));

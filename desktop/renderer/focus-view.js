@@ -71,6 +71,15 @@ export function createFocusView({ h, cy }) {
   function redraw() {
     swap('.focus-bar', bar);
     swap('.focus-foot', foot);
+    // Failures need room for readable text, outside the one-line header controls.
+    const top = document.getElementById('top');
+    let notice = document.getElementById('focus-global-error');
+    if (err && top && !notice) {
+      notice = h('div.focus-global-error', { id: 'focus-global-error', role: 'status' });
+      top.after(notice);
+    }
+    if (notice) { notice.textContent = err; notice.hidden = !err; }
+
   }
   function redrawStats() {
     swap('.focus-stats', statsCard);
@@ -94,20 +103,20 @@ export function createFocusView({ h, cy }) {
     const kids = [];
     if (!a) {
       kids.push(h('button.focus-start', {
-        type: 'button', disabled: busy, title: t('views.focus_start_title', { who: who() }),
+        type: 'button', disabled: busy, 'aria-label': t('views.focus_start'), title: t('views.focus_start_title', { who: who() }),
         onclick: () => cmd('start'),
-      }, h('span.focus-ico', { 'aria-hidden': 'true', text: '▶' }), t('views.focus_start')));
+      }, h('span.focus-ico', { 'aria-hidden': 'true', text: '▶' }), h('span.focus-start-label', { text: t('views.focus_start') })));
     } else {
       kids.push(
         h(`span.focus-live${a.paused ? '.paused' : ''}`, { role: 'timer', 'aria-label': a.paused ? t('views.focus_live_paused') : t('views.focus_live_on') },
           h('span.focus-dot', { 'aria-hidden': 'true' }),
-          h('span', { text: a.paused ? t('views.focus_paused') : t('views.focus_on') }),
+          h('span.focus-state-label', { text: a.paused ? t('views.focus_paused') : t('views.focus_on') }),
           h('b', { dataset: { focusClock: '' }, text: fmtClock(elapsedSec(a)) })),
-        h('button.small', { type: 'button', disabled: busy, text: a.paused ? t('views.focus_resume') : t('views.focus_pause'), onclick: () => cmd(a.paused ? 'resume' : 'pause') }),
-        h('button.small.ghost', { type: 'button', disabled: busy, text: t('views.focus_stop'), onclick: () => cmd('stop') }),
+        h('button.small.ghost.focus-control', { type: 'button', disabled: busy, title: a.paused ? t('views.focus_resume') : t('views.focus_pause'), 'aria-label': a.paused ? t('views.focus_resume') : t('views.focus_pause'), onclick: () => cmd(a.paused ? 'resume' : 'pause') }, h('span.action-icon.' + (a.paused ? 'play-icon' : 'pause-icon'), { 'aria-hidden': 'true' })),
+        h('button.small.ghost.focus-control', { type: 'button', disabled: busy, title: t('views.focus_stop'), 'aria-label': t('views.focus_stop'), onclick: () => cmd('stop') }, h('span.action-icon.stop-icon', { 'aria-hidden': 'true' })),
       );
     }
-    if (err) kids.push(h('span.focus-err.small', { role: 'status', text: err }));
+    if (err && scope !== 'global') kids.push(h('span.focus-err.small', { role: 'status', text: err }));
     return h('div.focus-bar', { dataset: { scope } }, kids);
   }
 

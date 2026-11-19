@@ -58,8 +58,8 @@ test("고친 문구가 실제 말풍선에: 새 할 일·머지·회의 알림",
   setPhrases({ todo_new_many: ["할 일 {n}개 추가!"], merge_declined: ["오케이, 머지 안 해요"], meeting_alert: ["⏰ {time} {title}{where}"] });
   try {
     const bubbles: any[] = [];
-    const r = new Reactions({ bubble: (b) => { bubbles.push(b); return b.id ?? ""; }, clear: () => {} }, { logPath: join(mkdtempSync(join(tmpdir(), "cy-phr-")), "r.json") });
-    r.newTodos([{ id: "a", title: "A" }, { id: "b", title: "B" }], "브리핑");
+    const r = new Reactions({ bubble: (b) => { bubbles.push(b); return b.id ?? ""; }, clear: () => {} }, { logPath: join(mkdtempSync(join(tmpdir(), "cy-phr-")), "r.json"), now: () => new Date("2026-11-19T03:00:00Z") });
+    r.newTodos([{ id: "a", title: "A", scheduledDate: "2026-11-19" }, { id: "b", title: "B", scheduledDate: "2026-11-20" }], "브리핑");
     assert.equal(bubbles[0].text, "할 일 2개 추가!");
     r.offerMerge({ id: "p1", title: "버튼", prUrl: "https://github.com/o/r/pull/1" });
     await r.decideMerge("p1", "decline", "overlay");

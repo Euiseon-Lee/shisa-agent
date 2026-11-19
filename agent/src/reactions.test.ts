@@ -61,9 +61,9 @@ test("하루 진행률: 날이 바뀌면 새로", () => {
   assert.equal(s.r.todoProgress([todo("c")], [done("b", "2026-10-09T01:30:00Z")]), "half");
 });
 
-test("할 거 많다: P1+P2 문턱 이상, 반나절에 한 번", () => {
+test("할 거 많다: 이번 주까지의 미완료 일정 문턱 이상, 반나절에 한 번", () => {
   const s = setup({ lotsThreshold: 3 });
-  const many = [todo("a", 1), todo("b", 2), todo("c", 2), todo("d", 3)];
+  const many = [todo("a", 1, {scheduledDate:"2026-10-07"}), todo("b", 2, {scheduledDate:"2026-10-08"}), todo("c", 3, {scheduledDate:"2026-10-11"}), todo("d", 1, {scheduledDate:"2026-10-12"})];
   assert.equal(s.r.lots(many.slice(0, 2), "briefing"), false);
   assert.equal(s.r.lots(many, "today"), true);
   assert.equal(s.bubbles.at(-1).image, "lots");
@@ -89,7 +89,7 @@ test("daily: 별일 없는 브리핑에만, 하루 최대 2번", () => {
 test("새 할 일: to_do_new 스티커 + 목록 detail + 패널 할 일 열기", () => {
   const s = setup();
   assert.equal(s.r.newTodos([], "브리핑"), undefined);
-  s.r.newTodos([todo("slack:1", 1, { description: "팀원이 물어봄" }), todo("mail:2", 2, { source: "mail" })], "브리핑");
+  s.r.newTodos([todo("slack:1", 1, { scheduledDate:"2026-10-08", description: "팀원이 물어봄" }), todo("mail:2", 2, { scheduledDate:"2026-10-09", source: "mail" })], "브리핑");
   const b = s.bubbles.at(-1);
   assert.equal(b.image, "to_do_new");
   assert.equal(b.text, "새 할 일이 2개 생겼어요~");
@@ -315,12 +315,15 @@ function agentSetup() {
   return { agent, store, bubbles, posts, updates, merged, pins, r };
 }
 
-test("core: 브리핑 새 할 일 → to_do_new, 실행 이정표 → 머지 질문, 오버레이 ✓ 뒤 Slack ✓ 는 이미 머지", async () => {
+test("core: 날짜 없는 새 할 일은 알림 제외, 실행 이정표 → 머지 질문, 오버레이 ✓ 뒤 Slack ✓ 는 이미 머지", async () => {
   const s = agentSetup();
   await s.agent.runBriefing();
   const nb = s.bubbles.find((b) => b.image === "to_do_new");
-  assert.ok(nb, "to_do_new 말풍선");
-  assert.deepEqual(nb.open, { section: "todos", id: "slack:1" });
+  assert.equal(nb, undefined, "브리핑에서는 새 할 일 알림을 따로 띄우지 않음");
+  const summary=s.bubbles.filter(b=>b.id==='briefing-summary');
+  assert.equal(summary.length,1);
+  assert.equal(s.bubbles.filter(b=>b.image==='lots').length,0);
+
   const pid = s.bubbles.find((b) => b.kind === "proposal").proposalId;
   await s.agent.approve(pid);
   await s.agent.fixIdle();

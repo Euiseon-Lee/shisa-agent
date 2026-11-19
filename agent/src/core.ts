@@ -23,7 +23,7 @@ import { buildDashboard, dashboardSummary, type Dashboard } from "./dashboard.ts
 import { DailyPlanService } from "./daily-plan.ts";
 import { CAPABILITIES, CONNECTORS } from "./connectors.ts";
 import type { RepoActivity } from "./git.ts";
-import { testsFromLog, type MergeDeps, type Reactions } from "./reactions.ts";
+import { briefingTodoBubble, notificationTodos, testsFromLog, type MergeDeps, type Reactions } from "./reactions.ts";
 import { autoDoneBlocks, briefingBlocks, mergeBlocks, proposalBlocks, resolvedBlocks, todoRef, traceBlocks } from "./slack/blocks.ts";
 import { voice } from "./voice.ts";
 import { customPhrase, phrase, phraseVoice } from "./phrases.ts";
@@ -532,21 +532,12 @@ export class Agent {
         if (m && !seen.has(m)) { seen.add(m); prog?.step(m); }
       };
       const t = await this.deps.think(this.cfg, this.store, briefingTask(conns, ready), () => {}, { onResult }).finally(() => prog?.done());
-      const posted = await this.absorb(t);
+      await this.absorb(t, undefined, false, true);
       this.store.saveBriefing({ bubble: t.bubble, replyMd: t.reply_md });
       this.changed();
       const open = this.store.openTodos();
-      const hasP1 = open.some((x) => x.priority === 1);
-      // 로컬 뇌의 시간대 인사(「좋은 저녁이에요」…)는 고정 id — 같은 인사가 겹쳐 뜨지 않고 새 것이 옛 것을 바꾼다
-      const local = (this.cfg.brain?.provider ?? "claude-code") === "local";
-      const b = { ...(local ? { id: LOCAL_GREET_ID } : {}), text: t.bubble, kind: hasP1 ? "todo" : "info", ttlMs: 30e3, link: posted?.permalink } as const;
-      // 아침 인사는 하루 한 번, 출근 인사를 막 띄웠으면 이 브리핑은 말풍선 없이(인사가 연달아 두 번 뜨지 않게)
-      const greet = (t as { greet?: string }).greet;
-      const quiet = local && !!greet && !!this.deps.greetOk && !this.deps.greetOk(greet);
-      // 별일 없는 브리핑엔 가끔 daily 스티커, 할 거 많으면 lots(반나절 한 번)
-      const notable = hasP1 || this.lastAdded > 0 || t.proposals.length > 0 || !!this.reactions?.lotsDue(open);
-      if (!quiet) this.bus.bubble(this.reactions?.briefingBubble({ ...b }, { notable }) ?? b);
-      this.reactions?.lots(open, "briefing");
+      const summary = briefingTodoBubble(open,this.lastAdded);
+      this.bus.bubble(summary);
     } catch (e: any) {
       this.bus.bubble({ text: t("say.briefing_fail", { why: String(e?.message ?? e).slice(0, 60) }), kind: "error" });
     } finally {
@@ -584,7 +575,7 @@ export class Agent {
 
   // 두뇌 결과를 저장하고 Slack에 올린다. 반환: 본문 메시지 위치
   // explicit(사용자 요청 경로)일 때만 todo_ops를 적용한다 — 정기 브리핑은 할 일을 고치거나 지우지 못한다
-  private async absorb(t: Thought, threadTs?: string, explicit = false): Promise<Posted | undefined> {
+  private async absorb(t: Thought, threadTs?: string, explicit = false, combineNotifications = false): Promise<Posted | undefined> {
     for (const id of t.done_todo_ids) this.store.setTodoStatus(id, "done", { by: "briefing" });
     let reply = t.reply_md;
     if (explicit && t.rule) reply += `\n\n${this.ruleFromModel(t.rule)}`; // 규칙을 먼저 저장해야 아래 새 할 일에도 적용된다
@@ -614,9 +605,9 @@ export class Agent {
       // 캐릭터 말풍선(버튼)은 카드를 만들 때 이미 떴다(onActionChange)
     }
     this.changed();
-    const notable = added.filter((x) => x.priority !== 4); // 백로그(P4)로 들어간 건 '새 할 일' 말풍선에서 뺀다
+    const notable = notificationTodos(added); // 이번 주까지의 미완료 일정만 캐릭터에게 알린다
     this.lastAdded = notable.length;
-    this.reactions?.newTodos(notable, explicit ? "Slack" : tr("say.via_briefing"));
+    if (!combineNotifications) this.reactions?.newTodos(notable, explicit ? "Slack" : tr("say.via_briefing"));
     for (const pr of t.proposals) await this.propose(pr, threadTs, explicit);
     return posted;
   }

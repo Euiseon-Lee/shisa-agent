@@ -1,3 +1,5 @@
+import { fitHeader } from './header-fit.js';
+import { metricLabel } from './metric-label.js';
 import { fullDateTime } from '../src/date-format.js';
 import { language as personalLanguage, t as pt } from '../src/i18n.js';
 import { formatBriefing, normalizeBriefingCopy } from '../src/briefing-view.js';
@@ -8,7 +10,7 @@ import { hasCoder as canCodeWith } from '../src/caps.js';
 import DOMPurify from './vendor/purify.js';
 import { Marked } from './vendor/marked.js';
 import { createMarkdown } from '../src/markdown.js';
-import { shapeDashboard, overlayHidden, priorityLabel, SECTIONS, SECTION_LABELS, normalizeSection, relativeTime, clockTime, visibleSections, connectorChipView } from '../src/dashboard.js';
+import { isActiveProject, shapeDashboard, overlayHidden, priorityLabel, SECTIONS, SECTION_LABELS, normalizeSection, relativeTime, clockTime, visibleSections, connectorChipView } from '../src/dashboard.js';
 import { needsSetup, stepForCap } from '../src/setup.js';
 import { isFeature, isAgent, buildWalk, agentSteps } from '../src/setup-flow.js';
 import { renderSetup, clearApiDraft, readSlot, clearMailDraft, clearCalDavDraft, resetCalendarEditor } from './setup-view.js';
@@ -58,6 +60,16 @@ const $ = (id) => document.getElementById(id);
 
 if (new URLSearchParams(location.search).get('vibrancy') === '1') document.body.classList.add('vibrant');
 
+const devVersion = new URLSearchParams(location.search).get('devVersion');
+let devLabel = devVersion ? tr('main.dev_build', { version: devVersion }) : '';
+if (devLabel) {
+  const badge = document.createElement('span');
+  badge.className = 'dev-build-badge';
+  badge.textContent = devLabel;
+  badge.title = '개발 실행 중인 앱입니다';
+  $('title').after(badge);
+}
+fitHeader($('top'), $('updated'));
 const brand = $('brand-img');
 // 사이드바 아이콘: 고른 캐릭터(눈 뜬 기본 표정) → 번들 png → svg. 캐릭터는 데몬 state(메인이 'character' 로 알린다)
 let character = 'shisa';
@@ -65,11 +77,14 @@ let wantChar = 'shisa'; // 데몬이 고른 id 그대로(사용자 캐릭터는 
 let BRAND_SRCS = [];
 let brandAt = 0;
 function setBrand(id) {
+  devLabel = devVersion ? tr('main.dev_build', { version: devVersion }) : '';
+  const devBadge = document.querySelector('.dev-build-badge');
+  if (devBadge) devBadge.textContent = devLabel;
   wantChar = id;
   character = okCharacter(id);
   setWho(character);
   $('brand-name').textContent = appName(character);
-  document.title = appName(character); // 창 제목(「シーサー秘書」 — 언어·캐릭터를 따라)
+  document.title = (devLabel ? '[' + devLabel + '] ' : '') + appName(character); // 창 제목(「シーサー秘書」 — 언어·캐릭터를 따라)
   const os = $('open-session'); if (os) os.title = tr('panel.h_session_title', { who: who() });
   const conn = $('conn'); // 켜짐·꺼짐 글(연결 상태는 클래스로 — connected 변수는 아래에서 선언된다)
   if (conn) { conn.textContent = tr(conn.classList.contains('off') ? 'panel.who_off' : 'panel.who_on', { who: who() }); conn.title = conn.textContent; }
@@ -418,10 +433,10 @@ function setBanner(text) {
 }
 
 // ---- 개요 ----
-function stat(num, label, sub, subRight = false) {
-  return h('div.card.stat-metric', null,
-    h('span.muted', { text: label }), h('strong', { text: String(num) }),
-    sub ? h('span.muted.small' + (subRight ? '.stat-sub-right' : ''), { text: sub }) : null);
+function stat(num, label, sub) {
+  return h('div.card.stat-metric.overview-stat', null,
+    metricLabel(h, label), h('strong', { text: String(num) }),
+    sub ? h('span.muted.small.overview-stat-sub', null, sub) : null);
 }
 
 const PROPOSAL_LABEL = Object.defineProperties({}, Object.fromEntries(['pending', 'approved', 'held', 'running', 'done', 'failed'].map((k) => [k, { get: () => tr(`panel.prop_${k}`), enumerable: true }])));
@@ -453,13 +468,13 @@ function pageDateHeading({iso=false,open,total}={}) {
 function renderOverview() {
   const { stats, briefing, today, proposals } = vm;
   const el = $('sec-overview');
-  const active = vm.projects.filter((p) => p.sessions24h > 0 || p.commitsToday > 0).map((p) => p.name);
+  const active = vm.projects.filter((p) => isActiveProject(p)).map((p) => p.name);
   el.replaceChildren(...[ // null(제안 없음 등)은 빼야 'null' 글자로 안 찍힘
     pageDateHeading(),
     h('div.stats-metrics', null,
       stat(stats.commitsToday, tr('panel.stat_commits'), vm.projects.filter((p) => p.commitsToday > 0).map((p) => `${p.name} ${p.commitsToday}`).join(' · ') || null),
-      stat(stats.openTodos, tr('panel.stat_open'), pt('personal.오늘 반드시 처리할 일 {n}건',{n:stats.p1Todos}), true),
-      stat(stats.activeProjects, tr('panel.stat_active'), active.slice(0, 3).join(', ') || null),
+      stat(stats.openTodos, tr('panel.stat_open'), pt('personal.오늘 반드시 처리할 일 {n}건',{n:stats.p1Todos})),
+      stat(stats.activeProjects, tr('panel.stat_active'), active.length ? h('span.project-card-summary', { title: active[0] }, h('span.project-card-name', { text: active[0] }), active.length > 1 ? h('span.project-card-count', { text: personalLanguage() === 'ja' ? `ほか${active.length - 1}件` : `외 ${active.length - 1}개` }) : null) : null),
       stat(stats.pendingProposals, tr('panel.stat_pending'), null)),
     connected ? null : h('div.card.off-note', null, ui.emptyState({ icon: '💤', compact: true, text: tr('panel.off_title', { who: who() }), sub: tr('panel.off_sub') })),
     todayLink(today),
@@ -2001,11 +2016,13 @@ function todoRow(t, i = 0, n = 1) {
   gripButton(t, i, n),
   h('input.check', { type: 'checkbox', 'aria-label': tr('panel.done_aria', { title: t.title }), title: tr('panel.done'), disabled: t.pending, onchange: () => completeTodo(t) }),
   // (진행중): 사용자가 ▶ 로 켠 것, 아니면 작업 세션을 보니 하는 중(todo-progress.ts 가 진척을 남김) → 제목 앞
+  h('div.todo-content', null,
   h('span.t', null, isDoing(t) ? h('span.doing', { text: tr('panel.doing_prefix'), title: t.progress ? tr('panel.progress_title', { text: t.progress }) : tr('panel.doing_manual') }) : null, t.title),
+  h('div.todo-meta', null,
   t.source && t.source !== 'user' ? h('span.todo-source.muted.small', { text: todoSourceLabel(t) }) : null, // 직접 추가한 건(대부분) 칩 없이: 줄이 가볍게. 원본 칸엔 그대로
   projectChip(t),
   confirming ? null : todayButton(t),
-  confirming ? null : doingButton(t),
+  confirming ? null : doingButton(t))),
   confirming ? confirmBox('trash', () => trashTodo(t)) : todoMenu(t));
   return open ? h('div.todo-wrap', null, row, todoDetailView(t)) : row;
 }

@@ -113,7 +113,7 @@ export default {
     stat_p1: '‘오늘 반드시!’ {n}개',
     stat_p1_none: '‘오늘 반드시!’ 없음',
     stat_active: '진행 중 프로젝트',
-    stat_pending: '승인 대기 중 코드',
+    stat_pending: '승인 대기 코드',
     off_title: '{who}가 꺼져 있어요',
     off_sub: '켜지면 여기 채워져요.',
     brief_title: '최근 브리핑',
