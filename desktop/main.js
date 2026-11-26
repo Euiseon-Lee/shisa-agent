@@ -84,6 +84,7 @@ const REPO_ASSETS = path.join(__dirname, '..', 'assets');
 const BUNDLE = bundlePaths({ packaged: app.isPackaged, resourcesPath: process.resourcesPath, appDir: __dirname, env: process.env }, path.join);
 const AGENT_HOME = process.env.CY_AGENT_HOME ?? path.join(os.homedir(), '.cy-agent');
 const PANEL_SIZE = { width: 900, height: 640 }; // 채팅 탭: 대화 목록 + 대화가 나란히
+const PANEL_MIN_WIDTH = 800; // 사이드바·집중 타이머·창 제어를 포함해 상단바 한 줄 유지
 const SESSION_SIZE = { width: 900, height: 700 };
 const DEBUG = !!process.env.CY_DEBUG;
 const logRing = createRing();
@@ -617,7 +618,7 @@ function sendPanel(channel, payload) {
 function panelBounds() {
   const saved = state.panel;
   const size = {
-    width: Math.max(560, Number(saved?.width) || PANEL_SIZE.width),
+    width: Math.max(PANEL_MIN_WIDTH, Number(saved?.width) || PANEL_SIZE.width),
     height: Math.max(440, Number(saved?.height) || PANEL_SIZE.height),
   };
   const areas = screen.getAllDisplays().map((d) => d.workArea);
@@ -632,14 +633,14 @@ function createPanel() {
   panelReady = false;
   panel = new BrowserWindow({
     ...panelBounds(),
-    minWidth: 560,
+    minWidth: PANEL_MIN_WIDTH,
     minHeight: 440,
     frame: false,
     show: false,
     resizable: true,
     fullscreenable: false,
-    minimizable: false,
-    maximizable: false,
+    minimizable: true,
+    maximizable: true,
     roundedCorners: true,
     // 맥: 패널이 키 창이 아닐 때(캐릭터 호버 입력·다른 앱을 쓰다 온 직후) 첫 클릭이 창 활성화에만 쓰이고
     // 탭·버튼엔 안 닿는다 — 사이드바 탭을 눌러도 안 바뀌는 것처럼 보임. 첫 클릭도 바로 받는다.
@@ -663,6 +664,7 @@ function createPanel() {
   panel.loadFile(path.join(__dirname, 'renderer', 'panel.html'), { query: { ...(mac ? { vibrancy: '1' } : {}), ...(!app.isPackaged ? { devVersion: app.getVersion() } : {}) } });
   panel.webContents.on('did-finish-load', () => {
     panelReady = true;
+    sendPanel('panel-window-state', { maximized: panel.isMaximized() });
     sendPanel('connection', { connected });
     if (panelSection) sendPanel('section', panelFocusId ? { section: panelSection, id: panelFocusId } : { section: panelSection });
     panelSection = null;
@@ -672,10 +674,13 @@ function createPanel() {
   });
   const remember = () => {
     if (!panel || panel.isDestroyed()) return;
-    state.panel = panel.getBounds();
+    state.panel = panel.getNormalBounds();
     saveState();
   };
   panel.on('resize', remember);
+  const windowState = () => sendPanel('panel-window-state', { maximized: panel.isMaximized() });
+  panel.on('maximize', windowState);
+  panel.on('unmaximize', windowState);
   panel.on('move', remember);
   // 닫기는 숨기기 — 편집 중인 내용 유지. 종료 때만 진짜 닫힘.
   // 윈도우: 숨겨 둔 패널에 온 닫기는 밖에서 끄라는 요청(taskkill·작업 관리자·설치 프로그램의 WM_CLOSE) → 앱 끄기(src/quit.js)
@@ -701,6 +706,7 @@ function showPanel(section, id) {
     else { panelSection = section; panelFocusId = id ?? null; }
   }
   if (process.platform === 'darwin') app.focus({ steal: true });
+  if (panel.isMinimized()) panel.restore();
   panel.show();
   panel.focus();
 }
@@ -1829,6 +1835,11 @@ function setupIPC() {
     return post('/chat', withModel({ text: t, ...(threadId ? { threadId } : {}), ...(todoId ? { todoId } : {}), parentRunId: b.parentRunId, ...withAtts(atts) }, b.model));
   });
   ipcMain.on('close-panel', (e) => { if (fromOurs(e)) panel?.hide(); });
+  ipcMain.on('minimize-panel', (e) => { if (e.sender === panel?.webContents) panel.minimize(); });
+  ipcMain.on('maximize-panel', (e) => {
+    if (e.sender !== panel?.webContents) return;
+    panel.isMaximized() ? panel.unmaximize() : panel.maximize();
+  });
 
   ipcMain.handle('get-dashboard', (e) => (fromOurs(e) ? request('GET', '/dashboard') : denied()));
   ipcMain.handle('briefing-now', (e) => (fromOurs(e) ? post('/briefing') : denied()));

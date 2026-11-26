@@ -3742,6 +3742,17 @@ function applyCaps(c) {
 cy.caps?.().then(applyCaps).catch(() => {});
 cy.onCaps?.(applyCaps);
 $('close').addEventListener('click', () => cy.close());
+$('minimize').addEventListener('click', () => cy.minimize());
+$('maximize').addEventListener('click', () => cy.toggleMaximize());
+cy.onWindowState?.(({ maximized }) => {
+  const button = $('maximize');
+  button.classList.toggle('is-maximized', maximized);
+  const key = maximized ? 'panel.window_restore' : 'panel.window_maximize';
+  button.setAttribute('data-i18n-title', key);
+  button.setAttribute('data-i18n-aria-label', key);
+  button.title = tr(key);
+  button.setAttribute('aria-label', button.title);
+});
 document.addEventListener('keydown', (e) => {
   if (drag && e.key === 'Escape') { e.preventDefault(); rowDrag.cancel(); finishDrag(false); return; } // 끌기 취소
   if (e.key === 'Escape' && !e.isComposing) {

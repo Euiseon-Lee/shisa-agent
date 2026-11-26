@@ -168,4 +168,7 @@ contextBridge.exposeInMainWorld('cy', {
   focusCmd: (cmd) => ipcRenderer.invoke('focus-cmd', String(cmd)),
   focusStats: (from, to) => ipcRenderer.invoke('focus-stats', String(from), String(to)),
   close: () => ipcRenderer.send('close-panel'),
+  minimize: () => ipcRenderer.send('minimize-panel'),
+  toggleMaximize: () => ipcRenderer.send('maximize-panel'),
+  onWindowState: on('panel-window-state'),
 });

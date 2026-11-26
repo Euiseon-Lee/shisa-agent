@@ -2008,4 +2008,11 @@ th, th[class], .md th, .briefing-tasks th { text-align: center !important; }
 #updated { white-space:nowrap; margin-right:0; }
 #updated[hidden] { display:none; }
 
+#window-controls { display:flex; align-items:center; gap:2px; margin-left:8px; padding-left:8px; border-left:1px solid var(--line); flex:none; }
+#top #window-controls button { width:32px; height:32px; padding:0; flex:none; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
+#window-controls svg { display:block; width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1; flex:none; }
+#window-controls .restore-icon, #window-controls .is-maximized .maximize-icon { display:none; }
+#window-controls .is-maximized .restore-icon { display:block; }
+#window-controls #close:hover { background:#c42b1c; color:white; }
+
 .focus-global-error { margin:0 22px 8px; padding:8px 12px; border-radius:8px; color:var(--err); background:var(--del-bg); overflow-wrap:anywhere; font-size:12px; }
