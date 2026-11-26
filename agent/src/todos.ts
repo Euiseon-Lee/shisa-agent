@@ -1,4 +1,5 @@
 import { parseSchedule, type TodoSchedule } from "./todo-schedule.ts";
+import {parseTodoReminder} from './todo-reminder.ts';
 // 할 일 편집 입력 검증(버스·채팅·Slack 공용). 순수 함수만.
 import type { TodoPatch } from "./store.ts";
 import { t } from "./i18n.ts";
@@ -46,6 +47,7 @@ function cleanPriority(v: unknown): Result<number> {
 // POST /todos/:id 본문. 모르는 키는 400
 export function parsePatch(body: Record<string, unknown>): Result<TodoPatch> {
   const out: TodoPatch = {};
+  if(body.reminder!==undefined) {try {out.reminder=parseTodoReminder(body.reminder);}catch(e){return fail((e as Error).message);}}
   if(body.schedule !== undefined) {try {out.schedule=parseSchedule(body.schedule);}catch(e){return fail((e as Error).message);}}
   if(body.stopRepeat !== undefined) {if(body.stopRepeat!==true)return fail('stopRepeat must be true');out.stopRepeat=true;}
   if (body.scheduledDate !== undefined) {
@@ -57,7 +59,7 @@ export function parsePatch(body: Record<string, unknown>): Result<TodoPatch> {
     if (typeof body.irrelevant !== 'boolean' || Object.keys(body).length !== 1) return fail('irrelevant must be a standalone boolean patch');
     out.irrelevant = body.irrelevant;
   }
-  for (const k of Object.keys(body)) if (!["title", "priority", "link", "note", "status", "description", "doing", "today", "projectId", "scheduledDate", "schedule", "stopRepeat", "irrelevant"].includes(k)) return fail(`unknown field: ${k}`);
+  for (const k of Object.keys(body)) if (!["title", "priority", "link", "note", "status", "description", "doing", "today", "projectId", "scheduledDate", "schedule", "stopRepeat", "irrelevant", "reminder"].includes(k)) return fail(`unknown field: ${k}`);
   if (body.title !== undefined) { const r = cleanTitle(body.title); if (!r.ok) return r; out.title = r.value; }
   if (body.priority !== undefined) { const r = cleanPriority(body.priority); if (!r.ok) return r; out.priority = r.value; }
   if (body.link !== undefined) { const r = cleanLink(body.link); if (!r.ok) return r; out.link = r.value; }

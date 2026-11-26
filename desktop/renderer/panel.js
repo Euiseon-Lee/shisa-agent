@@ -1546,9 +1546,36 @@ function openDatePicker(t, trigger, onSave) {
   draw();document.body.append(dialog);dialog.showModal();
 }
 
+function openReminderPicker(t) {
+  const enabled=h('input',{type:'checkbox',checked:!!t.reminder});
+  const offset=h('select',{'aria-label':tr('panel.task_reminder')},
+    h('option',{value:'0',text:tr('panel.task_reminder_today')}),h('option',{value:'1',text:tr('panel.task_reminder_before')}));
+  offset.value=String(t.reminder?.daysBefore??0);
+  const time=h('input',{type:'time',value:t.reminder?.time||'09:00','aria-label':tr('panel.task_reminder_time')});
+  const error=h('p.date-error',{role:'status'});
+  const close=()=>{dialog.close();dialog.remove();};
+  const sync=()=>{offset.disabled=time.disabled=!enabled.checked;};
+  enabled.addEventListener('change',sync);sync();
+  const save=async()=>{
+    if(enabled.checked&&!t.scheduledDate){error.textContent=tr('panel.task_reminder_no_date');return;}
+    if(enabled.checked&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(time.value)){error.textContent=tr('panel.task_reminder_bad_time');return;}
+    const patch={reminder:enabled.checked?{time:time.value,daysBefore:Number(offset.value)}:null};
+    saveButton.disabled=true;
+    try {const result=await cy.todoEdit(t.id,patch);if(!result?.ok)throw Error();close();loadSoon();}
+    catch {error.textContent=tr('panel.task_reminder_failed');saveButton.disabled=false;}
+  };
+  const saveButton=h('button.primary',{type:'button',text:pt('personal.적용'),onclick:save});
+  const dialog=h('dialog.todo-date-dialog.todo-reminder-dialog',{'aria-label':tr('panel.task_reminder'),oncancel:e=>{e.preventDefault();close();}},
+    h('h3',{text:tr('panel.task_reminder')}),h('p',{text:t.title}),h('label',null,enabled,tr('panel.task_reminder_on')),
+    h('div.schedule-dates',null,offset,time),h('p.schedule-note',{text:tr('panel.task_reminder_hint')}),
+    t.seriesId?h('p.schedule-note',{text:tr('panel.task_reminder_series')}):null,error,
+    h('div.date-footer',null,h('button.ghost',{type:'button',text:pt('personal.취소'),onclick:close}),saveButton));
+  document.body.append(dialog);dialog.showModal();
+}
 function todoMenu(t) {
   return ui.menuButton('row-more', { label: pt("personal.할 일 메뉴"), size: 's', disabled: t.pending, items: () => [
     { label: t.scheduledDate ? pt("personal.날짜 변경") : pt("personal.날짜 지정"), iconImage: 'assets/todo-menu/calendar.png', onSelect: () => openDatePicker(t, null) },
+    { label: tr('panel.task_reminder')+(t.reminder?' · '+t.reminder.time:''), onSelect:()=>openReminderPicker(t) },
     ...(t.seriesId ? [{label:pt("personal.반복 종료"),onSelect:()=>{
       if(!confirm('앞으로의 반복 생성을 종료할까요? 이미 생성된 할 일과 완료 기록은 유지됩니다.'))return;
       mutate({kind:'edit',id:t.id,patch:{stopRepeat:true}},()=>cy.todoEdit(t.id,{stopRepeat:true}),'반복을 종료하지 못했어요',()=>loadSoon());

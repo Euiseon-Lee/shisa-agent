@@ -49,6 +49,7 @@ export function setupSettings(deps) {
   // 열기: 패널 ⚙ · 그 밖의 우리 창
   ipcMain.on('open-settings', (e) => { if (deps.fromOurs(e) || isMine(e)) show(); });
   ipcMain.handle('settings-get', (e) => (isMine(e) ? deps.request('GET', '/settings') : denied()));
+  ipcMain.handle('todo-reminder-preview',(e,kind)=>isMine(e)&&['start','end','midday'].includes(kind)?deps.request('POST','/todo-reminders/preview',{kind}):denied());
   ipcMain.handle('settings-put', (e, patch) => {
     const p = isMine(e) ? sanitizeSettingsPatch(patch) : null;
     return p ? deps.request('PUT', '/settings', p) : denied();

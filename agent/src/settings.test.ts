@@ -236,14 +236,14 @@ test("Settings: 오늘 할 일 알림: 기본은 아침 한 번, 고치면 파�
   const p = join(dir, "config.json");
   writeFileSync(p, JSON.stringify({ slackBotToken: "xoxb-keep" }));
   const cfg = cfgOf();
-  assert.deepEqual(cfg.todayReminder, { mode: "auto", everyHours: 0, times: [] });
+  assert.deepEqual(cfg.todayReminder, { mode: "auto", everyHours: 0, times: [], workStart:true,workEnd:true,midday:false });
   const s = new Settings(cfg, { path: p, env: {} });
-  assert.deepEqual(s.view().todayReminder, { mode: "auto", everyHours: 0, times: [] });
+  assert.deepEqual(s.view().todayReminder, { mode: "auto", everyHours: 0, times: [], workStart:true,workEnd:true,midday:false });
   const r = s.put({ todayReminder: { mode: "auto", everyHours: 3, times: ["14:00", "09:30"] } });
   assert.equal(r.ok, true);
-  assert.deepEqual(cfg.todayReminder, { mode: "auto", everyHours: 3, times: ["09:30", "14:00"] });
+  assert.deepEqual(cfg.todayReminder, { mode: "auto", everyHours: 3, times: ["09:30", "14:00"], workStart:true,workEnd:true,midday:true });
   const file = JSON.parse(readFileSync(p, "utf8"));
-  assert.deepEqual(file.todayReminder, { mode: "auto", everyHours: 3, times: ["09:30", "14:00"] });
+  assert.deepEqual(file.todayReminder, { mode: "auto", everyHours: 3, times: ["09:30", "14:00"], workStart:true,workEnd:true,midday:true });
   assert.equal(file.slackBotToken, "xoxb-keep");
   assert.deepEqual(cfgOf(file).todayReminder, cfg.todayReminder, "다시 켜도 같은 값");
   assert.equal(s.put({ todayReminder: { mode: "off" } }).ok, true);

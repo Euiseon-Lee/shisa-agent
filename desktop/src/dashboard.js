@@ -77,6 +77,7 @@ export function groupTodos(todos) {
 
       ...(t.schedule ? {schedule:t.schedule} : {}), ...(t.seriesId ? {seriesId:t.seriesId} : {}),
       ...(str(t.scheduledDate) ? { scheduledDate: t.scheduledDate } : {}),
+      ...(t.reminder ? {reminder:t.reminder} : {}),
       ...(t.eventDate ? {eventDate:t.eventDate, responseDueDate:t.responseDueDate, recommendedDate:t.recommendedDate, dateKind:t.dateKind} : {}),
       ...(t.appliedRule && str(t.appliedRule.text) ? { appliedRule: { id: str(t.appliedRule.id), text: t.appliedRule.text } } : {}), // 적용된 할 일 규칙
       ...(str(t.progress) ? { progress: t.progress, progressAt: str(t.progressAt) } : {}), // 어디까지 됐는지(데몬 진행 확인)

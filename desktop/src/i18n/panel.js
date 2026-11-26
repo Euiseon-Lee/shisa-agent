@@ -2,6 +2,11 @@
 // 한국어 원문 그대로가 기본, 일본어는 です・ます 체로 짧게(용어는 common.js 머리말 통일표). 우선순위: 今日中·今週·いつか·そのうち
 export default {
   ko: {
+    task_reminder:'알림 설정',task_reminder_on:'이 항목 알림 켜기',task_reminder_today:'예정일 당일',task_reminder_before:'예정일 전날',task_reminder_time:'알릴 시각',task_reminder_no_date:'날짜를 먼저 지정해 주세요.',task_reminder_bad_time:'알릴 시각을 입력해 주세요.',task_reminder_failed:'알림을 저장하지 못했어요.',task_reminder_series:'이 회차와 이후 미완료 회차 및 앞으로 생성될 회차에 적용합니다. 완료 기록은 유지합니다.',task_reminder_hint:'지정한 날과 시각에 캐릭터가 알려 줍니다. 앱이 꺼져 있으면 알리지 않으며, 5분 이내에 실행하면 안내합니다. 전체 알림 끄기가 우선합니다.',
+    window_controls: '창 제어', window_minimize: '최소화', window_maximize: '최대화', window_restore: '복원',
+    task_manage:'할 일 관리', repeat_manage:'반복 일정 관리', date_repeat:'반복 일정',
+    date_recommended: '권장 처리일 ', date_deadline: '응답 마감일 ', date_event: '행사일 {date}', date_unconfirmed: '응답 마감일 확인불가 (행사 2일 전 처리 권장)',
+    repeat_next:'다음 예정일 {date}',repeat_no_next:'다음 예정일 없음',repeat_due:'예정일 {date}',repeat_rule:'반복: {rule}',repeat_daily:'매일',repeat_weekdays:'평일',repeat_weekends:'주말',repeat_weekly:'매주 {days}',repeat_start:'시작일 {date}',repeat_end:'종료일 {date}',repeat_no_end:'종료일 없음',
     // dashboard.js
     sec_setup: '설치',
     sec_overview: '개요',
@@ -526,6 +531,11 @@ export default {
     pv_from_cal_name: '📅 일정에서 · {calendar}',
   },
   ja: {
+    task_reminder:'通知設定',task_reminder_on:'この項目の通知を有効にする',task_reminder_today:'予定日当日',task_reminder_before:'予定日前日',task_reminder_time:'通知時刻',task_reminder_no_date:'先に日付を設定してください。',task_reminder_bad_time:'通知時刻を入力してください。',task_reminder_failed:'通知を保存できませんでした。',task_reminder_series:'この回と以降の未完了・新規生成の回に適用します。完了記録は維持します。',task_reminder_hint:'指定日時にキャラクターが知らせます。アプリ終了中は通知せず、5分以内の起動なら案内します。通知の全体オフが優先されます。',
+    window_controls: 'ウィンドウ操作', window_minimize: '最小化', window_maximize: '最大化', window_restore: '元に戻す',
+    task_manage:'タスクを管理', repeat_manage:'繰り返し予定を管理', date_repeat:'繰り返し予定',
+    date_recommended: '推奨対応日 ', date_deadline: '返信期限 ', date_event: '開催日 {date}', date_unconfirmed: '返信期限確認不可（開催2日前の対応を推奨）',
+    repeat_next:'次の予定日 {date}',repeat_no_next:'次の予定日なし',repeat_due:'予定日 {date}',repeat_rule:'繰り返し: {rule}',repeat_daily:'毎日',repeat_weekdays:'平日',repeat_weekends:'週末',repeat_weekly:'毎週 {days}',repeat_start:'開始日 {date}',repeat_end:'終了日 {date}',repeat_no_end:'終了日なし',
     // dashboard.js
     sec_setup: 'セットアップ',
     sec_overview: '概要',

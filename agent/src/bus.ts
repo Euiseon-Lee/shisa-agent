@@ -135,6 +135,7 @@ export type BusHandlers = {
   permissions?: PermissionsApi;
   // 설정 창(settings.ts): 모델 네 개·브리핑에서 뺄 출처. PUT 은 메모리 cfg 를 바로 바꾸고 config.json 에 합쳐 쓴다. 없으면 503
   settings?: SettingsApi;
+  previewTodoReminder?(kind:'start'|'end'|'midday'):unknown;
   // 연결 상태(connections.ts). 없으면 503
   connections?: ConnectionsApi;
   // AI 없이 고르는 질문(local-mode.ts QUICK_ASKS → quickAnswer). 모르는 id 면 undefined → 400. 없으면 503
@@ -645,6 +646,11 @@ export class Bus {
     if (req.method === "POST") {
       // 브라우저 페이지가 localhost로 승인을 위조하지 못하게: 커스텀 헤더 필수(CORS preflight에 응답하지 않음)
       if (req.headers["x-cy-agent"] !== "1" || (req.headers.origin && !req.headers.origin.startsWith("file://"))) return json(res, 403, { error: "forbidden" });
+      if(url.pathname==='/todo-reminders/preview') {
+        const body=await readJson(req);
+        if(!['start','end','midday'].includes(body.kind))return json(res,400,{error:'invalid reminder kind'});
+        return h.previewTodoReminder ? json(res,200,h.previewTodoReminder(body.kind)) : json(res,503,{error:'reminders unavailable'});
+      }
       if (url.pathname === "/connectors/reload") {
         return h.connectorsReload ? json(res, 200, h.connectorsReload()) : json(res, 503, { error: "reload unavailable" });
       }

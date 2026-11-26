@@ -1,5 +1,6 @@
 import { installActivityTracking } from './activity-statistics.ts';
 import { invitationDates, type EventDates } from './todo-event-date.ts';
+import { parseTodoReminder, type TodoReminder } from './todo-reminder.ts';
 import { parseSchedule, addScheduleDays, scheduledViewDate, type TodoSchedule } from "./todo-schedule.ts";
 // 로컬 지식그래프 + 작업 상태. node:sqlite 하나에 다 담는다(~/.cy-agent/cy.db).
 import { localDate } from "./calendar.ts";
@@ -12,6 +13,7 @@ import { IS_WIN, pathWithin } from "./plat.ts";
 
 export type Node = { id: string; kind: string; label: string; props: Record<string, unknown>; updated: string };
 export type Todo = EventDates & {
+  reminder?: TodoReminder;
   id: string; title: string; source: string; link?: string; priority: number; status: string; created: string;
   schedule?: TodoSchedule; seriesId?: string;
   scheduleSort?: number; scheduledDate?: string; doneAt?: string; irrelevantAt?: string;
@@ -51,7 +53,7 @@ export type AutoEvidence = { ids: string[]; permalink?: string };
 export type TodoField = "title" | "priority" | "link" | "note" | "status" | "description";
 // today: 오늘 할 일 = 우선순위 1(오늘 반드시). true·날짜 글 = 오늘 할 일에 넣기(P1), false·null = 빼기(P1 이면 P2 이번 주로, 할 일은 그대로)
 // projectId: 직접 만든 프로젝트에 묶기(id)·빼기(null). 사용자 필드(userEdited)로 치지 않는다
-export type TodoPatch = { schedule?: TodoSchedule | null; stopRepeat?: boolean; scheduledDate?: string | null; irrelevant?: boolean; title?: string; priority?: number; link?: string | null; note?: string | null; status?: "open" | "done"; description?: string | null; doing?: boolean | null; today?: boolean | string | null; projectId?: string | null };
+export type TodoPatch = { reminder?: TodoReminder | null; schedule?: TodoSchedule | null; stopRepeat?: boolean; scheduledDate?: string | null; irrelevant?: boolean; title?: string; priority?: number; link?: string | null; note?: string | null; status?: "open" | "done"; description?: string | null; doing?: boolean | null; today?: boolean | string | null; projectId?: string | null };
 // 휴지통에 든 할 일(패널 '휴지통' 그룹). priority·status는 옮기기 전 것
 export type TrashedTodo = Todo & { trashedAt: string; prevStatus: string };
 export const TRASH_KEEP_DAYS = 30; // 휴지통에 이보다 오래 있으면 영구 삭제
@@ -125,6 +127,7 @@ function todoRow(r: any): Todo {
     id: r.id, title: r.title, source: r.source, ...(r.link ? { link: r.link } : {}), priority: r.priority, status: r.status, created: r.created,
     ...(r.schedule ? { schedule: JSON.parse(r.schedule) as TodoSchedule } : {}),
     ...(r.series_id ? { seriesId: r.series_id } : {}),
+    ...(r.reminder ? {reminder:JSON.parse(r.reminder)} : {}),
     ...(r.scheduled_date ? { scheduledDate: scheduledViewDate(r.schedule ? JSON.parse(r.schedule) : undefined, r.scheduled_date, kstDay(now())) } : {}),
     ...invitationDates({title:r.title,description:r.description,note:r.note,created:r.created,scheduledDate:r.scheduled_date,schedule:r.schedule,dateManual:!!r.date_manual}),
     ...(r.done_at ? { doneAt: r.done_at } : {}),
@@ -174,7 +177,7 @@ export class Store {
     const cols = new Set((this.db.prepare("PRAGMA table_info(todos)").all() as any[]).map((c) => c.name));
     const add: [string, string][] = [
       ["schedule_sort", "REAL"], ["schedule", "TEXT"], ["series_id", "TEXT"],
-      ["scheduled_date", "TEXT"], ["done_at", "TEXT"], ["irrelevant_at", "TEXT"], ["date_manual", "INTEGER NOT NULL DEFAULT 0"],
+      ["scheduled_date", "TEXT"], ["done_at", "TEXT"], ["irrelevant_at", "TEXT"], ["date_manual", "INTEGER NOT NULL DEFAULT 0"], ["reminder", "TEXT"],
       ["note", "TEXT"], ["updated", "TEXT"], ["user_edited", "TEXT NOT NULL DEFAULT '[]'"],
       ["done_by", "TEXT"], ["auto_reason", "TEXT"], ["auto_evidence", "TEXT"], ["auto_reverted", "INTEGER NOT NULL DEFAULT 0"],
       ["description", "TEXT"], ["origin", "TEXT"], ["source_ref", "TEXT"], ["sort", "REAL"], ["applied_rule", "TEXT"],
@@ -406,7 +409,8 @@ export class Store {
   }
 
   // 사용자가 직접 추가한 할 일
-  addTodo(t: { schedule?: TodoSchedule | null; title: string; priority?: number; link?: string | null; note?: string | null; source?: string; description?: string | null; sourceRef?: string | null; origin?: TodoSource; today?: boolean | string | null; scheduledDate?: string | null; projectId?: string | null }, by: TodoActor = "user"): Todo {
+  addTodo(t: { reminder?: TodoReminder | null; schedule?: TodoSchedule | null; title: string; priority?: number; link?: string | null; note?: string | null; source?: string; description?: string | null; sourceRef?: string | null; origin?: TodoSource; today?: boolean | string | null; scheduledDate?: string | null; projectId?: string | null }, by: TodoActor = "user"): Todo {
+    if(t.reminder !== undefined) parseTodoReminder(t.reminder);
     if (t.schedule?.mode === 'repeat') return this.addRepeatingTodo(t, by);
     if (t.schedule) parseSchedule(t.schedule);
     const id = 'user:' + randomUUID();
@@ -419,6 +423,7 @@ export class Store {
         t.projectId ? this.nextProjectOrder(t.projectId) : null);
     if (t.scheduledDate !== undefined) this.db.prepare("UPDATE todos SET scheduled_date = ?, date_manual = 1 WHERE id = ?").run(t.scheduledDate, id);
     if (t.schedule) this.db.prepare("UPDATE todos SET schedule = ?, scheduled_date = ? WHERE id = ?").run(JSON.stringify(t.schedule), t.schedule.start, id);
+    if(t.reminder) this.db.prepare('UPDATE todos SET reminder = ? WHERE id = ?').run(JSON.stringify(t.reminder),id);
     this.log(id, t.title, "added", by, undefined, at);
     return this.getTodo(id)!;
   }
@@ -561,6 +566,7 @@ export class Store {
 
   // 사용자 수정: 바꾼 필드를 user_edited에 기억한다. 없는 id면 undefined
   editTodo(id: string, patch: TodoPatch): Todo | undefined {
+    if(patch.reminder !== undefined) parseTodoReminder(patch.reminder);
     if (patch.schedule !== undefined) {
       const schedule = parseSchedule(patch.schedule);
       const current = this.getTodo(id);
@@ -588,6 +594,22 @@ export class Store {
     if (patch.irrelevant !== undefined) return this.setIrrelevant(id, patch.irrelevant);
     const cur = this.getTodo(id);
     if (!cur) return undefined;
+    if(patch.reminder !== undefined) {
+      const value=patch.reminder ? JSON.stringify(patch.reminder) : null;
+      this.db.exec('SAVEPOINT todo_reminder');
+      try {
+        this.db.prepare('UPDATE todos SET reminder = ? WHERE id = ?').run(value,id);
+        if(cur.seriesId) {
+          const series=this.db.prepare('SELECT template FROM todo_series WHERE id = ?').get(cur.seriesId) as any;
+          if(series) this.db.prepare('UPDATE todo_series SET template = ? WHERE id = ?').run(JSON.stringify({...JSON.parse(series.template),reminder:patch.reminder}),cur.seriesId);
+          this.db.prepare("UPDATE todos SET reminder = ? WHERE series_id = ? AND status = 'open' AND scheduled_date >= ?").run(value,cur.seriesId,cur.scheduledDate || kstDay(now()));
+        }
+        this.log(id,cur.title,'edited','user',patch.reminder?'알림 설정':'알림 해제');
+        this.db.exec('RELEASE todo_reminder');
+      } catch(e) {this.db.exec('ROLLBACK TO todo_reminder; RELEASE todo_reminder');throw e;}
+      const {reminder,...rest}=patch;
+      return Object.keys(rest).length ? this.editTodo(id,rest) : this.getTodo(id);
+    }
     // 오늘 할 일 넣기·빼기 = 우선순위 1 로 올리기·2(이번 주)로 내리기. 우선순위를 같이 주면 그쪽이 먼저
     if (patch.today !== undefined) {
       const { today, ...rest } = patch;

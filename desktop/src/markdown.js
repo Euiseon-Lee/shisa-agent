@@ -15,7 +15,7 @@ export const CALLOUTS = {
   get NOTE() { return tr('panel.co_note'); }, get TIP() { return tr('panel.co_tip'); }, get IMPORTANT() { return tr('panel.co_important'); }, get WARNING() { return tr('panel.co_warning'); }, get CAUTION() { return tr('panel.co_caution'); },
 };
 // 글자색은 이 목록만 — `:red[글자]`
-export const COLORS = ['red', 'green', 'blue', 'orange', 'purple', 'gray'];
+export const COLORS = ['red', 'green', 'blue', 'orange', 'purple', 'gray', 'yellow'];
 
 export function createMarkdown(Marked) {
   const md = new Marked({ gfm: true, breaks: true, async: false });
@@ -28,23 +28,23 @@ export function createMarkdown(Marked) {
       level: 'inline',
       start(src) { return src.indexOf(':date['); },
       tokenizer(src) {
-        const match = /^:date\[(\d{4}-\d{2}-\d{2})\]/.exec(src);
-        if (match && notificationDate(match[1])) return { type: 'notificationDate', raw: match[0], date: match[1] };
+        const match = /^:date\[(\d{4}-\d{2}-\d{2})(?::(red|purple|blue|yellow|orange))?\]/.exec(src);
+        if (match && notificationDate(match[1])) return { type: 'notificationDate', raw: match[0], date: match[1], tone: match[2] };
       },
       renderer(token) {
         const value = notificationDate(token.date, new Date(), language());
-        return '<span class="notification-date">' + value.date + '<br><span class="notification-day">' + value.label + '</span></span>';
+        return '<span class="notification-date' + (token.tone ? ' c-' + token.tone : '') + '">' + value.date + (token.tone ? '' : '<br><span class="notification-day">' + value.label + '</span>') + '</span>';
       },
     }, {
       // :red[글자] → 색 글자(허용 색만)
       name: 'colorText',
       level: 'inline',
       start(src) {
-        const m = /:(red|green|blue|orange|purple|gray)\[/.exec(src);
+        const m = /:(red|green|blue|orange|purple|gray|yellow)\[/.exec(src);
         return m ? m.index : undefined;
       },
       tokenizer(src) {
-        const m = /^:(red|green|blue|orange|purple|gray)\[([^\]\n]+)\]/.exec(src);
+        const m = /^:(red|green|blue|orange|purple|gray|yellow)\[([^\]\n]+)\]/.exec(src);
         if (!m) return undefined;
         return { type: 'colorText', raw: m[0], color: m[1], tokens: this.lexer.inlineTokens(m[2]) };
       },

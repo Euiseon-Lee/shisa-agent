@@ -269,19 +269,20 @@ export function calendarAlertSummary(c) {
 }
 
 // ---- 오늘 할 일 알림(GET /settings todayReminder) ----
-export const REMINDER_DEFAULT = { mode: 'auto', everyHours: 0, times: [] }; // 영업일 아침 첫 실행 때 한 번(데몬 기본과 같다)
+export const REMINDER_DEFAULT = { mode: 'auto', everyHours: 0, times: [], workStart:true, workEnd:true, midday:false };
 export const REMINDER_HOURS = [0, 1, 2, 3, 4]; // 고를 수 있는 'N시간마다'(0 = 안 함)
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 export function cleanReminder(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-  if (Object.keys(v).some((k) => !['mode', 'everyHours', 'times'].includes(k))) return null;
+  if (Object.keys(v).some((k) => !['mode', 'everyHours', 'times', 'workStart', 'workEnd', 'midday'].includes(k))) return null;
+  if(['workStart','workEnd','midday'].some(k=>v[k]!==undefined&&typeof v[k]!=='boolean'))return null;
   const mode = v.mode ?? 'auto';
   const every = v.everyHours ?? 0;
   const times = v.times ?? [];
   if (mode !== 'auto' && mode !== 'off') return null;
-  if (typeof every !== 'number' || !Number.isFinite(every) || every < 0) return null;
+  if (typeof every !== 'number' || !Number.isFinite(every) || (every!==0&&every<0.25)) return null;
   if (!Array.isArray(times) || times.some((t) => typeof t !== 'string' || !TIME.test(t))) return null;
-  return { mode, everyHours: every, times: [...new Set(times)].sort() };
+  return { mode, everyHours: every, times: [...new Set(times)].sort(), workStart:v.workStart!==false,workEnd:v.workEnd!==false,midday:typeof v.midday==='boolean'?v.midday:every>0||times.length>0 };
 }
 // '10:00, 9:5, 15:30' → ['09:05', '10:00', '15:30']. 못 읽는 게 있으면 { error }
 export function parseTimes(text) {
@@ -299,9 +300,12 @@ export function parseTimes(text) {
 export function reminderSummary(r) {
   const c = cleanReminder(r ?? REMINDER_DEFAULT) ?? REMINDER_DEFAULT;
   if (c.mode === 'off') return t('settings.rem_sum_off');
-  const parts = [t('settings.rem_sum_first')];
-  if (c.everyHours > 0) parts.push(t('settings.rem_sum_every', { n: c.everyHours }));
-  if (c.times.length) parts.push(t('settings.rem_sum_times', { times: c.times.join(', ') }));
+  const parts = [];
+  if(c.workStart)parts.push(t('settings.rem_start'));
+  if(c.workEnd)parts.push(t('settings.rem_end'));
+  if (c.midday && c.everyHours > 0) parts.push(t('settings.rem_sum_every', { n: c.everyHours }));
+  if (c.midday && c.times.length) parts.push(t('settings.rem_sum_times', { times: c.times.join(', ') }));
+  if(!parts.length)return t('settings.rem_items_only');
   return t('settings.rem_sum', { parts: parts.join(t('settings.list_sep')) });
 }
 

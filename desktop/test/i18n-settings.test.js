@@ -157,7 +157,7 @@ test('설정 창: 한국어로 열어 둔 창이 언어 바뀜(lang)에 바로 �
   const page = await open(cy);
   assert.equal(page.$('#h-rem').textContent, '오늘 할 일 알림');
   assert.equal(page.document.title, '설정');
-  assert.match(page.$('#rem-summary').textContent, /영업일 아침/);
+  assert.match(page.$('#rem-summary').textContent, /업무 시작/);
   assert.ok(hangulLeft(page.texts()).length > 50, '처음엔 한국어');
   cy.__emit('onLang', 'ja');
   await page.settle();
@@ -165,12 +165,12 @@ test('설정 창: 한국어로 열어 둔 창이 언어 바뀜(lang)에 바로 �
   const left = hangulLeft(page.texts(), ALLOW);
   assert.deepEqual(left, [], left.map((x) => `${x.where}: ${x.text}`).join('\n'));
   assert.equal(page.$('#h-rem').textContent, '今日やることの通知');
-  assert.match(page.$('#rem-summary').textContent, /営業日の朝/);
+  assert.match(page.$('#rem-summary').textContent, /業務開始/);
   cy.__emit('onLang', 'ko');
   await page.settle();
   assert.equal(page.$('#h-rem').textContent, '오늘 할 일 알림');
   assert.equal(page.document.title, '설정');
-  assert.match(page.$('#rem-summary').textContent, /영업일 아침 첫 실행 때 한 번, 그 뒤 2시간마다\(8시~21시\), 10:00, 15:30에 알려 줘요/);
+  assert.match(page.$('#rem-summary').textContent, /업무 시작, 퇴근 10분 전, 근무 시간 중 2시간마다, 10:00, 15:30에 알려 줘요/);
 });
 
 test('설정 창이 쓰는 순수 모듈 글(일본어): 요약·오류·연결 해제·캘린더·캐릭터 편집·행동 지침에 한글 없음', () => {

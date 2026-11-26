@@ -257,7 +257,7 @@ export class BubbleQueue {
 // ---- 말풍선 마크다운(안전한 일부): 글머리표·줄바꿈·굵게·인라인 코드·간단한 표·:색[…]·==형광펜== ----
 // 렌더러는 src/markdown.js(marked, 원시 HTML 막음) → DOMPurify(BUBBLE_PURIFY) 로 그린다. 링크는 http/https/slack 만,
 // 누르면 메인이 스킴을 다시 확인하고 연다. 평범한 글은 예전처럼 textContent.
-const MD_HINT = /(^|\n)\s*(?:[-*•]\s|\d+\.\s|\|.*\|)|\*\*[^*\n]+\*\*|`[^`\n]+`|:(?:red|green|blue|orange|purple|gray)\[|==\S|\[[^\]\n]+\]\((?:https?|slack):/;
+const MD_HINT = /(^|\n)\s*(?:[-*•]\s|\d+\.\s|\|.*\|)|\*\*[^*\n]+\*\*|`[^`\n]+`|:(?:red|green|blue|orange|purple|gray|yellow)\[|==\S|\[[^\]\n]+\]\((?:https?|slack):/;
 export function looksMarkdown(s) {
   return typeof s === 'string' && MD_HINT.test(s);
 }
@@ -284,5 +284,5 @@ export const BUBBLE_PURIFY = {
   FORBID_ATTR: ['style'],
 };
 // 남길 class: 색 글자(c-red…)·콜아웃뿐. 렌더러가 거른 HTML 의 class 를 이걸로 한 번 더 추린다
-const BUBBLE_CLASS = /^(?:notification-date|notification-day|c-(?:red|green|blue|orange|purple|gray)|callout(?:-(?:note|tip|important|warning|caution|title))?)$/;
+const BUBBLE_CLASS = /^(?:todo-notice-table|notification-date|notification-day|c-(?:red|green|blue|orange|purple|gray|yellow)|callout(?:-(?:note|tip|important|warning|caution|title))?)$/;
 export const keepClasses = (cls) => String(cls ?? '').split(/\s+/).filter((c) => BUBBLE_CLASS.test(c)).join(' ');

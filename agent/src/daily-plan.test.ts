@@ -54,10 +54,10 @@ test("아침 질문은 영업일 한 번", () => {
   assert.equal(sat.askMorning(), null, "주말엔 안 묻는다");
 });
 
-test("알림 설정: 기본은 아침 한 번, 잘못된 값 거절", () => {
+test("알림 설정: 기본은 업무 시작·퇴근 전, 잘못된 값 거절", () => {
   assert.deepEqual(todayReminderOf(undefined), DEFAULT_TODAY_REMINDER);
-  assert.deepEqual(todayReminderOf({ mode: "off", everyHours: -1, times: ["09:30", "x", "09:30", "08:00"] }), { mode: "off", everyHours: 0, times: ["08:00", "09:30"] });
-  assert.deepEqual(validateTodayReminder({ everyHours: 2 }), { mode: "auto", everyHours: 2, times: [] });
+  assert.deepEqual(todayReminderOf({ mode: "off", everyHours: -1, times: ["09:30", "x", "09:30", "08:00"] }), { mode: "off", everyHours: 0, times: ["08:00", "09:30"], workStart:true,workEnd:true,midday:true });
+  assert.deepEqual(validateTodayReminder({ everyHours: 2 }), { mode: "auto", everyHours: 2, times: [], workStart:true,workEnd:true,midday:true });
   assert.throws(() => validateTodayReminder({ mode: "loud" }));
   assert.throws(() => validateTodayReminder({ times: ["25:00"] }));
   assert.throws(() => validateTodayReminder({ extra: 1 }));

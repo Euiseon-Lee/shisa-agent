@@ -38,6 +38,7 @@ export type Dashboard = {
 export type DashTrash = { id: string; title: string; priority: number; source: string; trashedAt: string };
 export type DashRule = { id: string; text: string; summary: string; enabled: boolean; hits: number; created: string };
 export type DashTodo = import('./todo-event-date.ts').EventDates & {
+  reminder?:Todo['reminder'];
   schedule?: Todo["schedule"]; seriesId?: string;
   scheduledDate?: string;
   id: string; title: string; source: string; link?: string; priority: number; note?: string; userEdited: boolean;
@@ -101,6 +102,7 @@ function dashTodo(t: Todo): DashTodo {
     ...(t.schedule ? {schedule:t.schedule} : {}), ...(t.seriesId ? {seriesId:t.seriesId} : {}),
     ...(Number.isFinite(t.scheduleSort) ? {scheduleSort:t.scheduleSort} : {}),
     ...(t.scheduledDate ? { scheduledDate: t.scheduledDate } : {}),
+    ...(t.reminder ? {reminder:t.reminder} : {}),
     ...(t.eventDate ? {eventDate:t.eventDate, responseDueDate:t.responseDueDate, recommendedDate:t.recommendedDate, dateKind:t.dateKind} : {}),
     ...(t.note ? { note: t.note } : {}), userEdited: !!t.userEdited?.some((f) => f !== "status"), // 상태만 바꾼 건 표시 안 함
     ...(t.doneBy ? { doneBy: t.doneBy } : {}),

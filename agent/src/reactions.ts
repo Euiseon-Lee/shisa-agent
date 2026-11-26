@@ -33,7 +33,7 @@ export function briefingTodoBubble(items:TodoLike[], added=0, now=new Date()):Bu
  const overdue=eligible.filter(t=>(t.schedule?.mode==='range'?t.schedule.end:t.scheduledDate)!<today).length;
  const text=eligible.length ? t('say.briefing_tasks',{n:eligible.length})+(overdue?t('say.briefing_overdue',{n:overdue}):'')+(added?t('say.briefing_added',{n:added}):'') : t('say.briefing_empty');
  return {id:'briefing-summary',text,kind:eligible.length?'todo':'info',ttlMs:30e3,
-  detail:todoListMd(eligible,'user',eligible.length,true),open:{section:'todos'}};
+  detail:todoListMd(eligible,'user',eligible.length,true,item=>todoDateTone(item,now)),open:{section:'todos'}};
 }
 
 export type MergeState = "asking" | "merging" | "merged" | "declined";
@@ -95,12 +95,28 @@ function todoDateLabel(todo: TodoLike): string {
   return todo.scheduledDate ? `:date[${todo.scheduledDate}]` : t("say.list_no_date");
 }
 
-export function todoListMd(items: TodoLike[], via: string, max = 6, forceTable = false): string {
+export type TodoDateTone = 'red' | 'purple' | 'blue' | 'yellow' | 'orange';
+function todoDateTone(item: TodoLike, now=new Date()): TodoDateTone | undefined {
+  const today=kstDate(now);
+  const date=item.schedule?.mode==='range' ? today<item.schedule.start?item.schedule.start:today>item.schedule.end?item.schedule.end:today : item.scheduledDate;
+  if(!validDay(date))return undefined;
+  if(date<today)return 'red';
+  if(date===today)return 'purple';
+  if(date===addScheduleDays(today,1))return 'blue';
+  const weekday=new Date(today+'T12:00:00Z').getUTCDay();
+  return date<=addScheduleDays(today,(7-weekday)%7)?'yellow':'orange';
+}
+export function todoListMd(items: TodoLike[], via: string, max = 6, forceTable = false, dateTone?: TodoDateTone | ((item: TodoLike) => TodoDateTone | undefined)): string {
   const cell = (s: string) => s.replace(/\s+/g, " ").replace(/\|/g, "/").trim();
   const shown = items.slice(0, max);
   const more = items.length > max ? t("say.list_more", { n: items.length - max }) : "";
   if (shown.length >= 4 || (forceTable && shown.length > 0)) {
-    const rows = shown.map((t) => `| ${cell(todoDateLabel(t))} | ${cell(t.title)} | ${cell(t.source ?? via)} |`);
+    const rows = shown.map((t) => {
+      const date = cell(todoDateLabel(t));
+      const tone = typeof dateTone === 'function' ? dateTone(t) : dateTone ?? todoDateTone(t);
+      const colored = !tone ? date : date.startsWith(':date[') ? date.replace(']', `:${tone}]`) : `:${tone}[${date}]`;
+      return `| ${colored} | ${cell(t.title)} | ${cell(t.source ?? via)} |`;
+    });
     return [t("say.list_head"), "|---|---|---|", ...rows].join("\n") + more;
   }
   return shown.map((t) => {

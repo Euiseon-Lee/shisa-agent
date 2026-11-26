@@ -364,15 +364,16 @@ test("할 일 표는 긴 제목을 생략하지 않는다", () => {
   assert.equal(md.split(title).length - 1, 4);
 });
 
-test("할 일 표는 예정일과 기간을 표시하고 우선순위를 날짜로 추측하지 않는다", () => {
+test("할 일 표는 예정일과 기간을 표시하고 우선순위를 날짜로 추측하지 않는다", ctx => {
+ ctx.mock.timers.enable({apis:['Date'],now:new Date('2026-11-26T03:00:00Z')});
  const md = todoListMd([
   {id:"1",title:"하루",scheduledDate:"2026-11-18",priority:1},
   {id:"2",title:"반복",scheduledDate:"2026-11-20",schedule:{mode:"repeat",start:"2026-11-18",end:"2026-12-02"}},
   {id:"3",title:"기간",schedule:{mode:"range",start:"2026-11-18",end:"2026-12-02"}},
   {id:"4",title:"미정",priority:2}
  ], "user");
- assert.match(md, /\| :date\[2026-11-18\] \| 하루/);
- assert.match(md, /\| :date\[2026-11-20\] \| 반복/);
+ assert.match(md, /\| :date\[2026-11-18:red\] \| 하루/);
+ assert.match(md, /\| :date\[2026-11-20:red\] \| 반복/);
  assert.match(md, /11\/18 - 12\/02/);
  assert.match(md, /일정 미정 \| 미정/);
 });

@@ -1,7 +1,7 @@
 // 데몬 엔트리포인트: 버스 + Slack + 주기 작업(세션·Slack 수집, 프로필 학습, 브리핑)
 import { installFileLog, stallLag } from "./log.ts";
 import { loadConfig } from "./config.ts";
-import { DEFAULT_TODAY_REMINDER } from "./daily-plan.ts";
+import {TaskReminders} from './task-reminders.ts';
 import { localAsk, localLine } from "./local-mode.ts";
 import { LEAVE_BEFORE_MIN, WorkAlerts, minsToLeave, workHoursOf } from "./work-hours.ts";
 import { Weather, setWeatherPeek, weatherDue, weatherLine, weatherOf } from "./weather.ts";
@@ -23,7 +23,7 @@ import { learnFrom } from "./profile.ts";
 import { runAfterSlackIngest } from "./todo-auto.ts";
 import { checkProgress } from "./todo-progress.ts";
 import { McpHealth, connectorServerUrls, healthNote } from "./mcp-health.ts";
-import { Reactions, realMergeAsk, todoListMd } from "./reactions.ts";
+import { Reactions, realMergeAsk } from "./reactions.ts";
 import { HOME_DIR } from "./config.ts";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
@@ -141,22 +141,10 @@ const safe = (name: string, fn: () => unknown) => async () => {
 // 이전 데몬이 답하다 꺼진 턴(배포·재시작)을 닫는다 — 물음만 덩그러니 남지 않게
 safe("close-dangling", () => { const k = agent.closeDanglingTurns(); if (k) console.log(`[chat] 끊긴 대화 ${k}개 닫음`); })();
 
-// 오늘 할 일 알림: 설정(todayReminder)대로, 모델 없이 정해진 말로(뇌가 없거나 local 이어도 뜬다)
-// 아침 안내(ask)는 예전처럼 패널 '오늘 할 일'도 연다. 오버레이가 붙을 때(앱 첫 실행)와 1분마다 확인
-function remindToday(opened = false) {
-  const r = agent.dailyPlan().remind(cfg.todayReminder ?? DEFAULT_TODAY_REMINDER, { opened });
-  if (!r) return;
-  bus.bubble({
-    id: `today:${r.plan.date}`,
-    text: r.text,
-    detail: todoListMd(r.plan.items.filter(item => !item.done), "user", r.plan.items.length, true),
-    kind: "todo",
-    ttlMs: r.carry ? 10 * 60e3 : 60e3, // 어제 남은 것 물음은 고를 때까지 조금 더 오래
-    open: { section: "today" },
-    ...(r.carry ? { carry: { n: r.carry.n } } : {}),
-  });
-  bus.dashboardChanged();
-  if (r.kind === "ask") bus.openPanel("today");
+// Work-hour summaries and opt-in occurrence reminders use the existing durable bubbles.
+const taskReminders = new TaskReminders(store);
+function remindToday() {
+  for(const notice of taskReminders.tick(cfg)) bus.bubble(notice);
 }
 // 근무 시간(work-hours.ts, 설정 창 「근무 시간」): 근무일에 하루 한 번씩. 기록은 lunch.json(점심·출근·퇴근 날짜)
 //  - 출근 인사: 출근 시각 뒤 처음 확인할 때 아침 인사(local.morning, 영상 없음). 로컬 뇌 브리핑의 아침 인사와 같은 기록이라 두 번 안 뜬다
@@ -217,9 +205,9 @@ async function weatherTick() {
   } finally { weatherBusy = false; }
 }
 const safeWeather = () => { weatherTick().catch((e: any) => console.warn("[weather] 알림:", e?.message ?? e)); };
-bus.onOverlay = () => { remindToday(true); safeWork(); };
+bus.onOverlay = () => { remindToday(); safeWork(); };
 setInterval(() => {
-  try { remindToday(false); } catch (e: any) { console.warn("[today] 알림:", e?.message ?? e); }
+  try { remindToday(); } catch (e: any) { console.warn("[today] 알림:", e?.message ?? e); }
   safeWork();
 }, 60e3).unref?.();
 
@@ -397,6 +385,7 @@ await bus.listen(cfg.port, {
     remove: (id) => agent.deletePermission(id),
   },
   settings: { get: () => settings.view(), put: (body) => settings.put(body) },
+  previewTodoReminder: kind => {bus.bubble(taskReminders.preview(kind));return {ok:true};},
   characters: characterStore,
   // AI 없이 고르는 질문(캐릭터 더블클릭 칩): 오늘 할 일·열린 할 일·캘린더만 보고 정해진 말로
   // 응원해 줘·춤춰 줘: 답과 함께 그 캐릭터의 응원·춤 영상(앱이 캐릭터마다 고른다)

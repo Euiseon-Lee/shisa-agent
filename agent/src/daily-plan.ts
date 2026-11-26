@@ -64,10 +64,10 @@ export function planItem(t: Todo): PlanItem {
 }
 
 // ---- 알림 설정(config.json todayReminder · 설정 창) ----
-// auto: 영업일 아침 첫 실행(또는 9시가 지나 처음 확인할 때) 한 번 + everyHours 시간마다(0 = 안 함) + times 시각마다
+// auto: TaskReminders에서 근무 시작/퇴근 전, 선택한 중간 알림과 항목별 알림을 처리한다.
 // off: 알리지 않는다(패널도 저절로 열지 않는다)
-export type TodayReminder = { mode: "auto" | "off"; everyHours: number; times: string[] };
-export const DEFAULT_TODAY_REMINDER: TodayReminder = { mode: "auto", everyHours: 0, times: [] };
+export type TodayReminder = { mode: "auto" | "off"; everyHours: number; times: string[]; workStart?: boolean; workEnd?: boolean; midday?: boolean };
+export const DEFAULT_TODAY_REMINDER: TodayReminder = { mode: "auto", everyHours: 0, times: [], workStart:true, workEnd:true, midday:false };
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 // everyHours 최솟값(15분). 0 은 끔. 위로는 막지 않는다
@@ -82,6 +82,8 @@ export function todayReminderOf(raw: unknown, notes?: string[]): TodayReminder {
     mode: r.mode === "off" ? "off" : "auto",
     everyHours: everyOk ? every : 0,
     times: Array.isArray(r.times) ? [...new Set(r.times.filter((x): x is string => typeof x === "string" && TIME.test(x)))].sort() : [],
+    workStart:r.workStart !== false, workEnd:r.workEnd !== false,
+    midday:typeof r.midday==='boolean' ? r.midday : (everyOk && every>0) || (Array.isArray(r.times) && r.times.length>0),
   };
 }
 
@@ -89,11 +91,12 @@ export function todayReminderOf(raw: unknown, notes?: string[]): TodayReminder {
 export function validateTodayReminder(raw: unknown): TodayReminder {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("todayReminder must be an object");
   const r = raw as Record<string, unknown>;
-  for (const k of Object.keys(r)) if (!["mode", "everyHours", "times"].includes(k)) throw new Error(`unknown key: todayReminder.${k}`);
+  for (const k of Object.keys(r)) if (!["mode", "everyHours", "times", "workStart", "workEnd", "midday"].includes(k)) throw new Error(`unknown key: todayReminder.${k}`);
+  for(const k of ['workStart','workEnd','midday']) if(r[k]!==undefined && typeof r[k]!=='boolean') throw new Error(`todayReminder.${k} must be boolean`);
   if (r.mode !== undefined && r.mode !== "auto" && r.mode !== "off") throw new Error("todayReminder.mode must be auto or off");
   if (r.everyHours !== undefined && (typeof r.everyHours !== "number" || !Number.isFinite(r.everyHours) || (r.everyHours !== 0 && r.everyHours < EVERY_HOURS_MIN))) throw new Error(`todayReminder.everyHours must be 0 or at least ${EVERY_HOURS_MIN}`);
   if (r.times !== undefined && (!Array.isArray(r.times) || r.times.some((x) => typeof x !== "string" || !TIME.test(x)))) throw new Error("todayReminder.times must list HH:MM");
-  return todayReminderOf({ ...DEFAULT_TODAY_REMINDER, ...r });
+  return todayReminderOf(r);
 }
 
 // carry: 아침 질문 「어제 남은 N개, 오늘도 할까요?」. 말풍선에 [그대로 둘게요] [이번 주로 내려요] [하나씩 볼게요]

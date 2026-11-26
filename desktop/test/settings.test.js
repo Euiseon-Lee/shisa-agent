@@ -178,8 +178,8 @@ test('설정 창: 문구 칸 · 저장은 그 문구 하나만 PUT', async () =>
 });
 
 test('오늘 할 일 알림: 저장 본문 거르기 · 시각 읽기 · 한 줄 요약, 설정 창에 칸이 있다', () => {
-  assert.deepEqual(sanitizeSettingsPatch({ todayReminder: { mode: 'auto', everyHours: 2, times: ['15:00', '09:30', '15:00'] } }), { todayReminder: { mode: 'auto', everyHours: 2, times: ['09:30', '15:00'] } });
-  assert.deepEqual(sanitizeSettingsPatch({ todayReminder: { mode: 'off' } }), { todayReminder: { mode: 'off', everyHours: 0, times: [] } });
+  assert.deepEqual(sanitizeSettingsPatch({ todayReminder: { mode: 'auto', everyHours: 2, times: ['15:00', '09:30', '15:00'] } }), { todayReminder: { mode: 'auto', everyHours: 2, times: ['09:30', '15:00'], workStart:true,workEnd:true,midday:true } });
+  assert.deepEqual(sanitizeSettingsPatch({ todayReminder: { mode: 'off' } }), { todayReminder: { mode: 'off', everyHours: 0, times: [], workStart:true,workEnd:true,midday:false } });
   assert.equal(sanitizeSettingsPatch({ todayReminder: { mode: 'loud' } }), null);
   assert.equal(sanitizeSettingsPatch({ todayReminder: { times: ['9시'] } }), null);
   assert.equal(sanitizeSettingsPatch({ todayReminder: { everyHours: -1 } }), null);
@@ -188,8 +188,8 @@ test('오늘 할 일 알림: 저장 본문 거르기 · 시각 읽기 · 한 줄
   assert.deepEqual(parseTimes('10:00, 9:5 15시'), { times: ['09:05', '10:00', '15:00'] });
   assert.deepEqual(parseTimes(''), { times: [] });
   assert.match(parseTimes('25:00').error, /10:00처럼/);
-  assert.equal(reminderSummary(REMINDER_DEFAULT), '영업일 아침 첫 실행 때 한 번 알려 줘요. 오늘 할 일을 모두 완료하면 알리지 않아요.');
-  assert.equal(reminderSummary({ mode: 'auto', everyHours: 2, times: ['15:00'] }), '영업일 아침 첫 실행 때 한 번, 그 뒤 2시간마다(8시~21시), 15:00에 알려 줘요. 오늘 할 일을 모두 완료하면 알리지 않아요.');
+  assert.equal(reminderSummary(REMINDER_DEFAULT), '업무 시작, 퇴근 10분 전 알려 줘요. 해당 안내에 남은 일이 없으면 알리지 않아요.');
+  assert.equal(reminderSummary({ mode: 'auto', everyHours: 2, times: ['15:00'] }), '업무 시작, 퇴근 10분 전, 근무 시간 중 2시간마다, 15:00에 알려 줘요. 해당 안내에 남은 일이 없으면 알리지 않아요.');
   assert.match(reminderSummary({ mode: 'off' }), /알리지 않아요/);
   assert.doesNotMatch(reminderSummary({ mode: 'auto', everyHours: 1, times: [] }), /—/);
   const html = readFileSync(new URL('../renderer/settings.html', import.meta.url), 'utf8');

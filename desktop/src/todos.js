@@ -91,6 +91,8 @@ function applyPatch(t, patch) {
 export function sanitizeTodoPatch(v, { allowStatus = true } = {}) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const out = {};
+  if(v.reminder===null)out.reminder=null;
+  else if(v.reminder && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.reminder.time) && [0,1].includes(v.reminder.daysBefore))out.reminder={time:v.reminder.time,daysBefore:v.reminder.daysBefore};
   if(v.schedule === null || (v.schedule && ['range','repeat'].includes(v.schedule.mode))) out.schedule = v.schedule;
   if(v.stopRepeat === true) out.stopRepeat = true;
   if (v.scheduledDate === null || (typeof v.scheduledDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.scheduledDate))) out.scheduledDate = v.scheduledDate;

@@ -934,6 +934,10 @@ function renderReminder() {
     box.append(lab);
   }
   $('rem-auto').hidden = r.mode === 'off';
+  $('rem-start').checked=r.workStart;
+  $('rem-end').checked=r.workEnd;
+  $('rem-midday').checked=r.midday;
+  $('rem-extra').hidden=!r.midday;
   const sel = $('rem-every');
   const hours = REMINDER_HOURS.includes(r.everyHours) ? REMINDER_HOURS : [...REMINDER_HOURS, r.everyHours].sort((a, b) => a - b);
   sel.replaceChildren(...hours.map((h) => { const o = el('option', null, h ? t('settings.rem_repeat_hours', { n: h }) : t('settings.rem_repeat_none')); o.value = String(h); return o; }));
@@ -943,6 +947,13 @@ function renderReminder() {
   $('rem-summary').textContent = r.mode === 'off' ? '' : reminderSummary(r);
 }
 $('rem-every').addEventListener('change', (e) => saveReminder({ everyHours: Number(e.target.value) || 0 }));
+$('rem-start').addEventListener('change',e=>saveReminder({workStart:e.target.checked}));
+$('rem-end').addEventListener('change',e=>saveReminder({workEnd:e.target.checked}));
+$('rem-midday').addEventListener('change',e=>saveReminder({midday:e.target.checked,...(e.target.checked&&!reminder().times.length&&!reminder().everyHours?{times:['13:00']}: {})}));
+for(const kind of ['start','end']) $('rem-preview-'+kind).addEventListener('click',async()=>{
+  try {const result=await cy.previewTodoReminder(kind);$('rem-err').textContent=result?.ok?t('settings.rem_preview_sent'):t('settings.rem_preview_fail');}
+  catch {$('rem-err').textContent=t('settings.rem_preview_fail');}
+});
 async function saveTimes() {
   const p = parseTimes($('rem-times').value);
   if (p.error) { $('rem-err').textContent = p.error; return; }

@@ -80,12 +80,20 @@
       <p class="hint" data-i18n="settings.rem_hint">캐릭터가 오늘 할 일 등록을 안내하고 예정된 할 일을 알려 줘요. AI 연결 없이도 사용할 수 있어요.</p>
       <div id="rem-mode" class="toggles" role="radiogroup" data-i18n-aria-label="settings.h_rem" aria-label="오늘 할 일 알림"></div>
       <div id="rem-auto" class="rem-auto">
+        <label class="rem-line"><input id="rem-start" type="checkbox"><span data-i18n="settings.rem_start">업무 시작</span></label>
+        <label class="rem-line"><input id="rem-end" type="checkbox"><span data-i18n="settings.rem_end">퇴근 10분 전</span></label>
+        <p class="hint" data-i18n="settings.rem_work_hint">근무 시간·요일 설정을 따릅니다. 시작에는 미완료·오늘, 퇴근 전에는 남은 일·내일을 안내합니다.</p>
+        <label class="rem-line"><input id="rem-midday" type="checkbox"><span data-i18n="settings.rem_midday">중간 알림 사용 (선택)</span></label>
+        <div id="rem-extra">
         <label class="rem-line"><span data-i18n="settings.rem_repeat_label">추가 반복 알림</span><select id="rem-every" data-i18n-aria-label="settings.rem_every_aria" aria-label="몇 시간마다"></select></label>
         <div class="gl-add">
           <input id="rem-times" type="text" data-i18n-placeholder="settings.rem_times_ph" data-i18n-aria-label="settings.rem_times_aria" placeholder="지정 시각 (예: 10:00, 15:30)" aria-label="알릴 시각">
           <button id="rem-times-save" type="button" class="primary" data-i18n="settings.save">저장</button>
         </div>
+        </div>
+        <p class="hint" data-i18n="settings.rem_item_hint">항목별 알림은 할 일의 ⋯ → 알림 설정에서 전날·당일과 시각을 선택해 켤 수 있습니다. 반복 업무는 이후 회차에도 적용됩니다.</p>
       </div>
+      <div class="gl-add"><button id="rem-preview-start" type="button" class="ghost" data-i18n="settings.rem_preview_start">시작 알림 미리보기</button><button id="rem-preview-end" type="button" class="ghost" data-i18n="settings.rem_preview_end">퇴근 전 알림 미리보기</button></div>
       <p id="rem-summary" class="hint"></p>
       <div id="rem-err" class="ph-err" role="status"></div>
     </section>

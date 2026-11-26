@@ -7,6 +7,17 @@ import { looksMarkdown, bubbleMd, isListBubble, keepClasses, BUBBLE_PURIFY } fro
 const md = createMarkdown(Marked);
 const render = (s) => md(bubbleMd(s));
 
+test('알림 날짜 색은 날짜 셀에만 적용하고 표 열을 유지한다', () => {
+  for (const tone of ['red', 'purple', 'blue', 'yellow', 'orange']) {
+    const html = render(`| 날짜 | 할 일 | 출처 |\n|---|---|---|\n| :date[2026-11-27:${tone}] | 업무 | user |`);
+    assert.equal((html.match(/<td>/g) ?? []).length, 3);
+    assert.ok(html.includes(`class="notification-date c-${tone}"`));
+    assert.doesNotMatch(html, /notification-day/);
+    assert.equal(keepClasses(`notification-date c-${tone}`), `notification-date c-${tone}`);
+  }
+  assert.match(render(':purple[11/26 - 12/24]'), /class="c-purple"/);
+});
+
 test('말풍선 마크다운 감지: 목록·표·굵게·코드·색·형광펜은 마크다운, 평범한 문장은 아님', () => {
   for (const s of ['- a\n- b', '1. 하나', '**굵게** 말', '`npm test` 통과', ':red[마감]', '==거의 끝==', '| a | b |\n|---|---|', '• [P1] 옛 글머리']) assert.ok(looksMarkdown(s), s);
   for (const s of ['오늘 할 일이 많네요… 급한 것만 8개예요.', '회의 10분 전이에요! 〈디자인 싱크〉 15:00', '머지했어요 🎉', '', null]) assert.equal(looksMarkdown(s), false, String(s));
