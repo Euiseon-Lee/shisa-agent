@@ -77,6 +77,7 @@ export function groupTodos(todos) {
 
       ...(t.schedule ? {schedule:t.schedule} : {}), ...(t.seriesId ? {seriesId:t.seriesId} : {}),
       ...(str(t.scheduledDate) ? { scheduledDate: t.scheduledDate } : {}),
+      ...(t.eventDate ? {eventDate:t.eventDate, responseDueDate:t.responseDueDate, recommendedDate:t.recommendedDate, dateKind:t.dateKind} : {}),
       ...(t.appliedRule && str(t.appliedRule.text) ? { appliedRule: { id: str(t.appliedRule.id), text: t.appliedRule.text } } : {}), // 적용된 할 일 규칙
       ...(str(t.progress) ? { progress: t.progress, progressAt: str(t.progressAt) } : {}), // 어디까지 됐는지(데몬 진행 확인)
       ...(typeof t.doing === 'boolean' ? { doing: t.doing } : {}), // 사용자가 누른 (진행중) 토글
@@ -103,7 +104,7 @@ export function shapeRecentDone(list, now = Date.now()) {
       reason: t.doneBy === 'auto' ? str(t.autoReason) : '',
       evidence: t.doneBy === 'auto' && str(t.autoEvidence) && isSafeLink(t.autoEvidence) ? t.autoEvidence : null,
       doneAt: str(t.doneAt),
-      scheduledDate: str(t.scheduledDate), schedule:t.schedule, seriesId:t.seriesId,
+      scheduledDate: str(t.scheduledDate), schedule:t.schedule, seriesId:t.seriesId, eventDate:t.eventDate, responseDueDate:t.responseDueDate, recommendedDate:t.recommendedDate, dateKind:t.dateKind,
       doneRel: relativeTime(t.doneAt, now),
     }));
 }
@@ -296,7 +297,7 @@ export function shapeDashboard(raw, now = Date.now()) {
   const openIds = new Set(todayOpen.map((t) => t.id));
   const todayDone = arr(today?.items)
     .filter((it) => it && typeof it === 'object' && str(it.id) && str(it.title) && it.done === true && !openIds.has(it.id))
-    .map((it) => ({ id: it.id, title: it.title, source: str(it.source), ...(it.sourceTool ? {sourceTool:it.sourceTool} : {}), ...(it.mailPurpose ? {mailPurpose:it.mailPurpose} : {}), priority: [1, 2, 3, 4].includes(it.priority) ? it.priority : 1, auto: false, doneRel: '', scheduledDate:it.scheduledDate, schedule:it.schedule, seriesId:it.seriesId }));
+    .map((it) => ({ id: it.id, title: it.title, source: str(it.source), ...(it.sourceTool ? {sourceTool:it.sourceTool} : {}), ...(it.mailPurpose ? {mailPurpose:it.mailPurpose} : {}), priority: [1, 2, 3, 4].includes(it.priority) ? it.priority : 1, auto: false, doneRel: '', scheduledDate:it.scheduledDate, schedule:it.schedule, seriesId:it.seriesId, ...(it.eventDate ? {eventDate:it.eventDate,responseDueDate:it.responseDueDate,recommendedDate:it.recommendedDate,dateKind:it.dateKind} : {}) }));
   const todayItems = [
     ...todayOpen.map((t) => ({ id: t.id, title: t.title, done: false, priority: t.priority })),
     ...todayDone.map((t) => ({ id: t.id, title: t.title, done: true, priority: t.priority })),

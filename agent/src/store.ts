@@ -1,4 +1,5 @@
 import { installActivityTracking } from './activity-statistics.ts';
+import { invitationDates, type EventDates } from './todo-event-date.ts';
 import { parseSchedule, addScheduleDays, scheduledViewDate, type TodoSchedule } from "./todo-schedule.ts";
 // 로컬 지식그래프 + 작업 상태. node:sqlite 하나에 다 담는다(~/.cy-agent/cy.db).
 import { localDate } from "./calendar.ts";
@@ -10,7 +11,7 @@ import type { Attachment } from "./attachments.ts";
 import { IS_WIN, pathWithin } from "./plat.ts";
 
 export type Node = { id: string; kind: string; label: string; props: Record<string, unknown>; updated: string };
-export type Todo = {
+export type Todo = EventDates & {
   id: string; title: string; source: string; link?: string; priority: number; status: string; created: string;
   schedule?: TodoSchedule; seriesId?: string;
   scheduleSort?: number; scheduledDate?: string; doneAt?: string; irrelevantAt?: string;
@@ -125,6 +126,7 @@ function todoRow(r: any): Todo {
     ...(r.schedule ? { schedule: JSON.parse(r.schedule) as TodoSchedule } : {}),
     ...(r.series_id ? { seriesId: r.series_id } : {}),
     ...(r.scheduled_date ? { scheduledDate: scheduledViewDate(r.schedule ? JSON.parse(r.schedule) : undefined, r.scheduled_date, kstDay(now())) } : {}),
+    ...invitationDates({title:r.title,description:r.description,note:r.note,created:r.created,scheduledDate:r.scheduled_date,schedule:r.schedule,dateManual:!!r.date_manual}),
     ...(r.done_at ? { doneAt: r.done_at } : {}),
     ...(r.irrelevant_at ? { irrelevantAt: r.irrelevant_at } : {}),
     ...(r.note ? { note: r.note } : {}), ...(r.updated ? { updated: r.updated } : {}), userEdited: edited,
@@ -172,7 +174,7 @@ export class Store {
     const cols = new Set((this.db.prepare("PRAGMA table_info(todos)").all() as any[]).map((c) => c.name));
     const add: [string, string][] = [
       ["schedule_sort", "REAL"], ["schedule", "TEXT"], ["series_id", "TEXT"],
-      ["scheduled_date", "TEXT"], ["done_at", "TEXT"], ["irrelevant_at", "TEXT"],
+      ["scheduled_date", "TEXT"], ["done_at", "TEXT"], ["irrelevant_at", "TEXT"], ["date_manual", "INTEGER NOT NULL DEFAULT 0"],
       ["note", "TEXT"], ["updated", "TEXT"], ["user_edited", "TEXT NOT NULL DEFAULT '[]'"],
       ["done_by", "TEXT"], ["auto_reason", "TEXT"], ["auto_evidence", "TEXT"], ["auto_reverted", "INTEGER NOT NULL DEFAULT 0"],
       ["description", "TEXT"], ["origin", "TEXT"], ["source_ref", "TEXT"], ["sort", "REAL"], ["applied_rule", "TEXT"],
@@ -415,7 +417,7 @@ export class Store {
       .run(id, t.title, t.source ?? "user", t.link ?? null, priority, at, t.note ?? null, at,
         t.description ?? null, t.sourceRef ?? null, t.origin ? JSON.stringify(t.origin) : null, t.projectId ?? null,
         t.projectId ? this.nextProjectOrder(t.projectId) : null);
-    if (t.scheduledDate !== undefined) this.db.prepare("UPDATE todos SET scheduled_date = ? WHERE id = ?").run(t.scheduledDate, id);
+    if (t.scheduledDate !== undefined) this.db.prepare("UPDATE todos SET scheduled_date = ?, date_manual = 1 WHERE id = ?").run(t.scheduledDate, id);
     if (t.schedule) this.db.prepare("UPDATE todos SET schedule = ?, scheduled_date = ? WHERE id = ?").run(JSON.stringify(t.schedule), t.schedule.start, id);
     this.log(id, t.title, "added", by, undefined, at);
     return this.getTodo(id)!;
@@ -576,7 +578,7 @@ export class Store {
           const created=this.addRepeatingTodo({...template,schedule},'user',current.seriesId?current.scheduledDate:undefined,skipDates);
           this.db.prepare('DELETE FROM todos WHERE id = ?').run(created.id);
           this.db.prepare('UPDATE todos SET schedule = ?, series_id = ?, scheduled_date = ? WHERE id = ?').run(JSON.stringify(schedule),created.seriesId!,created.scheduledDate!,id);
-        } else this.db.prepare('UPDATE todos SET schedule = ?, series_id = NULL, scheduled_date = ? WHERE id = ?').run(schedule?JSON.stringify(schedule):null,schedule?.start ?? patch.scheduledDate ?? null,id);
+        } else this.db.prepare('UPDATE todos SET schedule = ?, series_id = NULL, scheduled_date = ?, date_manual = 1 WHERE id = ?').run(schedule?JSON.stringify(schedule):null,schedule?.start ?? patch.scheduledDate ?? null,id);
         this.db.exec('RELEASE change_schedule');
       } catch(e) {this.db.exec('ROLLBACK TO change_schedule; RELEASE change_schedule');throw e;}
       const {schedule: ignored, scheduledDate: date, ...rest}=patch;
@@ -613,7 +615,7 @@ export class Store {
       if ((patch.projectId || undefined) !== cur.projectId) { sets.push("project_order = ?"); vals.push(patch.projectId ? this.nextProjectOrder(patch.projectId) : null); }
     }
     if (patch.scheduledDate !== undefined && cur.schedule?.mode === "range") { sets.push("schedule = NULL"); }
-    if (patch.scheduledDate !== undefined) { sets.push("scheduled_date = ?"); vals.push(patch.scheduledDate); }
+    if (patch.scheduledDate !== undefined) { sets.push("scheduled_date = ?", "date_manual = 1"); vals.push(patch.scheduledDate); }
     if (!sets.length) return cur;
     if (patch.status !== undefined && patch.status !== cur.status) { sets.push("done_by = ?"); vals.push(patch.status === "done" ? "user" : null); }
     sets.push("user_edited = ?", "updated = ?");
@@ -734,8 +736,8 @@ export class Store {
   // 오늘 할 일 = 우선순위 1(오늘 반드시) 중 열린 것 + 그날(이 맥 시간대) 끝낸 것. 휴지통 제외. 순서는 열린 할 일 목록과 같다
   todayTodos(day: string): Todo[] {
     this.materializeRepeats(day);
-    const rows = this.db.prepare("SELECT * FROM todos WHERE (scheduled_date = ? OR (json_extract(schedule, '$.mode') = 'range' AND json_extract(schedule, '$.start') <= ? AND json_extract(schedule, '$.end') >= ?)) AND status IN ('open','done') AND trashed_at IS NULL ORDER BY sort IS NULL, sort, created").all(day,day,day) as any[];
-    return rows.map(todoRow).filter(t => t.status === 'open' || (!!t.doneAt && kstDay(t.doneAt) === day));
+    const rows = this.db.prepare("SELECT * FROM todos WHERE (scheduled_date IS NULL OR scheduled_date = ? OR (json_extract(schedule, '$.mode') = 'range' AND json_extract(schedule, '$.start') <= ? AND json_extract(schedule, '$.end') >= ?)) AND status IN ('open','done') AND trashed_at IS NULL ORDER BY sort IS NULL, sort, created").all(day,day,day) as any[];
+    return rows.map(todoRow).filter(t => scheduledViewDate(t.schedule,t.scheduledDate,day) === day && (t.status === 'open' || (!!t.doneAt && kstDay(t.doneAt) === day)));
   }
   openTodos(): Todo[] {
     this.materializeRepeats();

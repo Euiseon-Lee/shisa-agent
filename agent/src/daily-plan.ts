@@ -6,7 +6,7 @@ import { isBusinessDay, localDate, localHhmm } from "./calendar.ts";
 import { phrase } from "./phrases.ts";
 import { t as tr } from "./i18n.ts";
 
-export type PlanItem = { schedule?: Todo["schedule"]; scheduledDate?: string; seriesId?: string; id: string; title: string; done: boolean; priority: number; source: string; doing?: boolean };
+export type PlanItem = import('./todo-event-date.ts').EventDates & { schedule?: Todo["schedule"]; scheduledDate?: string; seriesId?: string; id: string; title: string; done: boolean; priority: number; source: string; doing?: boolean };
 // carry: 아침에 물은 「어제 남은 P1」 중 아직 고르지 않았고 그대로 열려 있는 것(패널 오늘 할 일 탭 위 안내)
 export type PlanCarry = { n: number; ids: string[] };
 export type DailyPlan = { date: string; items: PlanItem[]; asked: boolean; carry?: PlanCarry };
@@ -60,7 +60,7 @@ const prio = (v: unknown, d = 2) => (Number.isInteger(v) && (v as number) >= 1 &
 const parseIds = (v: unknown): string[] => { try { const x = JSON.parse(String(v ?? "[]")); return Array.isArray(x) ? x.filter((i) => typeof i === "string") : []; } catch { return []; } };
 
 export function planItem(t: Todo): PlanItem {
-  return { schedule:t.schedule, scheduledDate:t.scheduledDate, seriesId:t.seriesId, id: t.id, title: t.title, done: t.status === "done", priority: t.priority, source: t.source, ...(t.doing !== undefined ? { doing: t.doing } : {}) };
+  return { ...(t.eventDate ? {eventDate:t.eventDate,responseDueDate:t.responseDueDate,recommendedDate:t.recommendedDate,dateKind:t.dateKind} : {}), schedule:t.schedule, scheduledDate:t.scheduledDate, seriesId:t.seriesId, id: t.id, title: t.title, done: t.status === "done", priority: t.priority, source: t.source, ...(t.doing !== undefined ? { doing: t.doing } : {}) };
 }
 
 // ---- 알림 설정(config.json todayReminder · 설정 창) ----
