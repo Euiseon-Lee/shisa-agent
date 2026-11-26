@@ -24,7 +24,6 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
   let data = null; // shapeEvents 결과
   let raw = null; // 받은 그대로(언어가 바뀌면 다시 다듬는다: 「(제목 없음)」 등)
   let loadedKey = '';
-  let loadedAt = 0;
   let loading = false;
   let seq = 0;
   let pop = null; // { id, rect } 열린 일정 카드
@@ -73,7 +72,6 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
     data = next;
     raw = r;
     loadedKey = keyOf(p);
-    loadedAt = now();
     if (visible) draw();
   }
   const loadSoon = () => { clearTimeout(soon); soon = setTimeout(() => load(false), 800); soon?.unref?.(); };
@@ -375,18 +373,23 @@ export function createCalendarView({ h, cy, fill, el, openSetup, openProject, on
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (visible && isNarrow() !== narrow) draw(); }).observe(el);
 
   return {
-    // 탭을 열 때: 그린 뒤 받는다(1분 넘었거나 다른 기간이면)
+    // 탭을 열 때 오늘로 돌아가 최신 일정을 받는다.
     show() {
       visible = true;
+      anchor = today();
+      pop = null; menu = null; msg = null;
+      scrollKey = ''; lastScroll = null;
+      clearTimeout(soon); clearTimeout(msgTimer);
+      data = null; raw = null;
       draw();
-      if (keyOf(period()) !== loadedKey || now() - loadedAt > 60e3) load(false);
+      load(true);
       clearInterval(nowTimer);
       nowTimer = setInterval(() => { if (visible && !pop && !menu) draw(); }, 60e3); // 지금 시각 선
       nowTimer?.unref?.();
     },
     hide() { visible = false; pop = null; menu = null; clearInterval(nowTimer); },
     reload: (fresh = true) => load(fresh), // 패널 새로고침 단추
-    changed() { if (visible) loadSoon(); else loadedAt = 0; }, // SSE dashboardChanged
+    changed() { if (visible) loadSoon(); }, // 숨겨진 탭은 show에서 새로 조회한다.
     // 언어가 바뀜(패널이 부른다): 보던 기간·보기 그대로 지금 언어 글로 다시 그린다
     relang() {
       if (raw) { const keepCals = data?.calendars; data = shapeEvents(raw); if (keepCals && data.calendars) for (const c of data.calendars) { const o = keepCals.find((x) => x.id === c.id); if (o) { c.color = o.color; c.colorSet = o.colorSet; } } }

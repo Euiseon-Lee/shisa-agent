@@ -99,5 +99,5 @@ export function createStatisticsView({h,cy,root}) {
   // Focus events are frequent. Batch them, and only refresh the visible statistics.
   let timer=null;
   cy.onFocus?.(()=>{if(timer)return;timer=setTimeout(()=>{timer=null;if(!root.hidden&&root.offsetParent!==null)refresh();},1000);});
-  return {refresh};
+  return {refresh, show() { anchor=today(); picked=anchor; data=null; return refresh(); }};
 }

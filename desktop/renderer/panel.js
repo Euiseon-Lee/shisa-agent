@@ -329,12 +329,17 @@ function goto(s) {
   $('content').classList.toggle('chat-on', section === 'chat');
   $('content').classList.toggle('setup-on', section === 'setup'); // 설치: 버튼 줄은 맨 아래 고정, 내용만 스크롤
   $('title').textContent = SECTION_LABELS[section];
+  if (prevSection !== section) {
+    $('content').scrollTop = 0;
+    // Statistics refreshes its own data below; a dashboard reload would request it twice.
+    if (section !== 'statistics') loadSoon();
+  }
   if (section === 'setup') {
     renderSetupView(true);
     loadSetupSettings();
     if (setupPhase === 'brain') detectAgents();
   }
-  if (section === 'statistics') { renderStatistics(); focusView.load(); if (prevSection !== section) $('content').scrollTop = 0; }
+  if (section === 'statistics') { statisticsView.show(); focusView.load(); }
   if (section === 'models') loadSisa();
   if (section === 'calendar') calendarView.show();
   else if (prevSection === 'calendar') calendarView.hide();
