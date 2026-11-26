@@ -28,3 +28,4 @@ desktop/assets/icon.*
 .local-dev/
 .local-tools/
 start-local.ps1
+start-review.ps1
