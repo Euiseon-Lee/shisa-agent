@@ -5,6 +5,7 @@ export function scheduleGroup(date, today) {
  if (!parseDay(date)) return 'undated';
  if (date < today) return 'overdue';
  if (date === today) return 'today';
+ if (date === addDays(today,1)) return 'tomorrow';
  return date <= weekRange(today).to ? 'week' : 'later';
 }
 export function dateDistance(date, today) {
@@ -30,10 +31,15 @@ export function scheduleKeyMove(todos,id,key,today) {
  return i<group.length-1?{beforeId:group[i+2]?.id??null}:null;
 }
 export function groupScheduledTodos(groups,today,recurring=[]) {
- const series=new Set(recurring.map(t=>t.seriesId));
- const labels={overdue:pt("personal.미완료"),today:pt("personal.오늘"),week:pt("personal.이번주"),later:pt("personal.나중에"),repeat:pt("personal.반복"),undated:pt("personal.날짜 없음")};
+ const seen=new Set();
+ const labels={overdue:pt("personal.미완료"),today:pt("personal.오늘"),tomorrow:pt('date.tomorrow'),week:pt("personal.이번주"),later:pt("personal.다음 주부터"),undated:pt("personal.일정 미정"),repeat:pt("personal.반복")};
  const buckets=Object.fromEntries(Object.keys(labels).map(k=>[k,[]]));
- for (const group of groups || []) for (const item of group.items || []) { if(series.has(item.seriesId) && item.scheduledDate>today && !item.doing)continue; const date=item.schedule?.mode==='range' ? today<item.schedule.start?item.schedule.start:today>item.schedule.end?item.schedule.end:today : item.scheduledDate; buckets[scheduleGroup(date,today)].push({...item,scheduledDate:date}); }
+ for (const group of groups || []) for (const item of group.items || []) {
+   if(item.status==='done' || item.done || seen.has(item.id))continue;
+   seen.add(item.id);
+   const date=effectiveDate(item,today);
+   buckets[scheduleGroup(date,today)].push({...item,scheduledDate:date});
+ }
  buckets.repeat=recurring;
  return Object.entries(labels).filter(([k])=>buckets[k].length).map(([bucket,label])=>({bucket,label,
    items:buckets[bucket].sort((a,b)=>(a.scheduledDate||'').localeCompare(b.scheduledDate||'') || scheduleOrder(a,b))}));

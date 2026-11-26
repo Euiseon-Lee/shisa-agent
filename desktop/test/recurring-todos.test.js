@@ -9,10 +9,17 @@ test('weekday labels and daily date suppression',()=>{
  assert.equal(recurrenceSummary({...daily,schedule:{...daily.schedule,start:'2026-11-23'}},'2026-11-19'),'매일 · 시작 11/23');
  assert.equal(recurrenceSummary({...daily,schedule:{days:[5]}},'2026-11-19'),'매주 금요일 · 다음 11/20');
 });
-test('one recurring template between later and undated; actionable occurrences retained',()=>{
+test('one recurring template after undated; actionable occurrences retained',()=>{
  const rows=[{id:'past',seriesId:'s',scheduledDate:'2026-11-18'},{id:'today',seriesId:'s',scheduledDate:'2026-11-19'},{id:'future',seriesId:'s',scheduledDate:'2026-11-20'},{id:'doing',seriesId:'s',scheduledDate:'2026-11-20',doing:true},{id:'stopped',seriesId:'old',scheduledDate:'2026-11-25'},{id:'none'}];
  const result=groupScheduledTodos([{items:rows}],'2026-11-19',[{id:'template',seriesId:'s'}]);
- assert.deepEqual(result.map(g=>g.bucket),['overdue','today','week','later','repeat','undated']);
- assert.deepEqual(result.flatMap(g=>g.items).map(t=>t.id),['past','today','doing','stopped','template','none']);
+ assert.deepEqual(result.map(g=>g.bucket),['overdue','today','tomorrow','later','undated','repeat']);
+ assert.deepEqual(result.flatMap(g=>g.items).map(t=>t.id),['past','today','future','doing','stopped','none','template']);
  assert.equal(groupScheduledTodos([{items:rows}],'2026-11-19').flatMap(g=>g.items).length,6);
+});
+
+test('PMS November 27 moves from tomorrow to today without duplicate occurrences',()=>{
+ const item={id:'pms-27',seriesId:'pms',scheduledDate:'2026-11-27'};
+ const rows=[{items:[item,item,{id:'weekly-26',scheduledDate:'2026-11-26',status:'done'}]}];
+ assert.deepEqual(groupScheduledTodos(rows,'2026-11-26').map(g=>[g.bucket,g.items.length]),[['tomorrow',1]]);
+ assert.deepEqual(groupScheduledTodos(rows,'2026-11-27').map(g=>[g.bucket,g.items.length]),[['today',1]]);
 });

@@ -98,7 +98,7 @@ export const CTX_GUIDE = `- 업무 맥락은 프롬프트에 넣지 않았다. �
 
 // ── 결과 줄 만들기(인라인 맥락 buildContext 와 같은 모양) ──────────────
 export function todoLine(t: Todo): string {
-  const extra = [t.source, t.schedule?.mode === 'range' ? '예정일: '+t.schedule.start+' - '+t.schedule.end : '예정일: '+(t.scheduledDate||'날짜 없음'), 'doing='+String(t.doing===true), t.userEdited?.some((f) => f !== "status") ? "사용자가 직접 고침" : "", t.appliedRule ? `규칙: ${t.appliedRule.text.slice(0, 60)}` : "", t.projectId ? `프로젝트 ${t.projectId}` : ""].filter(Boolean).join(", ");
+  const extra = [t.source, t.schedule?.mode === 'range' ? '예정일: '+t.schedule.start+' - '+t.schedule.end : '예정일: '+(t.scheduledDate||'일정 미정'), 'doing='+String(t.doing===true), t.userEdited?.some((f) => f !== "status") ? "사용자가 직접 고침" : "", t.appliedRule ? `규칙: ${t.appliedRule.text.slice(0, 60)}` : "", t.projectId ? `프로젝트 ${t.projectId}` : ""].filter(Boolean).join(", ");
   return `- id=${t.id} [P${t.priority}] ${t.title} (${extra})${t.note ? ` — 메모: ${t.note.replace(/\s+/g, " ").slice(0, 160)}` : ""}${t.progress ? ` — 진행: ${t.progress.slice(0, 120)}` : ""}`;
 }
 

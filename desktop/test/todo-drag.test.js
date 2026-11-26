@@ -183,7 +183,7 @@ async function openPanel(section = 'todos') {
   await page.settle(10);
   return { page, doc, reorders, cy };
 }
-const ids = (doc, sel = '#sec-todos') => doc.querySelector(sel).querySelectorAll('.schedule-group').map((g) => [g.classList.contains('bucket-today')?1:g.classList.contains('bucket-week')?2:3, g.querySelectorAll('.todo.row').map((r) => r.dataset.id)]);
+const ids = (doc, sel = '#sec-todos') => doc.querySelector(sel).querySelectorAll('.schedule-group').map((g) => [g.classList.contains('bucket-today')?1:g.classList.contains('bucket-tomorrow')?2:3, g.querySelectorAll('.todo.row').map((r) => r.dataset.id)]);
 const grip = (doc, id, sel = '#sec-todos') => doc.querySelector(sel).querySelector(`.todo.row[data-id="${id}"] .todo-grip`);
 const ev = (doc, type, x, y, more = {}) => { const E = doc.defaultView.PointerEvent; return new E(type, { bubbles: true, pointerId: 1, button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x, clientY: y, ...more }); };
 // 줄 가운데 y(가짜 자리 기준)

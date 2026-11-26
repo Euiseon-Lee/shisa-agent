@@ -104,7 +104,7 @@ export function bubbleLine(text: string, seed: string, mood: Mood): string {
   return text.slice(0, BUBBLE_MAX);
 }
 
-// 모든 미완료 할 일을 예정일 순서로 안내한다. 날짜 없음은 마지막.
+// 모든 미완료 할 일을 예정일 순서로 안내한다. 일정 미정은 마지막.
 export function scheduledOpen(open: LocalTodo[], today: string): LocalTodo[] {
   return open.filter(t => cleanTitle(t.title) && (!t.status || t.status === 'open'))
     .sort((a,b) => (scheduledViewDate(a.schedule,a.scheduledDate,today)||'9999-12-31').localeCompare(scheduledViewDate(b.schedule,b.scheduledDate,today)||'9999-12-31') || (a.scheduleSort??0)-(b.scheduleSort??0));
@@ -116,7 +116,7 @@ export function planReply(open: LocalTodo[], now = new Date()): string {
   const clean = (s: string) => cleanTitle(s).replace(/\|/g,'/').replace(/\[/g,'(').replace(/\]/g,')');
   return [ja?'| 予定日 | 状態 | タスク |':'| 예정일 | 상태 | 할 일 |','| --- | --- | --- |',...items.map(t=>{
     const effective=scheduledViewDate(t.schedule,t.scheduledDate,today);
-    const date=t.schedule?.mode==='range'?`${shortDate(t.schedule.start,today)} ~ ${shortDate(t.schedule.end,today)}`:t.scheduledDate?shortDate(t.scheduledDate,today):(ja?'日付なし':'날짜 없음');
+    const date=t.schedule?.mode==='range'?`${shortDate(t.schedule.start,today)} ~ ${shortDate(t.schedule.end,today)}`:t.scheduledDate?shortDate(t.scheduledDate,today):(ja?'日付なし':'일정 미정');
     const state=t.doing?(ja?'進行中':'진행 중'):effective&&effective<today?(ja?'未完了':'미완료'):effective&&effective>today?(ja?'予定':'예정'):(ja?'待機':'대기');
     const title=t.id?`[${clean(t.title)}](#${encodeURIComponent(t.id)})`:clean(t.title);
     return `| ${date} | ${state} | ${title} |`;

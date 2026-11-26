@@ -7,7 +7,7 @@ export default {
     briefing_empty: "이번 주까지 예정된 미완료 할 일이 없어요.",
     list_more: "\n\n…외 {n}개",
     list_head: "| 날짜 | 할 일 | 출처 |",
-    list_no_date: "날짜 없음",
+    list_no_date: "일정 미정",
     todo: "할 일",
     merge_busy: "벌써 머지하는 중이에요",
     merge_no_pr: "머지할 PR을 못 찾았어요",

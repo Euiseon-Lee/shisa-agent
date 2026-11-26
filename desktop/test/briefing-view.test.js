@@ -14,7 +14,7 @@ test('legacy briefing uses actual dates, states and date ordering, removing sepa
 test('undated rows stay undated and missing links do not invent dates or remain clickable',()=>{
  const src='| 예정일 | 상태 | 할 일 |\n|---|---|---|\n| 날짜 미정 | 대기 | [날짜 없는 일](#u) |\n| 진행 중 | 진행 중 | [사라진 일](#missing) |';
  const out=formatBriefing(src,[{id:'u',title:'날짜 없는 일',priority:1}],'2026-11-18');
- assert.ok(out.includes('| 날짜 없음 | 대기 |'));assert.ok(out.includes('| 확인 필요 | 진행 중 | 사라진 일 |'));assert.ok(!out.includes('#missing'));
+ assert.ok(out.includes('| 일정 미정 | 대기 |'));assert.ok(out.includes('| 확인 필요 | 진행 중 | 사라진 일 |'));assert.ok(!out.includes('#missing'));
 });
 test('unrelated tables retain their original columns and content',()=>{
  const src='| 프로젝트 | 변경 |\n|---|---|\n| A | 3개 |';assert.equal(formatBriefing(src,[],'2026-11-18'),src);

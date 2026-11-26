@@ -1509,7 +1509,7 @@ function openDatePicker(t, trigger, onSave) {
     }));
   const repeat=h('div.schedule-repeat',null,h('div.schedule-label',{text:pt("personal.반복할 요일")}),weekdays);
   const note=h('p.schedule-note');
-  const none=h('button.ghost.schedule-none',{type:'button',text:pt("personal.날짜 없음"),onclick:()=>{date.value='';error.textContent='';}});
+  const none=h('button.ghost.schedule-none',{type:'button',text:pt("personal.일정 미정"),onclick:()=>{date.value='';error.textContent='';}});
   const tabs=h('div.schedule-modes',{role:'group','aria-label':pt("personal.일정 방식")},...['once','range','repeat'].map((value,i)=>h('button.ghost',{
     type:'button',text:[pt("personal.하루"),pt("personal.기간"),pt("personal.반복")][i],'data-mode':value,onclick:()=>{mode=value;draw();}
   })));
@@ -1609,7 +1609,7 @@ function irrelevantGroup() {
 }
 
 function scheduledGroups(groups) { return groupScheduledTodos(groups, vm.today?.date || localDay(), vm.recurring); }
-const foldedSchedule = new Set(['later','completed']);
+const foldedSchedule = new Set(['completed']);
 function scheduledGroup(g) {
   const listClass = g.bucket==='repeat' ? 'recurring-list' : g.bucket==='undated' ? 'undated-list' : '';
   const listLimit = g.bucket==='repeat' ? 5 : 10;
@@ -1939,8 +1939,8 @@ function newTodoDateTag() {
     });
   };
   const button = h('button.ghost.add-date.date-tag.' + tone + (tag.repeat ? '.repeating' : '') + (tone === 'future' ? '.d' + dateDistance(date, localDay()) : '') + (scheduleGroup(date, localDay()) === 'later' ? '.later' : ''), {
-    type: 'button', text: date ? tag.text : pt("personal.날짜 없음"),
-    'aria-label': pt("personal.새 할 일 예정일 선택: ") + (date || pt("personal.날짜 없음")), 'aria-haspopup': 'dialog',
+    type: 'button', text: date ? tag.text : pt("personal.일정 미정"),
+    'aria-label': pt("personal.새 할 일 예정일 선택: ") + (date || pt("personal.일정 미정")), 'aria-haspopup': 'dialog',
     onclick: open,
   });
   return button;

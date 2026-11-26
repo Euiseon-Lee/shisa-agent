@@ -48,17 +48,17 @@ export function formatBriefing(source,todos,today,accounts = []) {
   }
   // Old task grouping headings are replaced with date-derived rows below.
   const heading=clean(line.replace(/^#+\s*/,''));
-  if(['오늘 반드시','오늘','이번 주','이번주','미완료','나중에','날짜 없음','백로그','날짜 미정'].includes(heading)){
+  if(['오늘 반드시','오늘','내일','이번 주','이번주','미완료','다음 주부터','나중에','일정 미정','날짜 없음','백로그','날짜 미정'].includes(heading)){
    const next=lines.slice(i+1).find(l=>l.trim());
    if(next&&(/^\s*\|/.test(next)||/^\s*[-*]\s+\[/.test(next)))continue;
   }
-  output.push(line.replaceAll('오늘 꼭','오늘 반드시').replace(/참고\s*·\s*/g,'참고: ').replace(/날짜 미정/g,'날짜 없음'));
+  output.push(line.replaceAll('오늘 꼭','오늘 반드시').replace(/참고\s*·\s*/g,'참고: ').replace(/날짜 미정|날짜 없음/g,'일정 미정'));
  }
- const order={overdue:0,today:1,week:2,later:3,undated:4};
+ const order={overdue:0,today:1,tomorrow:2,week:3,later:4,undated:5};
  const values=[...selected.values()].map(v=>{
   const t=v.task,s=t?.schedule;
   const effective=s?.mode==='range'?(today<s.start?s.start:today>s.end?s.end:today):t?.scheduledDate;
-  const date=t?(s?.mode==='range'?dateRange(s.start,s.end,{now:new Date(today+'T12:00:00')}):(t.scheduledDate?numericDate(t.scheduledDate,{now:new Date(today+'T12:00:00')}):'날짜 없음')):(/^\d{4}-\d{2}-\d{2}/.test(v.date)?v.date:'확인 필요');
+  const date=t?(s?.mode==='range'?dateRange(s.start,s.end,{now:new Date(today+'T12:00:00')}):(t.scheduledDate?numericDate(t.scheduledDate,{now:new Date(today+'T12:00:00')}):'일정 미정')):(/^\d{4}-\d{2}-\d{2}/.test(v.date)?v.date:'확인 필요');
   const state=t?(t.status==='done'?'완료':t.doing?'진행 중':effective&&effective<today?'미완료':effective&&effective>today?'예정':'대기'):v.status||'확인 필요';
   const title=t?`[${cell(t.title).replace(/\[/g,'(').replace(/\]/g,')')}](#${encodeURIComponent(t.id)})`:cell(v.label);
   return {date,state,title,rank:order[scheduleGroup(effective,today)],sort:effective||''};

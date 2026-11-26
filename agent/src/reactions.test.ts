@@ -104,8 +104,8 @@ test("할 일 목록 마크다운: 1–3개는 글머리표, 4개 넘으면 표,
   const lines = md.split("\n");
   assert.equal(lines[0], "| 날짜 | 할 일 | 출처 |");
   assert.equal(lines[1], "|---|---|---|");
-  assert.equal(lines[2], "| 날짜 없음 | A / B | slack |");
-  assert.equal(lines.filter((l) => l.startsWith("| 날짜 없음 |")).length, 6);
+  assert.equal(lines[2], "| 일정 미정 | A / B | slack |");
+  assert.equal(lines.filter((l) => l.startsWith("| 일정 미정 |")).length, 6);
   assert.match(md, /…외 2개$/);
   assert.equal(todoListMd([{ id: "x", title: "줄\n바꿈" }], "슬랙"), "- 줄 바꿈 · 슬랙");
 });
@@ -374,5 +374,5 @@ test("할 일 표는 예정일과 기간을 표시하고 우선순위를 날짜�
  assert.match(md, /\| :date\[2026-11-18\] \| 하루/);
  assert.match(md, /\| :date\[2026-11-20\] \| 반복/);
  assert.match(md, /11\/18 - 12\/02/);
- assert.match(md, /날짜 없음 \| 미정/);
+ assert.match(md, /일정 미정 \| 미정/);
 });

@@ -47,7 +47,7 @@ test('플래너: 모든 우선순위의 예정일과 기간, 반복 항목, 링�
  assert.ok(text.includes('| 11/17 | 미완료 | [기한 지남](#past) |'));
  assert.ok(text.includes('| 11/16 ~ 11/20 | 진행 중 | [기간](#range) |'));
  assert.ok(text.includes('| 11/19 | 예정 | [반복 항목](#repeat) |'));
- assert.ok(text.includes('| 날짜 없음 | 대기 | [기타](#undated) |'));
+ assert.ok(text.includes('| 일정 미정 | 대기 | [기타](#undated) |'));
  assert.ok(text.indexOf('#past')<text.indexOf('#range')&&text.indexOf('#repeat')<text.indexOf('#later')&&text.indexOf('#later')<text.indexOf('#undated'));
  assert.doesNotMatch(text,/완료됨|우선순위/);
 });
@@ -88,7 +88,7 @@ test("우선순위 1이 없으면 끝낸 일을 칭찬하고, 둘 다 없으면 
   const quiet = localThought(lunch, [{ title: "이번 주", priority: 2 }], [], "quiet");
   assert.equal(quiet.bubble, bubbleLine(LINES.lunch, "quiet:bubble", "calm"));
   assert.match(quiet.reply_md, /점심/);
-  assert.match(quiet.reply_md, /날짜 없음/);
+  assert.match(quiet.reply_md, /일정 미정/);
   assert.match(quiet.reply_md, /이번 주/);
   assert.deepEqual(quiet.todos, []);
 });

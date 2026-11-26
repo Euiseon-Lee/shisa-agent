@@ -11,13 +11,14 @@ test('Monday-to-Sunday boundary and overdue/undated groups',()=>{
  assert.equal(scheduleGroup('invalid','2026-11-18'),'undated');
  assert.equal(scheduleGroup('2027-01-03','2026-12-31'),'week');
  assert.equal(scheduleGroup('2027-01-04','2026-12-31'),'later');
- assert.equal(scheduleGroup('2026-11-23','2026-11-22'),'later');
+ assert.equal(scheduleGroup('2026-11-23','2026-11-22'),'tomorrow');
+ assert.equal(scheduleGroup('2027-01-01','2026-12-31'),'tomorrow');
 });
 test('priority does not split undated or overdue items; dates remain on each item',()=>{
  const groups=[{priority:1,items:[{id:'a'},{id:'b',scheduledDate:'2026-11-17'}]},
  {priority:4,items:[{id:'c'},{id:'d',scheduledDate:'2026-11-01'},{id:'e',scheduledDate:'2026-11-20'},{id:'f',scheduledDate:'2026-12-01'}]}];
  const out=groupScheduledTodos(groups,'2026-11-18');
- assert.deepEqual(out.map(g=>[g.label,g.items.map(t=>t.id)]),[['미완료',['d','b']],['이번주',['e']],['나중에',['f']],['날짜 없음',['a','c']]]);
+ assert.deepEqual(out.map(g=>[g.label,g.items.map(t=>t.id)]),[['미완료',['d','b']],['이번주',['e']],['다음 주부터',['f']],['일정 미정',['a','c']]]);
  assert.equal(out[1].items[0].scheduledDate,'2026-11-20');
 });
 test('six date distances are stable across month boundaries',()=>{
