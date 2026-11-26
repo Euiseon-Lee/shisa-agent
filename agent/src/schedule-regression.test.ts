@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Store} from './store.ts';
 import {invitationDates} from './todo-event-date.ts';
+import {parseNew} from './todos.ts';
 
 test('November 26 completion survives generation; next date is an actionable occurrence, not cursor', ctx=>{
  ctx.mock.timers.enable({apis:['Date'],now:new Date('2026-11-26T03:00:00Z')});
@@ -43,4 +44,10 @@ test('derived invitation dates reach today queries without rewriting stored date
   s.editTodo(task.id,{scheduledDate:null,schedule:null});
   assert.equal(s.getTodo(task.id)?.scheduledDate,undefined);
  } finally {s.db.close();}
+});
+test('calendar creation accepts description and date, rejects malformed description',()=>{
+ const parsed=parseNew({title:'회의',description:'일정 설명',scheduledDate:'2026-11-27',priority:2});
+ assert.ok(parsed.ok);
+ assert.equal(parsed.value.description,'일정 설명');
+ assert.equal(parseNew({title:'회의',description:{bad:true}}).ok,false);
 });

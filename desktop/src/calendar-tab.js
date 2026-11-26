@@ -341,7 +341,8 @@ export function todoFromEvent(e, calName, tz) {
   if (calName) lines.push(CALTAB_TEXT.todoCal(calName));
   if (e.location) lines.push(CALTAB_TEXT.todoWhere(e.location));
   if (e.joinUrl) lines.push(CALTAB_TEXT.todoLink(e.joinUrl));
-  return { title: e.title.slice(0, 200), description: lines.join('\n'), priority: 2 };
+  return { title: e.title.slice(0, 200), description: lines.join('\n'), priority: 2,
+    scheduledDate: e.allDay && e.startDay ? e.startDay : zoned(e.s, tz).ymd };
 }
 // 「프로젝트로 만들기」: 데몬이 채운 칸(일정에서 가져오기와 같은 모양) → projects-view 의 draftFromPick 입력
 export const pickOf = (e) => ({ id: e.id, title: e.title, draft: e.draft ?? { name: e.title } });

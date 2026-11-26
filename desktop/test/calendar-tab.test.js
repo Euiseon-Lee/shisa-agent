@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import {parseNew} from '../../agent/src/todos.ts';
+import {sanitizeTodoPatch} from '../src/todos.js';
 import {
   CALTAB_TEXT, CAL_COLORS, okCalendarColor, periodOf, shiftAnchor, periodTitle, weekStart, shapeEvents, visibleEvents, toggleHidden,
   readHidden, writeHidden, readView, writeView, layoutDay, layoutBars, monthCells, fitItems, nowLine, eventWhen, todoFromEvent, pickOf,
@@ -127,7 +129,11 @@ test('지금 시각 선 · 때 글 · 할 일·프로젝트 본문', () => {
   assert.equal(eventWhen(ev('t', '2026-10-21T15:00:00Z', '2026-10-23T15:00:00Z', { allDay: true, startDay: '2026-10-22', endDay: '2026-10-24' }), TZ), '10/22 목요일 ~ 10/23 금요일 · 종일');
   assert.equal(eventWhen(ev('t', '2026-10-21T15:00:00Z', '2026-10-22T15:00:00Z', { allDay: true, startDay: '2026-10-22', endDay: '2026-10-23' }), TZ), '10/22 목요일 · 종일');
   const todo = todoFromEvent(meet, '회사', TZ);
-  assert.deepEqual(todo, { title: '디자인 리뷰', description: '일정: 10/21 수요일 14:00 ~ 15:30\n캘린더: 회사\n장소: 3층\n회의 링크: https://meet.google.com/x', priority: 2 });
+  assert.deepEqual(todo, { title: '디자인 리뷰', description: '일정: 10/21 수요일 14:00 ~ 15:30\n캘린더: 회사\n장소: 3층\n회의 링크: https://meet.google.com/x', priority: 2, scheduledDate:'2026-10-21' });
+  const request=parseNew(sanitizeTodoPatch(todo,{allowStatus:false}));
+  assert.equal(request.ok,true);
+  assert.equal(request.value.description,todo.description);
+  assert.equal(request.value.scheduledDate,'2026-10-21');
   assert.deepEqual(pickOf({ ...meet, draft: { name: '디자인 리뷰', start: '2026-10-21' } }).draft, { name: '디자인 리뷰', start: '2026-10-21' });
   assert.deepEqual(zoned(atZoned('2026-10-21', 600, TZ), TZ), { ymd: '2026-10-21', min: 600 });
 });
@@ -268,7 +274,7 @@ async function mount(reply = { ok: true, status: 200, data: DATA }) {
 
 test('렌더: 주 보기(요일 머리·종일 막대·겹친 일정 나란히·지금 선·8시 스크롤) · 칩 숨기기 · 꺼 둔 칩', async () => {
   const { v, el, calls, s } = await mount();
-  assert.deepEqual(calls[0], ['events', { from: '2026-10-18T15:00:00.000Z', to: '2026-10-25T15:00:00.000Z', fresh: false }]);
+  assert.deepEqual(calls[0], ['events', { from: '2026-10-18T15:00:00.000Z', to: '2026-10-25T15:00:00.000Z', fresh: true }]);
   assert.equal(el.byClass('cal-period')[0].text, '2026년 10월 19일 ~ 10월 25일');
   assert.equal(el.byClass('cal-dayhead').length, 7);
   assert.ok(el.byClass('cal-dayhead')[2].className.includes('today'));
@@ -353,8 +359,12 @@ test('렌더: 월 보기(앞뒤 달·+N) · 일 보기 · ‹ › 오늘 · 좁�
   assert.equal(v.state().anchor, '2026-10-21');
   await tick();
   el.clientWidth = 400;
+  el.byClass('cal-next')[0].fire('click');
+  assert.notEqual(v.state().anchor,'2026-10-21');
+  v.hide();
   v.show();
   await tick();
+  assert.equal(v.state().anchor,'2026-10-21');
   assert.ok(v.state().narrow);
   assert.ok(el.byClass('cal-list').length === 1 && el.byClass('cal-time').length === 0, '좁으면 주 대신 목록');
   assert.ok(el.byClass('cal-lhead').some((n) => n.text === '10/21 수요일'));

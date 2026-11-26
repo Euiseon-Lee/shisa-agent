@@ -10,7 +10,7 @@ export type TodoOp = {
   description?: string; source_ref?: string; // add 전용: 설명·원본 참조(원문은 데몬이 찾는다)
   project?: string | null; // add·edit: 묶을 직접 만든 프로젝트(id 나 이름 — 데몬이 찾는다). null 은 프로젝트에서 빼기
 };
-export type NewTodo = { schedule?: TodoSchedule | null; scheduledDate?: string | null; title: string; priority?: number; link?: string | null; note?: string | null; today?: boolean | string; projectId?: string };
+export type NewTodo = { description?: string | null; schedule?: TodoSchedule | null; scheduledDate?: string | null; title: string; priority?: number; link?: string | null; note?: string | null; today?: boolean | string; projectId?: string };
 
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -93,10 +93,10 @@ export function parsePatch(body: Record<string, unknown>): Result<TodoPatch> {
 
 // POST /todos 본문
 export function parseNew(body: Record<string, unknown>): Result<NewTodo> {
-  for (const k of Object.keys(body)) if (!["title", "priority", "link", "note", "today", "projectId", "scheduledDate", "schedule"].includes(k)) return fail(`unknown field: ${k}`);
+  for (const k of Object.keys(body)) if (!["title", "description", "priority", "link", "note", "today", "projectId", "scheduledDate", "schedule"].includes(k)) return fail(`unknown field: ${k}`);
   const p = parsePatch({ ...body, title: body.title ?? "" });
   if (!p.ok) return p;
-  return { ok: true, value: { title: p.value.title!, ...(p.value.schedule !== undefined ? {schedule:p.value.schedule}: {}), ...(p.value.scheduledDate !== undefined ? { scheduledDate: p.value.scheduledDate } : {}), priority: p.value.priority ?? 2, link: p.value.link ?? null, note: p.value.note ?? null, ...(p.value.today ? { today: true } : {}), ...(p.value.projectId ? { projectId: p.value.projectId } : {}) } };
+  return { ok: true, value: { title: p.value.title!, ...(p.value.description !== undefined ? {description:p.value.description}: {}), ...(p.value.schedule !== undefined ? {schedule:p.value.schedule}: {}), ...(p.value.scheduledDate !== undefined ? { scheduledDate: p.value.scheduledDate } : {}), priority: p.value.priority ?? 2, link: p.value.link ?? null, note: p.value.note ?? null, ...(p.value.today ? { today: true } : {}), ...(p.value.projectId ? { projectId: p.value.projectId } : {}) } };
 }
 
 // 모델이 낸 op 한 개 → 패치. 모델은 안 쓰는 필드를 ""로 채우기도 하니 ""는 '안 바꿈', null만 '지우기'
