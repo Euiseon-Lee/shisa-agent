@@ -168,8 +168,8 @@ body.char-hidden #stage { visibility: hidden; }
   .bubble .md mark { background: rgba(255, 214, 10, 0.28); }
 }
 /* 넓은 목록 말풍선: 한 줄에 하나, 최대 10줄 남짓 — 넘치면 아래를 흐리게 */
-.bubble.wide { max-width: 380px; }
-.bubble.wide .detail { display: block; -webkit-line-clamp: unset; font-size: 12.5px; line-height: 1.55; color: var(--bubble-fg); max-height: 18em; }
+.bubble.wide { max-width: 494px; }
+.bubble.wide .detail { display: block; -webkit-line-clamp: unset; font-size: 12.5px; line-height: 1.55; color: var(--bubble-fg); max-height: 23.4em; }
 .bubble.wide.overflow .detail { -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent); mask-image: linear-gradient(to bottom, #000 78%, transparent); }
 .bubble.clickable { cursor: pointer; }
 .bubble.clickable:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--bubble-border)); }
@@ -556,10 +556,11 @@ body.char-hidden #stage { visibility: hidden; }
 
 
 /* Readable todo tables: reserve most space for titles and scroll long lists. */
-.bubble.wide:has(table) { width: 380px; }
-.bubble .md table:has(th:nth-child(3):last-child) { table-layout: fixed; }
-.bubble .md table:has(th:nth-child(3):last-child) :is(th, td):first-child { width: 21%; }
-.bubble .md table:has(th:nth-child(3):last-child) :is(th, td):last-child { width: 17%; padding-right: 0; }
+.bubble.wide:has(table) { width: min(494px, calc(100vw - 40px)); }
+.bubble .md table.todo-notice-table { table-layout: fixed; }
+.bubble .md table.todo-notice-table :is(th, td):first-child { width: 61px; }
+.bubble .md table.todo-notice-table :is(th, td):last-child { width: 17%; padding-right: 0; }
+.bubble .md table.todo-notice-table td:last-child { text-align: center; }
 .bubble.wide .detail:has(table) { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .bubble.wide.overflow .detail:has(table) { -webkit-mask-image: none; mask-image: none; }
 
@@ -576,3 +577,21 @@ body.char-hidden #stage { visibility: hidden; }
 
 /* Table headings share the same alignment; body cells retain their own alignment. */
 th, th[class], .md th, .briefing-tasks th { text-align: center !important; }
+
+/* Task date badges only: headers, task titles and sources keep neutral colors. */
+.bubble .md .todo-notice-table td:first-child > :is(.c-red, .c-purple, .c-blue, .c-yellow, .c-orange) {
+  display: inline-block; width: 51px; padding: 2px 4px; border-radius: 10px;
+  font-size: 11px; line-height: 1.5; text-align: center; white-space: nowrap;
+}
+.bubble .md .todo-notice-table td:first-child > .c-red { color: #c72d48; background: #ffe0e6; }
+.bubble .md .todo-notice-table td:first-child > .c-purple { color: #6b5cff; background: rgba(107,92,255,.12); }
+.bubble .md .todo-notice-table td:first-child > .c-blue { color: #397da6; background: #e1f1ff; }
+.bubble .md .todo-notice-table td:first-child > .c-yellow { color: #7c6100; background: #ffe593; }
+.bubble .md .todo-notice-table td:first-child > .c-orange { color: #b85e21; background: #ffe8d8; }
+@media (prefers-color-scheme: dark) {
+  .bubble .md .todo-notice-table td:first-child > .c-red { color: #ffacb9; background: #552534; }
+  .bubble .md .todo-notice-table td:first-child > .c-purple { color: #8e83ff; background: rgba(142,131,255,.16); }
+  .bubble .md .todo-notice-table td:first-child > .c-blue { color: #9ed4fa; background: #243f53; }
+  .bubble .md .todo-notice-table td:first-child > .c-yellow { color: #ffe29b; background: #5e4a20; }
+  .bubble .md .todo-notice-table td:first-child > .c-orange { color: #ffbd8c; background: #513824; }
+}

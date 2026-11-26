@@ -1653,11 +1653,18 @@ button.ai-add { align-self: flex-start; }
   display: inline-flex; align-items: center; justify-content: center;
   width: 10px; height: 14px; flex: 0 0 10px; font-size: 12px; line-height: 1; color: var(--muted);
 }
-:root { --schedule-coral: #ff7187; --schedule-yellow: #f4d44e; --schedule-apricot: #ffa66b; --schedule-blue: #8ec9ef; }
+:root { --schedule-coral: #ff7187; --schedule-yellow: #f4d44e; --schedule-apricot: #ffa66b; --schedule-mint: #67C9B2; }
 .group.bucket-today h2::before { background: #a08aef; }
+.group.bucket-tomorrow h2::before { background:#78b9df; }
+.group.bucket-tomorrow .schedule-head .chip { color:#397da6; }
+.group.bucket-tomorrow .todo.row .date-tag.future { background:#e1f1ff; color:#397da6; }
+@media (prefers-color-scheme:dark) {
+ .group.bucket-tomorrow .schedule-head .chip { color:#9ed4fa; }
+ .group.bucket-tomorrow .todo.row .date-tag.future { background:#243f53; color:#9ed4fa; }
+}
 .group.bucket-week h2::before { background: var(--schedule-yellow); }
 .group.bucket-later h2::before { background: var(--schedule-apricot); }
-.group.bucket-undated h2::before { background: var(--schedule-blue); }
+.group.bucket-undated h2::before { background: var(--schedule-mint); }
 :is(.todo.row, .todo-add) .date-tag.future.d1 { background: #ffe781; }
 :is(.todo.row, .todo-add) .date-tag.future.d2 { background: #ffec96; }
 :is(.todo.row, .todo-add) .date-tag.future.d3 { background: #fff0aa; }
@@ -1666,7 +1673,7 @@ button.ai-add { align-self: flex-start; }
 :is(.todo.row, .todo-add) .date-tag.future.d6 { background: #fff9df; }
 :is(.todo.row, .todo-add) .date-tag.future.later { background: #ffe8d8; color: #b85e21; }
 @media (prefers-color-scheme: dark) {
- :root { --schedule-coral: #ff8c9d; --schedule-yellow: #f5dc72; --schedule-apricot: #ffb47f; --schedule-blue: #9ed2f3; }
+ :root { --schedule-coral: #ff8c9d; --schedule-yellow: #f5dc72; --schedule-apricot: #ffb47f; --schedule-mint: #8EDBC5; }
  :is(.todo.row, .todo-add) .date-tag.future.d1 { background: #66571e; } :is(.todo.row, .todo-add) .date-tag.future.d2 { background: #5e5120; }
  :is(.todo.row, .todo-add) .date-tag.future.d3 { background: #564b22; } :is(.todo.row, .todo-add) .date-tag.future.d4 { background: #4e4524; }
  :is(.todo.row, .todo-add) .date-tag.future.d5 { background: #463f25; } :is(.todo.row, .todo-add) .date-tag.future.d6 { background: #3e3927; }
@@ -1678,11 +1685,11 @@ button.ai-add { align-self: flex-start; }
 .group.bucket-today .schedule-head .chip { color: var(--accent); }
 .group.bucket-week .schedule-head .chip { color: var(--schedule-yellow-ink); }
 .group.bucket-later .schedule-head .chip { color: #b85e21; }
-.group.bucket-undated .schedule-head .chip { color: #4385b2; }
+.group.bucket-undated .schedule-head .chip { color: #287E6C; }
 .todo-add button.add-date { flex: none; white-space: nowrap; color: var(--accent); }
 @media(prefers-color-scheme: dark) {
  .group.bucket-later .schedule-head .chip { color: #ffbd8c; }
- .group.bucket-undated .schedule-head .chip { color: #9ed2f3; }
+ .group.bucket-undated .schedule-head .chip { color: #8EDBC5; }
 }
 
 .rules-list .rules-empty { padding: 10px 8px; }
@@ -1732,8 +1739,9 @@ button.ai-add { align-self: flex-start; }
 .schedule-note {word-break:keep-all;overflow-wrap:break-word;}
 
 /* Repeat symbol follows the date tag's foreground color in every theme. */
-.date-tag.repeating { display:inline-flex; align-items:center; justify-content:center; gap:4px; }
+.date-tag:is(.repeating,.recommended) { display:inline-flex; align-items:center; justify-content:center; gap:4px; }
 .date-tag.repeating::before { content:""; display:inline-block; flex:none; width:14px; height:14px; background:currentColor; mask:url('assets/todo-menu/repeat.svg') center / contain no-repeat; }
+.date-tag.recommended::before { content:""; display:inline-block; flex:none; width:14px; height:14px; background:currentColor; mask:url('assets/todo-menu/lightbulb.svg') center / contain no-repeat; }
 
 /* Completed, excluded and trashed lists share the same text inset (4 + 10px). */
 :is(.group.done,.group.irrelevant-group,.group.trash) .card.todos { padding:2px 4px; }
@@ -1852,24 +1860,23 @@ th, th[class], .md th, .briefing-tasks th { text-align: center !important; }
 .recent-completed-list.is-scrollable:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 
 /* Recurring templates are managed separately from checkable occurrences. */
-:root { --repeat-mint:#67C9B2; }
-.group.bucket-repeat h2::before { background:var(--repeat-mint); }
-.group.bucket-repeat .schedule-head .chip { color:#287E6C; }
+:root { --repeat-cocoa:#805A46; }
+.group.bucket-repeat h2::before { background:var(--repeat-cocoa); }
+.group.bucket-repeat .schedule-head .chip { color:#805A46; }
 .group.done h2::before { background:#9AA7B8; }
-.date-tag.repeating::before { background:var(--repeat-mint); }
 .recurring-row { display:flex; align-items:center; gap:10px; padding:12px 10px; }
 .recurring-row + .recurring-row { border-top:1px solid var(--line); }
-.recurring-icon { width:16px; height:16px; flex:none; background:var(--repeat-mint); mask:url('assets/todo-menu/repeat.svg') center / contain no-repeat; }
+.recurring-icon { width:16px; height:16px; flex:none; background:var(--repeat-cocoa); mask:url('assets/todo-menu/repeat.svg') center / contain no-repeat; }
 .recurring-content { display:flex; flex:1; min-width:0; flex-direction:column; gap:4px; }
 .recurring-title { overflow-wrap:anywhere; }
 .recurring-summary { font-size:12px; color:var(--muted); }
-@media (prefers-color-scheme:dark) { .group.bucket-repeat .schedule-head .chip { color:var(--repeat-mint); } }
+@media (prefers-color-scheme:dark) { :root { --repeat-cocoa:#C8A58D; } .group.bucket-repeat .schedule-head .chip { color:var(--repeat-cocoa); } }
 
 /* The add form represents the recurrence being created, not an individual due date. */
-.todo-add button.add-date.date-tag.repeating { background:#E2F5EE; color:#287E6C; }
+.todo-add button.add-date.date-tag.repeating { background:#F1E7E1; color:#805A46; }
 .todo-add button.add-date.date-tag.repeating::before { background:currentColor; }
 @media (prefers-color-scheme:dark) {
- .todo-add button.add-date.date-tag.repeating { background:#203F37; color:#8EDBC5; }
+ .todo-add button.add-date.date-tag.repeating { background:#403029; color:#D9B9A3; }
 }
 .recurring-list.is-scrollable { max-height:340px; overflow-y:auto; scrollbar-gutter:stable; overscroll-behavior-y:contain; }
 .recurring-list.is-scrollable:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }

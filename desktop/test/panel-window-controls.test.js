@@ -16,6 +16,20 @@ test('window controls preserve order and dispatch minimize, maximize, restore an
  assert.deepEqual(page.errors,[]);
 });
 
+test('invitation recommendation is labeled separately from its event date',async()=>{
+ const today=localDay();
+ const task={id:'invite',title:'회식 초대 응답',source:'mail',priority:2,scheduledDate:today,eventDate:'2026-12-15',recommendedDate:today,dateKind:'recommended'};
+ const page=await loadPage('panel',{cy:fakeCy({getLang:'ko',getDashboard:{ok:true,data:{todos:[task],projects:[],today:{date:today,items:[task]}}}})});
+ await page.settle();page.click('#nav button[data-section="todos"]');await page.settle();
+ const tag=page.$('#sec-todos .todo.row .date-tag');
+ assert.ok(tag.classList.contains('recommended'));
+ assert.doesNotMatch(tag.textContent,/💡/);
+ assert.doesNotMatch(tag.textContent,/권장 처리일/);
+ assert.match(tag.title,/권장 처리일/);
+ assert.match(tag.title,/행사일 2026\/12\/15/);
+ assert.match(tag.title,/응답 마감일 확인불가/);
+});
+
 test('statistics reentry resets selected day and reloads the current period',async()=>{
  const queries=[];
  const page=await loadPage('panel',{cy:fakeCy({getLang:'ko',getDashboard:{ok:true,data:{todos:[],projects:[]}},focusStats:(from,to)=>{queries.push([from,to]);return {ok:true,data:{activity:{days:[]}}};}})});

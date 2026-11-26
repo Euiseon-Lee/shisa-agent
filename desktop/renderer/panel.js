@@ -1479,10 +1479,12 @@ function doingButton(t) {
 // pt("personal.오늘") 토글: 켜져 있으면 오늘 할 일(우선순위 오늘 반드시), 누르면 넣기(오늘 반드시으로)·빼기(이번 주로)
 function todayButton(t) {
   if (!t.scheduledDate) return null;
-  const tag = dateTag(t, vm.today?.date || localDay());
-  return h('button.ghost.row-today.date-tag.' + tag.tone + (tag.repeat ? '.repeating' : '') + (tag.tone === 'future' ? '.d' + dateDistance(t.scheduledDate, vm.today?.date || localDay()) : '') + (scheduleGroup(t.scheduledDate, vm.today?.date || localDay()) === 'later' ? '.later' : ''), {
-    type: 'button', text: tag.text, disabled: t.pending, title: tag.title + pt("personal. · 날짜 변경"),
-    'aria-label': t.title + pt("personal. 예정일 변경"), 'aria-haspopup': 'dialog',
+  const tooltipTask=t.seriesId?{...t,nextDate:vm.recurring?.find(series=>series.seriesId===t.seriesId)?.nextDate??null}:t;
+  const tag = dateTag(tooltipTask, vm.today?.date || localDay());
+  return h('button.ghost.row-today.date-tag.' + tag.tone + (tag.repeat ? '.repeating' : '') + (t.dateKind === 'recommended' ? '.recommended' : '') + (tag.tone === 'future' ? '.d' + dateDistance(t.scheduledDate, vm.today?.date || localDay()) : '') + (scheduleGroup(t.scheduledDate, vm.today?.date || localDay()) === 'later' ? '.later' : ''), {
+    type: 'button', text: (t.dateKind === 'deadline' ? tr('panel.date_deadline') : '') + tag.text, disabled: t.pending,
+    title: tag.title,
+    'aria-label': (t.dateKind === 'recommended' ? tr('panel.date_recommended') + tag.text + ' · ' : '') + t.title + pt("personal. 예정일 변경"), 'aria-haspopup': 'dialog',
     onclick: (e) => openDatePicker(t, e.currentTarget),
   });
 }
@@ -1578,7 +1580,7 @@ function openReminderPicker(t) {
   document.body.append(dialog);dialog.showModal();
 }
 function todoMenu(t) {
-  return ui.menuButton('row-more', { label: pt("personal.할 일 메뉴"), size: 's', disabled: t.pending, items: () => [
+  return ui.menuButton('row-more', { label: pt("personal.할 일 메뉴"), title:tr('panel.task_manage'), size: 's', disabled: t.pending, items: () => [
     { label: t.scheduledDate ? pt("personal.날짜 변경") : pt("personal.날짜 지정"), iconImage: 'assets/todo-menu/calendar.png', onSelect: () => openDatePicker(t, null) },
     { label: tr('panel.task_reminder')+(t.reminder?' · '+t.reminder.time:''), onSelect:()=>openReminderPicker(t) },
     ...(t.seriesId ? [{label:pt("personal.반복 종료"),onSelect:()=>{
@@ -1657,7 +1659,7 @@ function scheduledGroup(g) {
 }
 
 function recurringRow(t) {
-  const menu = ui.menuButton('row-more', {label:'반복 일정 메뉴',size:'s',items:()=>[
+  const menu = ui.menuButton('row-more', {label:'반복 일정 메뉴',title:tr('panel.repeat_manage'),size:'s',items:()=>[
     ...(t.canEdit ? [{label:'일정 변경',onSelect:()=>openDatePicker(t,null)}] : []),
     ...(t.canStop ? [{label:'반복 종료',onSelect:()=>{
       if(!confirm('앞으로의 반복 생성을 종료할까요? 이미 생성된 할 일과 완료 기록은 유지됩니다.'))return;
@@ -1971,7 +1973,7 @@ function newTodoDateTag() {
     });
   };
   const button = h('button.ghost.add-date.date-tag.' + tone + (tag.repeat ? '.repeating' : '') + (tone === 'future' ? '.d' + dateDistance(date, localDay()) : '') + (scheduleGroup(date, localDay()) === 'later' ? '.later' : ''), {
-    type: 'button', text: date ? tag.text : pt("personal.일정 미정"),
+    type: 'button', text: date ? tag.text : pt("personal.일정 미정"), title:tag.title,
     'aria-label': pt("personal.새 할 일 예정일 선택: ") + (date || pt("personal.일정 미정")), 'aria-haspopup': 'dialog',
     onclick: open,
   });

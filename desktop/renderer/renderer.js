@@ -498,6 +498,19 @@ function setRich(el, src) {
   el.innerHTML = DOMPurify.sanitize(toHtml(bubbleMd(src)), BUBBLE_PURIFY);
   for (const table of el.querySelectorAll('table')) {
     const headers = [...table.querySelectorAll('thead th')];
+    if (headers.length === 3 && ['날짜', '日付'].includes(headers[0].textContent.trim())
+      && ['할 일', 'やること'].includes(headers[1].textContent.trim())
+      && ['출처', '出どころ'].includes(headers[2].textContent.trim())) {
+      table.classList.add('todo-notice-table');
+      for (const row of table.querySelectorAll('tbody tr')) {
+        const cell = row.children[0];
+        const range = /^(\d{2}\/\d{2})\s*-\s*(\d{2}\/\d{2})$/.exec(cell?.textContent.trim() ?? '');
+        if (range) {
+          const value = cell.firstElementChild ?? cell;
+          value.replaceChildren(document.createTextNode(range[1]), document.createElement('br'), document.createTextNode('- ' + range[2]));
+        }
+      }
+    }
     const column = headers.findIndex((h) => ['출처', '出どころ'].includes(h.textContent.trim()));
     if (column < 0) continue;
     for (const row of table.querySelectorAll('tbody tr')) {

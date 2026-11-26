@@ -149,7 +149,40 @@ export const OUT_OF_TODAY = 2;
 // 이 줄이 오늘 할 일인가(우선순위 1 오늘 반드시). date 는 예전 호출 호환으로 받기만 한다
 export const isToday = (t, date = localDay()) => t?.schedule?.mode === 'range' ? t.schedule.start <= date && date <= t.schedule.end : t?.scheduledDate === date;
 export function localDay(now = new Date()) { return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; }
-export function dateTag(t, day = localDay()) { const d = t?.scheduledDate; if(t?.schedule?.mode==='range'){const s=t.schedule;return {text:dateRange(s.start,s.end,{now:new Date(day+'T12:00:00')}),tone:day>s.end?'overdue':day>=s.start?'today':'future',title:dateRange(s.start,s.end,{long:true})};} if(t?.schedule?.mode==='repeat'){const tag=dateTag({scheduledDate:d},day);return {...tag,repeat:true,text:tag.text,title:tag.title+' · 반복'};} return { text: !d ? '일정 미정' : d === day ? tr('date.today') : numericDate(d,{now:new Date(day+'T12:00:00')}), tone: !d ? 'none' : d === day ? 'today' : d < day ? 'overdue' : 'future', title: d ? numericDate(d,{year:true,weekday:true}) : '날짜 선택' }; }
+export function dateTooltip(t, day = localDay()) {
+  const format = date => numericDate(date,{year:true,weekday:true,compact:true});
+  if(!t?.scheduledDate && !t?.schedule)return tr('personal.일정 미정');
+  const date = t.schedule?.mode==='range' ? `${format(t.schedule.start)} ~ ${format(t.schedule.end)}` : format(t.scheduledDate);
+  const prefix = t.dateKind==='recommended' ? tr('panel.date_recommended') : t.dateKind==='deadline' ? tr('panel.date_deadline') : '';
+  const repeating=t.schedule?.mode==='repeat';
+  const lines=repeating?[]:[prefix+date];
+  // Count calendar days, independent of daylight-saving transitions.
+  const base=t.schedule?.mode==='range'?t.schedule.end:t.scheduledDate;
+  const elapsed=base?Math.round((Date.parse(day+'T00:00:00Z')-Date.parse(base+'T00:00:00Z'))/86400000):0;
+  if(t.schedule?.mode==='repeat') {
+    const s=t.schedule,days=[1,2,3,4,5,6,0].filter(d=>s.days?.includes(d));
+    const names=days.map(d=>new Intl.DateTimeFormat(language()==='ja'?'ja-JP':'ko-KR',{weekday:'long',timeZone:'UTC'}).format(new Date(Date.UTC(2026,10,22+d)))).join(', ');
+    const key=days.length===7?'repeat_daily':days.join(',')==='1,2,3,4,5'?'repeat_weekdays':days.join(',')==='6,0'?'repeat_weekends':null;
+    lines.push(tr('panel.repeat_rule',{rule:key?tr('panel.'+key):days.length?tr('panel.repeat_weekly',{days:names}):tr('panel.date_repeat')}));
+    if(s.start)lines.push(tr('panel.repeat_start',{date:format(s.start)}));
+    lines.push(s.end && s.end!=='9999-12-31'?tr('panel.repeat_end',{date:format(s.end)}):tr('panel.repeat_no_end'));
+    const next=t.nextDate===undefined?(t.scheduledDate>=day?t.scheduledDate:null):t.nextDate;
+    lines.push(next?tr('panel.repeat_next',{date:format(next)}):tr('panel.repeat_no_next'));
+  }
+  if(elapsed>0 && t.status!=='done' && !t.done)lines.push(repeating?`${tr('panel.repeat_due',{date})} D+${elapsed}`:`D+${elapsed}`);
+  if(t.eventDate)lines.push(tr('panel.date_event',{date:format(t.eventDate)}));
+  if(t.dateKind==='recommended')lines.push(tr('panel.date_unconfirmed'));
+  return lines.join('\n');
+}
+export function dateTag(t, day = localDay()) {
+  const d=t?.scheduledDate, title=dateTooltip(t,day);
+  if(t?.schedule?.mode==='range') {
+    const s=t.schedule;
+    return {text:dateRange(s.start,s.end,{now:new Date(day+'T12:00:00')}),tone:day>s.end?'overdue':day>=s.start?'today':'future',title};
+  }
+  return {text:!d?tr('personal.일정 미정'):d===day?tr('date.today'):numericDate(d,{now:new Date(day+'T12:00:00')}),
+    tone:!d?'none':d===day?'today':d<day?'overdue':'future',title,...(t?.schedule?.mode==='repeat'?{repeat:true}:{})};
+}
 // 오늘 할 일 넣기·빼기 패치(할 일 탭 줄의 「오늘」·오늘 할 일 탭)
 export const todayPatch = (on) => ({ scheduledDate: on ? localDay() : null });
 

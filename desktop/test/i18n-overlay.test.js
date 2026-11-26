@@ -45,6 +45,18 @@ async function overlay(lang, { bubbles = [], focus = null, doing = null, chat = 
   return page;
 }
 
+test('task table layout stays scoped and range dates retain their badge', async () => {
+  const page = await overlay('ko', { bubbles: [{ id:'table-scope',kind:'todo',text:'알림',detail:
+    '| 날짜 | 할 일 | 출처 |\n|---|---|---|\n| :purple[11/25 - 12/24] | 업무 | user |\n\n' +
+    '| 날짜 | 비용 | 설명 |\n|---|---|---|\n| 11/25 - 12/24 | 100 | 참고 |' }] });
+  const tables = page.document.querySelectorAll('.bubble .detail table');
+  assert.equal(tables.length,2);
+  assert.ok(tables[0].classList.contains('todo-notice-table'));
+  assert.equal(tables[1].classList.contains('todo-notice-table'),false);
+  assert.equal(tables[0].querySelector('.c-purple br')?.tagName,'BR');
+  assert.equal(tables[1].querySelector('br'),null);
+});
+
 test('캐릭터 창 ja: 승인·머지·확인 카드, +N개 더, 진행 중, 집중, 캡션에 한글이 없다', async () => {
   // 승인 카드 셋(하나씩 + 「+N개 더」)
   let page = await overlay('ja', { bubbles: BUBBLES });

@@ -73,7 +73,7 @@ if (PERSONAL_BUILD) {
 }
 const PORT = Number(process.env.CY_AGENT_PORT) || 47823;
 const BASE = `http://127.0.0.1:${PORT}`;
-const SIZE = { width: 420, height: 580 }; // 그림 말풍선(스티커)+넓은 목록 말풍선(380px)이 들어가게. 투명·클릭 투과라 커도 안 보인다
+const SIZE = { width: 546, height: 754 }; // 확대된 목록 말풍선(494px)이 들어가게. 투명·클릭 투과라 커도 안 보인다
 const OLD_HEIGHT = 420; // 예전 창 높이 — 저장된 위치를 그만큼 올려 캐릭터 자리를 유지
 const OLD_WIDTH = 360; // 예전 창 너비 — 넓어진 만큼의 절반을 왼쪽으로(캐릭터는 가운데라 자리 유지)
 // 개인 캐릭터 그림(저장소 밖). 없으면 번들 플레이스홀더

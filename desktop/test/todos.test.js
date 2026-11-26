@@ -1,12 +1,33 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanLink, cleanTitle, detailPatch, newTodoBody, overlayTodos, sanitizeTodoPatch, patchToday, isToday, todayPatch, localDay } from '../src/todos.js';
+import { cleanLink, cleanTitle, detailPatch, newTodoBody, overlayTodos, sanitizeTodoPatch, patchToday, isToday, todayPatch, localDay, dateTag } from '../src/todos.js';
 import { groupTodos } from '../src/dashboard.js';
 
 const server = [
   { id: 'a', title: 'A', source: 'mail', priority: 1 },
   { id: 'b', title: 'B', source: 'jira', priority: 2, link: 'https://b' },
 ];
+
+test('repeat tooltip describes the occurrence, weekly rule and bounded or open-ended period',()=>{
+ const task={scheduledDate:'2026-11-27',schedule:{mode:'repeat',days:[5],start:'2026-11-20',end:'9999-12-31'}};
+ assert.equal(dateTag(task,'2026-11-26').title,'반복: 매주 금요일\n시작일 2026/11/20 (금)\n종료일 없음\n다음 예정일 2026/11/27 (금)');
+ assert.match(dateTag({...task,schedule:{...task.schedule,days:[1,2,3,4,5],end:'2026-12-31'}},'2026-11-26').title,/반복: 평일\n시작일 .*\n종료일 2026\/12\/31 \(목\)/);
+});
+
+test('overdue tooltips count calendar days while date badges stay unchanged',()=>{
+ const task={scheduledDate:'2026-11-25'};
+ assert.equal(dateTag(task,'2026-11-26').text,'11/25');
+ assert.equal(dateTag(task,'2026-11-26').title,'2026/11/25 (수)\nD+1');
+ assert.equal(dateTag({...task,status:'done'},'2026-11-26').text,'11/25');
+ assert.doesNotMatch(dateTag(task,'2026-11-25').title,/D\+/);
+ assert.doesNotMatch(dateTag({},'2026-11-26').title,/D\+/);
+ assert.match(dateTag({scheduledDate:'2026-12-31'},'2027-01-02').title,/D\+2$/);
+ assert.match(dateTag({scheduledDate:'2026-03-07'},'2026-03-09').title,/D\+2$/);
+ const range={schedule:{mode:'range',start:'2026-11-01',end:'2026-11-24'}};
+ assert.match(dateTag(range,'2026-11-26').title,/D\+2$/);
+ assert.doesNotMatch(dateTag(range,'2026-11-24').title,/D\+/);
+ assert.equal(dateTag({...task,schedule:{mode:'repeat'}},'2026-11-26').repeat,true);
+});
 
 test('overlayTodos: 추가·수정·완료/삭제를 겹쳐 보고, 겹침을 빼면 원래대로', () => {
   const ops = [
