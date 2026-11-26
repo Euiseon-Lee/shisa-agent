@@ -463,16 +463,17 @@ export class Store {
 
   // Series are independent of occurrence completion and the rolling generation window.
   recurringTodos(day = kstDay(now())) {
+    this.materializeRepeats(day);
     return (this.db.prepare('SELECT * FROM todo_series WHERE active = 1 ORDER BY rowid').all() as any[]).flatMap(row => {
       const schedule = JSON.parse(row.schedule) as TodoSchedule;
       if(schedule.end < day) return [];
       const template = JSON.parse(row.template);
-      const next = this.db.prepare("SELECT * FROM todos WHERE series_id = ? AND status = 'open' AND scheduled_date >= ? ORDER BY scheduled_date LIMIT 1").get(row.id,day) as any;
-      const upcoming = this.db.prepare("SELECT scheduled_date FROM todos WHERE series_id = ? AND status = 'open' AND scheduled_date > ? ORDER BY scheduled_date LIMIT 1").get(row.id,day) as any;
+      const next = this.db.prepare("SELECT * FROM todos WHERE series_id = ? AND status = 'open' AND trashed_at IS NULL AND scheduled_date >= ? ORDER BY scheduled_date LIMIT 1").get(row.id,day) as any;
       const fallback = next || this.db.prepare("SELECT * FROM todos WHERE series_id = ? ORDER BY scheduled_date DESC LIMIT 1").get(row.id) as any;
       return [{id: fallback?.id ?? row.id, seriesId:row.id as string, title:template.title as string, schedule,
         ...(next ? {scheduledDate:next.scheduled_date as string} : {}),
-        ...(upcoming ? {nextDate:upcoming.scheduled_date as string} : {}), canEdit:!!next, canStop:!!fallback}];
+        // Next actionable scheduled occurrence, including today; never the generation cursor.
+        ...(next ? {nextDate:next.scheduled_date as string} : {}), canEdit:!!next, canStop:!!fallback}];
     });
   }
 
